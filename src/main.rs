@@ -1,14 +1,16 @@
 extern crate sdl2;
 
-use sdl2::pixels::Color;
+use rand::{self, rngs::ThreadRng, Rng};
 use sdl2::event::Event;
 use sdl2::image;
 use sdl2::image::LoadSurface;
 use sdl2::keyboard::Keycode;
-use sdl2::surface::Surface;
+use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 use sdl2::render::{Canvas, Texture, TextureCreator};
+use sdl2::surface::Surface;
 use sdl2::video::{Window, WindowContext};
+
 use std::time::Duration;
 
 const TILE_WIDTH: u32 = 23;
@@ -25,6 +27,7 @@ const INCR: i32 = 32;
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
+const MAP_SIZE: u32 = 1_000;
 
 #[derive(Copy, Clone, PartialEq)]
 enum Direction {
@@ -73,8 +76,8 @@ impl Action {
 }
 
 fn create_right_actions<'a>(texture_creator: &'a TextureCreator<WindowContext>) -> Texture<'a> {
-    let mut surface = Surface::from_file("resources/zelda.png")
-        .expect("failed to load `resources/zelda.png`");
+    let mut surface =
+        Surface::from_file("resources/zelda.png").expect("failed to load `resources/zelda.png`");
 
     let width = surface.width();
     let block_size = surface.pitch() / width;
@@ -86,8 +89,12 @@ fn create_right_actions<'a>(texture_creator: &'a TextureCreator<WindowContext>) 
         for y in 0..TILE_HEIGHT {
             for x in 0..TILE_WIDTH {
                 for tmp in 0..block_size {
-                    let dest = tmp + (TILE_WIDTH - x + dest_x as u32 - 6) * block_size + (y + dest_y as u32) * width * block_size;
-                    let src = tmp + (x + src_x as u32) * block_size + (y + src_y as u32) * width * block_size;
+                    let dest = tmp
+                        + (TILE_WIDTH - x + dest_x as u32 - 6) * block_size
+                        + (y + dest_y as u32) * width * block_size;
+                    let src = tmp
+                        + (x + src_x as u32) * block_size
+                        + (y + src_y as u32) * width * block_size;
                     data[dest as usize] = data[src as usize];
                 }
             }
@@ -99,24 +106,197 @@ fn create_right_actions<'a>(texture_creator: &'a TextureCreator<WindowContext>) 
         for y in 0..TILE_HEIGHT {
             for x in 0..max {
                 for tmp in 0..block_size {
-                    let dest = tmp + (max - x + dest_x as u32 - 4) * block_size + (y + dest_y as u32) * width * block_size;
-                    let src = tmp + (x + src_x as u32) * block_size + (y + src_y as u32) * width * block_size;
+                    let dest = tmp
+                        + (max - x + dest_x as u32 - 4) * block_size
+                        + (y + dest_y as u32) * width * block_size;
+                    let src = tmp
+                        + (x + src_x as u32) * block_size
+                        + (y + src_y as u32) * width * block_size;
                     data[dest as usize] = data[src as usize];
                 }
             }
         }
     });
 
-    texture_creator.create_texture_from_surface(surface).expect("failed to build texture from surface")
+    texture_creator
+        .create_texture_from_surface(surface)
+        .expect("failed to build texture from surface")
 }
 
-macro_rules! handle_move {
-    ($current:ident, $dir:path) => (
-        if $current.movement.is_none() {
-            $current.direction = $dir;
-            $current.movement = Some(0);
+fn draw_in_map(
+    map: &mut [u8],
+    surface_map: &mut Surface,
+    surface: &Surface,
+    rng: &mut ThreadRng,
+    value: u8,
+) -> bool {
+    let pos: u32 = rng.gen::<u32>() % (MAP_SIZE * MAP_SIZE - 1);
+    let pos_x = pos % MAP_SIZE;
+    let pos_y = pos / MAP_SIZE;
+
+    // First we check there is nothing there...
+    for y in 0..surface.height() / 8 {
+        for x in 0..surface.width() / 8 {
+            let i = pos_x + x + (y + pos_y) * MAP_SIZE;
+            if i < MAP_SIZE * MAP_SIZE && map[i as usize] != 0 {
+                return false;
+            }
         }
+    }
+
+    for y in 0..surface.height() / 8 {
+        for x in 0..surface.width() / 8 {
+            let i = pos_x + x + (y + pos_y) * MAP_SIZE;
+            if i < MAP_SIZE * MAP_SIZE {
+                map[i as usize] = value;
+            }
+        }
+    }
+    surface.blit(
+        None,
+        surface_map,
+        Rect::new(
+            pos_x as i32 * 8,
+            pos_y as i32 * 8,
+            surface.width(),
+            surface.height(),
+        ),
+    );
+    true
+}
+
+fn create_map<'a>(texture_creator: &'a TextureCreator<WindowContext>) -> Map<'a> {
+    let tree =
+        Surface::from_file("resources/tree.png").expect("failed to load `resources/tree.png`");
+    let bush =
+        Surface::from_file("resources/bush.png").expect("failed to load `resources/bush.png`");
+    let mut surface_map = Surface::new(
+        MAP_SIZE * 8,
+        MAP_SIZE * 8,
+        texture_creator.default_pixel_format(),
     )
+    .expect("failed to create map surface");
+    surface_map
+        .fill_rect(None, Color::RGB(80, 216, 72))
+        .expect("failed to fill surface map");
+
+    let mut map = vec![0; (MAP_SIZE * MAP_SIZE) as usize];
+
+    let mut rng = rand::thread_rng();
+
+    // We first create trees
+    for _ in 0..200 {
+        loop {
+            if draw_in_map(&mut map, &mut surface_map, &tree, &mut rng, 1) {
+                break;
+            }
+        }
+    }
+    // We then create bushes
+    for _ in 0..500 {
+        loop {
+            if draw_in_map(&mut map, &mut surface_map, &bush, &mut rng, 2) {
+                break;
+            }
+        }
+    }
+
+    Map {
+        data: map,
+        x: MAP_SIZE as i32 * 8 / -2,
+        y: MAP_SIZE as i32 * 8 / -2,
+        texture: texture_creator
+            .create_texture_from_surface(surface_map)
+            .expect("failed to build texture from surface"),
+    }
+}
+
+fn handle_move(action: &mut Action, dir: Direction) {
+    if action.movement.is_none() {
+        action.direction = dir;
+        action.movement = Some(0);
+    }
+}
+
+struct Map<'a> {
+    data: Vec<u8>,
+    x: i32,
+    y: i32,
+    texture: Texture<'a>,
+}
+
+struct Character {
+    action: Action,
+    x: i32,
+    y: i32,
+}
+
+impl Character {
+    fn apply_move(&mut self, map: &Map) {
+        if let Some(ref mut pos) = self.action.movement {
+            *pos += 1;
+        } else {
+            return;
+        }
+        match self.action.direction {
+            Direction::Front => {
+                if self.y + TILE_HEIGHT as i32 / 2 >= map.y + MAP_SIZE as i32 * 8 {
+                    return;
+                }
+                let map_pos = (self.y - map.y + TILE_HEIGHT as i32 / 2) / 8 * MAP_SIZE as i32 + (self.x - map.x) / 8;
+                println!("{}|{} => ({}, {})", map.data.len(), map_pos, self.x, self.y);
+                if map_pos < 0 || map_pos as usize >= map.data.len() {
+                    return;
+                } else if map.data[map_pos as usize] != 0 {
+                    println!("/!\\ {:?}", map.data[map_pos as usize]);
+                    return;
+                }
+                self.y += 1;
+            }
+            Direction::Back => {
+                if self.y - TILE_HEIGHT as i32 / 4 < map.y {
+                    return;
+                }
+                let map_pos = (self.y - map.y - TILE_HEIGHT as i32 / 4) / 8 * MAP_SIZE as i32 + (self.x - map.x) / 8;
+                println!("{}|{} => ({}, {})", map.data.len(), map_pos, self.x, self.y);
+                if map_pos < 0 || map_pos as usize >= map.data.len() {
+                    return;
+                } else if map.data[map_pos as usize] != 0 {
+                    println!("/!\\ {:?}", map.data[map_pos as usize]);
+                    return;
+                }
+                self.y -= 1;
+            }
+            Direction::Left => {
+                if self.x - TILE_WIDTH as i32 / 2 < map.x {
+                    return;
+                }
+                let map_pos = (self.y - map.y) / 8 * MAP_SIZE as i32 + (self.x - map.x - TILE_WIDTH as i32 / 2) / 8;
+                println!("{}|{} => ({}, {})", map.data.len(), map_pos, self.x, self.y);
+                if map_pos < 0 || map_pos as usize >= map.data.len() {
+                    return;
+                } else if map.data[map_pos as usize] != 0 {
+                    println!("/!\\ {:?}", map.data[map_pos as usize]);
+                    return;
+                }
+                self.x -= 1;
+            }
+            Direction::Right => {
+                if self.x + TILE_WIDTH as i32 / 2 >= map.x + MAP_SIZE as i32 * 8 {
+                    return;
+                }
+                let map_pos = (self.y - map.y) / 8 * MAP_SIZE as i32 + (self.x - map.x + TILE_WIDTH as i32 / 2) / 8;
+                println!("{}|{} => ({}, {})", map.data.len(), map_pos, self.x, self.y);
+                if map_pos < 0 || map_pos as usize >= map.data.len() {
+                    return;
+                } else if map.data[map_pos as usize] != 0 {
+                    println!("/!\\ {:?}", map.data[map_pos as usize]);
+                    return;
+                }
+                self.x += 1;
+            }
+        }
+    }
 }
 
 pub fn main() {
@@ -124,47 +304,56 @@ pub fn main() {
     let _sdl_img_context = image::init(image::InitFlag::PNG).expect("failed to init SDL image");
     let video_subsystem = sdl_context.video().expect("failed to get video context");
 
-    let window = video_subsystem.window("sdl2 demo", WIDTH, HEIGHT)
+    let window = video_subsystem
+        .window("sdl2 demo", WIDTH, HEIGHT)
         .position_centered()
         .build()
         .expect("failed to build window");
 
-    let mut canvas: Canvas<Window> = window.into_canvas()
+    let mut canvas: Canvas<Window> = window
+        .into_canvas()
         .present_vsync()
         .build()
         .expect("failed to build window's canvas");
     canvas.set_draw_color(Color::RGB(0, 0, 0));
     let texture_creator = canvas.texture_creator();
     let texture = create_right_actions(&texture_creator);
+    let map_data = create_map(&texture_creator);
 
     let mut event_pump = sdl_context.event_pump().expect("failed to get event pump");
-    let mut current = Action {
-        direction: Direction::Front,
-        movement: None,
+    let mut player = Character {
+        action: Action {
+            direction: Direction::Front,
+            movement: None,
+        },
+        x: -3800,
+        y: -3800,
     };
 
     'running: loop {
         for event in event_pump.poll_iter() {
             match event {
-                Event::Quit {..} => break 'running,
-                Event::KeyDown { keycode: Some(x), .. } => {
-                    match x {
-                        Keycode::Escape => break 'running,
-                        Keycode::Left => handle_move!(current, Direction::Left),
-                        Keycode::Right => handle_move!(current, Direction::Right),
-                        Keycode::Up => handle_move!(current, Direction::Back),
-                        Keycode::Down => handle_move!(current, Direction::Front),
-                        _ => {}
-                    }
-                }
-                Event::KeyUp { keycode: Some(x), .. } => {
+                Event::Quit { .. } => break 'running,
+                Event::KeyDown {
+                    keycode: Some(x), ..
+                } => match x {
+                    Keycode::Escape => break 'running,
+                    Keycode::Left => handle_move(&mut player.action, Direction::Left),
+                    Keycode::Right => handle_move(&mut player.action, Direction::Right),
+                    Keycode::Up => handle_move(&mut player.action, Direction::Back),
+                    Keycode::Down => handle_move(&mut player.action, Direction::Front),
+                    _ => {}
+                },
+                Event::KeyUp {
+                    keycode: Some(x), ..
+                } => {
                     match x {
                         // Not complete: if a second direction is pressed, it should then go to this
                         // direction. :)
-                        Keycode::Left => current.movement = None,
-                        Keycode::Right => current.movement = None,
-                        Keycode::Up => current.movement = None,
-                        Keycode::Down => current.movement = None,
+                        Keycode::Left => player.action.movement = None,
+                        Keycode::Right => player.action.movement = None,
+                        Keycode::Up => player.action.movement = None,
+                        Keycode::Down => player.action.movement = None,
                         _ => {}
                     }
                 }
@@ -175,17 +364,48 @@ pub fn main() {
         canvas.present();
         canvas.clear();
 
+
+        let x = player.x - map_data.x - WIDTH as i32 / 2;
+        let y = player.y - map_data.y - HEIGHT as i32 / 2;
+        let (s_x, pos_x, width) = if x < 0 {
+            (0, x * -1, (WIDTH as i32 + x) as u32)
+        } else if x + WIDTH as i32 > MAP_SIZE as i32 * 8 {
+            let sub = WIDTH as i32 - (WIDTH as i32 + x - MAP_SIZE as i32 * 8);
+            (x, 0, sub as u32)
+        } else {
+            (x, 0, WIDTH)
+        };
+        let (s_y, pos_y, height) = if y < 0 {
+            (0, y * -1, (HEIGHT as i32 + y) as u32)
+        } else if y + HEIGHT as i32 > MAP_SIZE as i32 * 8 {
+            let sub = HEIGHT as i32 - (HEIGHT as i32 + y - MAP_SIZE as i32 * 8);
+            (y, 0, sub as u32)
+        } else {
+            (y, 0, HEIGHT)
+        };
+        canvas
+            .copy(
+                &map_data.texture,
+                Rect::new(
+                    s_x,
+                    s_y,
+                    width,
+                    height,
+                ),
+                Rect::new(pos_x, pos_y, width, height),
+            )
+            .expect("copy map failed");
         let width = WIDTH / 2 - TILE_WIDTH / 2;
         let height = HEIGHT / 2 - TILE_HEIGHT / 2;
-        let (x, y) = current.get_current();
-        canvas.copy(
-            &texture,
-            Rect::new(x, y, TILE_WIDTH, TILE_HEIGHT),
-            Rect::new(width as _, height as _, TILE_WIDTH, TILE_HEIGHT),
-        ).expect("copy failed");
-        if let Some(ref mut pos) = current.movement {
-            *pos += 1;
-        }
+        let (x, y) = player.action.get_current();
+        canvas
+            .copy(
+                &texture,
+                Rect::new(x, y, TILE_WIDTH, TILE_HEIGHT),
+                Rect::new(width as _, height as _, TILE_WIDTH, TILE_HEIGHT),
+            )
+            .expect("copy character failed");
+        player.apply_move(&map_data);
         ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
     }
 }
