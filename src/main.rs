@@ -39,6 +39,7 @@ enum Direction {
 
 struct Action {
     direction: Direction,
+    secondary: Option<Direction>,
     movement: Option<u64>,
 }
 
@@ -215,6 +216,21 @@ fn handle_move(action: &mut Action, dir: Direction) {
     if action.movement.is_none() {
         action.direction = dir;
         action.movement = Some(0);
+    } else if action.secondary.is_none() && dir != action.direction {
+        action.secondary = Some(dir);
+    }
+}
+
+fn handle_release(action: &mut Action, dir: Direction) {
+    if Some(dir) == action.secondary {
+        action.secondary = None;
+    } else if dir == action.direction {
+        if let Some(second) = action.secondary.take() {
+            action.movement = Some(0);
+            action.direction = second;
+        } else {
+            action.movement = None;
+        }
     }
 }
 
@@ -232,70 +248,42 @@ struct Character {
 }
 
 impl Character {
+    fn move_result(&self, dir: Direction) -> ((i32, i32), (i32, i32)) {
+        match dir {
+            Direction::Front => ((0, 0), (TILE_HEIGHT as i32 / 2, 1)),
+            Direction::Back => ((0, 0), (TILE_HEIGHT as i32 / -4, -1)),
+            Direction::Left => ((TILE_WIDTH as i32 / -2, -1), (0, 0)),
+            Direction::Right => ((TILE_WIDTH as i32 / 2, 1), (0, 0)),
+        }
+    }
     fn apply_move(&mut self, map: &Map) {
         if let Some(ref mut pos) = self.action.movement {
             *pos += 1;
         } else {
             return;
         }
-        match self.action.direction {
-            Direction::Front => {
-                if self.y + TILE_HEIGHT as i32 / 2 >= map.y + MAP_SIZE as i32 * 8 {
-                    return;
-                }
-                let map_pos = (self.y - map.y + TILE_HEIGHT as i32 / 2) / 8 * MAP_SIZE as i32 + (self.x - map.x) / 8;
-                println!("{}|{} => ({}, {})", map.data.len(), map_pos, self.x, self.y);
-                if map_pos < 0 || map_pos as usize >= map.data.len() {
-                    return;
-                } else if map.data[map_pos as usize] != 0 {
-                    println!("/!\\ {:?}", map.data[map_pos as usize]);
-                    return;
-                }
-                self.y += 1;
-            }
-            Direction::Back => {
-                if self.y - TILE_HEIGHT as i32 / 4 < map.y {
-                    return;
-                }
-                let map_pos = (self.y - map.y - TILE_HEIGHT as i32 / 4) / 8 * MAP_SIZE as i32 + (self.x - map.x) / 8;
-                println!("{}|{} => ({}, {})", map.data.len(), map_pos, self.x, self.y);
-                if map_pos < 0 || map_pos as usize >= map.data.len() {
-                    return;
-                } else if map.data[map_pos as usize] != 0 {
-                    println!("/!\\ {:?}", map.data[map_pos as usize]);
-                    return;
-                }
-                self.y -= 1;
-            }
-            Direction::Left => {
-                if self.x - TILE_WIDTH as i32 / 2 < map.x {
-                    return;
-                }
-                let map_pos = (self.y - map.y) / 8 * MAP_SIZE as i32 + (self.x - map.x - TILE_WIDTH as i32 / 2) / 8;
-                println!("{}|{} => ({}, {})", map.data.len(), map_pos, self.x, self.y);
-                if map_pos < 0 || map_pos as usize >= map.data.len() {
-                    return;
-                } else if map.data[map_pos as usize] != 0 {
-                    println!("/!\\ {:?}", map.data[map_pos as usize]);
-                    return;
-                }
-                self.x -= 1;
-            }
-            Direction::Right => {
-                if self.x + TILE_WIDTH as i32 / 2 >= map.x + MAP_SIZE as i32 * 8 {
-                    return;
-                }
-                let map_pos = (self.y - map.y) / 8 * MAP_SIZE as i32 + (self.x - map.x + TILE_WIDTH as i32 / 2) / 8;
-                println!("{}|{} => ({}, {})", map.data.len(), map_pos, self.x, self.y);
-                if map_pos < 0 || map_pos as usize >= map.data.len() {
-                    return;
-                } else if map.data[map_pos as usize] != 0 {
-                    println!("/!\\ {:?}", map.data[map_pos as usize]);
-                    return;
-                }
-                self.x += 1;
-            }
+        let ((mut x, mut x_add), (mut y, mut y_add)) = self.move_result(self.action.direction);
+        if let Some(second) = self.action.secondary {
+            let ((tmp_x, tmp_x_add), (tmp_y, tmp_y_add)) = self.move_result(second);
+            x += tmp_x;
+            x_add += tmp_x_add;
+            y += tmp_y;
+            y_add += tmp_y_add;
         }
+        if self.y + y >= map.y + MAP_SIZE as i32 * 8 || self.y + y < map.y
+            || self.x + x >= map.x + MAP_SIZE as i32 * 8 || self.x + x < map.x {
+            return;
+        }
+        let map_pos = (self.y + y - map.y) / 8 * MAP_SIZE as i32 + (self.x + x - map.x) / 8;
+        println!("{}|{} => ({}, {})", map.data.len(), map_pos, self.x + x, self.y + y);
+        if map_pos < 0 || map_pos as usize >= map.data.len() {
+            return;
+        } else if map.data[map_pos as usize] != 0 {
+            println!("/!\\ {:?}", map.data[map_pos as usize]);
+            return;
+        }
+        self.x += x_add;
+        self.y += y_add;
     }
 }
 
@@ -324,6 +312,7 @@ pub fn main() {
     let mut player = Character {
         action: Action {
             direction: Direction::Front,
+            secondary: None,
             movement: None,
         },
         x: -3800,
@@ -350,10 +339,10 @@ pub fn main() {
                     match x {
                         // Not complete: if a second direction is pressed, it should then go to this
                         // direction. :)
-                        Keycode::Left => player.action.movement = None,
-                        Keycode::Right => player.action.movement = None,
-                        Keycode::Up => player.action.movement = None,
-                        Keycode::Down => player.action.movement = None,
+                        Keycode::Left => handle_release(&mut player.action, Direction::Left),
+                        Keycode::Right => handle_release(&mut player.action, Direction::Right),
+                        Keycode::Up => handle_release(&mut player.action, Direction::Back),
+                        Keycode::Down => handle_release(&mut player.action, Direction::Front),
                         _ => {}
                     }
                 }
