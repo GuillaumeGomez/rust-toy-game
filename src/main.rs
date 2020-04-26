@@ -170,52 +170,6 @@ fn draw_in_map(
     true
 }
 
-fn create_map<'a>(texture_creator: &'a TextureCreator<WindowContext>) -> Map<'a> {
-    let tree =
-        Surface::from_file("resources/tree.png").expect("failed to load `resources/tree.png`");
-    let bush =
-        Surface::from_file("resources/bush.png").expect("failed to load `resources/bush.png`");
-    let mut surface_map = Surface::new(
-        MAP_SIZE * 8,
-        MAP_SIZE * 8,
-        texture_creator.default_pixel_format(),
-    )
-    .expect("failed to create map surface");
-    surface_map
-        .fill_rect(None, Color::RGB(80, 216, 72))
-        .expect("failed to fill surface map");
-
-    let mut map = vec![0; (MAP_SIZE * MAP_SIZE) as usize];
-
-    let mut rng = rand::thread_rng();
-
-    // We first create trees
-    for _ in 0..200 {
-        loop {
-            if draw_in_map(&mut map, &mut surface_map, &tree, &mut rng, 1) {
-                break;
-            }
-        }
-    }
-    // We then create bushes
-    for _ in 0..500 {
-        loop {
-            if draw_in_map(&mut map, &mut surface_map, &bush, &mut rng, 2) {
-                break;
-            }
-        }
-    }
-
-    Map {
-        data: map,
-        x: MAP_SIZE as i32 * 8 / -2,
-        y: MAP_SIZE as i32 * 8 / -2,
-        texture: texture_creator
-            .create_texture_from_surface(surface_map)
-            .expect("failed to build texture from surface"),
-    }
-}
-
 fn handle_move(player: &mut Character, dir: Direction) {
     if player.action.movement.is_none() {
         player.action.direction = dir;
@@ -247,7 +201,83 @@ struct Map<'a> {
     texture: Texture<'a>,
 }
 
-struct Character {
+impl<'a> Map<'a> {
+    fn new(texture_creator: &'a TextureCreator<WindowContext>) -> Map<'a> {
+        let tree =
+            Surface::from_file("resources/tree.png").expect("failed to load `resources/tree.png`");
+        let bush =
+            Surface::from_file("resources/bush.png").expect("failed to load `resources/bush.png`");
+        let mut surface_map = Surface::new(
+            MAP_SIZE * 8,
+            MAP_SIZE * 8,
+            texture_creator.default_pixel_format(),
+        )
+        .expect("failed to create map surface");
+        surface_map
+            .fill_rect(None, Color::RGB(80, 216, 72))
+            .expect("failed to fill surface map");
+
+        let mut map = vec![0; (MAP_SIZE * MAP_SIZE) as usize];
+
+        let mut rng = rand::thread_rng();
+
+        // We first create trees
+        for _ in 0..200 {
+            loop {
+                if draw_in_map(&mut map, &mut surface_map, &tree, &mut rng, 1) {
+                    break;
+                }
+            }
+        }
+        // We then create bushes
+        for _ in 0..500 {
+            loop {
+                if draw_in_map(&mut map, &mut surface_map, &bush, &mut rng, 2) {
+                    break;
+                }
+            }
+        }
+
+        Map {
+            data: map,
+            x: MAP_SIZE as i32 * 8 / -2,
+            y: MAP_SIZE as i32 * 8 / -2,
+            texture: texture_creator
+                .create_texture_from_surface(surface_map)
+                .expect("failed to build texture from surface"),
+        }
+    }
+
+    fn draw(&self, player: &Character, canvas: &mut Canvas<Window>) {
+        let x = player.x - self.x - WIDTH as i32 / 2;
+        let y = player.y - self.y - HEIGHT as i32 / 2;
+        let (s_x, pos_x, width) = if x < 0 {
+            (0, x * -1, (WIDTH as i32 + x) as u32)
+        } else if x + WIDTH as i32 > MAP_SIZE as i32 * 8 {
+            let sub = WIDTH as i32 - (WIDTH as i32 + x - MAP_SIZE as i32 * 8);
+            (x, 0, sub as u32)
+        } else {
+            (x, 0, WIDTH)
+        };
+        let (s_y, pos_y, height) = if y < 0 {
+            (0, y * -1, (HEIGHT as i32 + y) as u32)
+        } else if y + HEIGHT as i32 > MAP_SIZE as i32 * 8 {
+            let sub = HEIGHT as i32 - (HEIGHT as i32 + y - MAP_SIZE as i32 * 8);
+            (y, 0, sub as u32)
+        } else {
+            (y, 0, HEIGHT)
+        };
+        canvas
+            .copy(
+                &self.texture,
+                Rect::new(s_x, s_y, width, height),
+                Rect::new(pos_x, pos_y, width, height),
+            )
+            .expect("copy map failed");
+    }
+}
+
+struct Character<'a> {
     action: Action,
     x: i32,
     y: i32,
@@ -261,9 +291,34 @@ struct Character {
     xp: u32,
     is_running: bool,
     is_run_pressed: bool,
+    texture: Texture<'a>,
 }
 
-impl Character {
+impl<'a> Character<'a> {
+    fn new(texture_creator: &'a TextureCreator<WindowContext>) -> Character<'a> {
+        let texture = create_right_actions(&texture_creator);
+
+        Character {
+            action: Action {
+                direction: Direction::Front,
+                secondary: None,
+                movement: None,
+            },
+            x: 0,
+            y: 0,
+            total_health: 100,
+            health: 75,
+            total_mana: 100,
+            mana: 20,
+            total_stamina: 100,
+            stamina: 100,
+            xp_to_next_level: 1000,
+            xp: 150,
+            is_running: false,
+            is_run_pressed: false,
+            texture,
+        }
+    }
     fn move_result(&self, dir: Direction) -> ((i32, i32), (i32, i32)) {
         match dir {
             Direction::Front => ((0, 0), (TILE_HEIGHT as i32 / 2, 1)),
@@ -272,6 +327,7 @@ impl Character {
             Direction::Right => ((TILE_WIDTH as i32 / 2, 1), (0, 0)),
         }
     }
+
     fn inner_apply_move(&mut self, map: &Map) -> bool {
         let ((mut x, mut x_add), (mut y, mut y_add)) = self.move_result(self.action.direction);
         if let Some(second) = self.action.secondary {
@@ -306,13 +362,9 @@ impl Character {
         self.y += y_add;
         true
     }
+
     fn apply_move(&mut self, map: &Map) {
-        if let Some(ref mut pos) = self.action.movement {
-            *pos += 1;
-        } else {
-            if self.stamina < self.total_stamina {
-                self.stamina += 1;
-            }
+        if self.action.movement.is_none() {
             return;
         }
         if !self.inner_apply_move(map) {
@@ -328,6 +380,29 @@ impl Character {
             }
         } else if self.stamina < self.total_stamina {
             self.stamina += 1;
+        }
+    }
+
+    fn draw(&mut self, canvas: &mut Canvas<Window>) {
+        let width = WIDTH / 2 - TILE_WIDTH / 2;
+        let height = HEIGHT / 2 - TILE_HEIGHT / 2;
+        let (x, y) = self.action.get_current(self.is_running);
+        canvas
+            .copy(
+                &self.texture,
+                Rect::new(x, y, TILE_WIDTH, TILE_HEIGHT),
+                Rect::new(width as _, height as _, TILE_WIDTH, TILE_HEIGHT),
+            )
+            .expect("copy character failed");
+
+        // We now update the animation!
+        if let Some(ref mut pos) = self.action.movement {
+            *pos += 1;
+        } else {
+            if self.stamina < self.total_stamina {
+                self.stamina += 1;
+            }
+            return;
         }
     }
 }
@@ -439,29 +514,10 @@ pub fn main() {
         .expect("failed to build window's canvas");
     canvas.set_draw_color(Color::RGB(0, 0, 0));
     let texture_creator = canvas.texture_creator();
-    let texture = create_right_actions(&texture_creator);
-    let map_data = create_map(&texture_creator);
 
     let mut event_pump = sdl_context.event_pump().expect("failed to get event pump");
-    let mut player = Character {
-        action: Action {
-            direction: Direction::Front,
-            secondary: None,
-            movement: None,
-        },
-        x: 0,
-        y: 0,
-        total_health: 100,
-        health: 75,
-        total_mana: 100,
-        mana: 20,
-        total_stamina: 100,
-        stamina: 100,
-        xp_to_next_level: 1000,
-        xp: 150,
-        is_running: false,
-        is_run_pressed: false,
-    };
+    let map = Map::new(&texture_creator);
+    let mut player = Character::new(&texture_creator);
     let hud = HUD::new(&texture_creator);
 
     'running: loop {
@@ -506,44 +562,11 @@ pub fn main() {
         canvas.present();
         canvas.clear();
 
-        let x = player.x - map_data.x - WIDTH as i32 / 2;
-        let y = player.y - map_data.y - HEIGHT as i32 / 2;
-        let (s_x, pos_x, width) = if x < 0 {
-            (0, x * -1, (WIDTH as i32 + x) as u32)
-        } else if x + WIDTH as i32 > MAP_SIZE as i32 * 8 {
-            let sub = WIDTH as i32 - (WIDTH as i32 + x - MAP_SIZE as i32 * 8);
-            (x, 0, sub as u32)
-        } else {
-            (x, 0, WIDTH)
-        };
-        let (s_y, pos_y, height) = if y < 0 {
-            (0, y * -1, (HEIGHT as i32 + y) as u32)
-        } else if y + HEIGHT as i32 > MAP_SIZE as i32 * 8 {
-            let sub = HEIGHT as i32 - (HEIGHT as i32 + y - MAP_SIZE as i32 * 8);
-            (y, 0, sub as u32)
-        } else {
-            (y, 0, HEIGHT)
-        };
-        canvas
-            .copy(
-                &map_data.texture,
-                Rect::new(s_x, s_y, width, height),
-                Rect::new(pos_x, pos_y, width, height),
-            )
-            .expect("copy map failed");
-
-        let width = WIDTH / 2 - TILE_WIDTH / 2;
-        let height = HEIGHT / 2 - TILE_HEIGHT / 2;
-        let (x, y) = player.action.get_current(player.is_running);
-        canvas
-            .copy(
-                &texture,
-                Rect::new(x, y, TILE_WIDTH, TILE_HEIGHT),
-                Rect::new(width as _, height as _, TILE_WIDTH, TILE_HEIGHT),
-            )
-            .expect("copy character failed");
-        player.apply_move(&map_data);
+        map.draw(&player, &mut canvas);
+        player.apply_move(&map);
+        player.draw(&mut canvas);
         hud.draw(&player, &mut canvas);
+
         ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
     }
 }
