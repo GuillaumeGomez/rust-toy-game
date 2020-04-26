@@ -216,12 +216,13 @@ fn create_map<'a>(texture_creator: &'a TextureCreator<WindowContext>) -> Map<'a>
     }
 }
 
-fn handle_move(action: &mut Action, dir: Direction) {
-    if action.movement.is_none() {
-        action.direction = dir;
-        action.movement = Some(0);
-    } else if action.secondary.is_none() && dir != action.direction {
-        action.secondary = Some(dir);
+fn handle_move(player: &mut Character, dir: Direction) {
+    if player.action.movement.is_none() {
+        player.action.direction = dir;
+        player.action.movement = Some(0);
+        player.is_running = player.is_run_pressed && player.stamina > 0;
+    } else if player.action.secondary.is_none() && dir != player.action.direction {
+        player.action.secondary = Some(dir);
     }
 }
 
@@ -259,6 +260,7 @@ struct Character {
     xp_to_next_level: u32,
     xp: u32,
     is_running: bool,
+    is_run_pressed: bool,
 }
 
 impl Character {
@@ -458,6 +460,7 @@ pub fn main() {
         xp_to_next_level: 1000,
         xp: 150,
         is_running: false,
+        is_run_pressed: false,
     };
     let hud = HUD::new(&texture_creator);
 
@@ -469,11 +472,14 @@ pub fn main() {
                     keycode: Some(x), ..
                 } => match x {
                     Keycode::Escape => break 'running,
-                    Keycode::Left => handle_move(&mut player.action, Direction::Left),
-                    Keycode::Right => handle_move(&mut player.action, Direction::Right),
-                    Keycode::Up => handle_move(&mut player.action, Direction::Back),
-                    Keycode::Down => handle_move(&mut player.action, Direction::Front),
-                    Keycode::LShift => player.is_running = true,
+                    Keycode::Left => handle_move(&mut player, Direction::Left),
+                    Keycode::Right => handle_move(&mut player, Direction::Right),
+                    Keycode::Up => handle_move(&mut player, Direction::Back),
+                    Keycode::Down => handle_move(&mut player, Direction::Front),
+                    Keycode::LShift => {
+                        player.is_run_pressed = true;
+                        player.is_running = player.action.movement.is_some();
+                    }
                     _ => {}
                 },
                 Event::KeyUp {
@@ -486,7 +492,10 @@ pub fn main() {
                         Keycode::Right => handle_release(&mut player, Direction::Right),
                         Keycode::Up => handle_release(&mut player, Direction::Back),
                         Keycode::Down => handle_release(&mut player, Direction::Front),
-                        Keycode::LShift => player.is_running = false,
+                        Keycode::LShift => {
+                            player.is_run_pressed = false;
+                            player.is_running = false;
+                        }
                         _ => {}
                     }
                 }
