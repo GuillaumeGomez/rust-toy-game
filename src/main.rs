@@ -162,7 +162,7 @@ fn draw_in_map(
             surface.width(),
             surface.height(),
         ),
-    );
+    ).expect("failed to blit");
     true
 }
 
@@ -245,6 +245,14 @@ struct Character {
     action: Action,
     x: i32,
     y: i32,
+    total_health: u32,
+    health: u32,
+    total_mana: u32,
+    mana: u32,
+    total_stamina: u32,
+    stamina: u32,
+    xp_to_next_level: u32,
+    xp: u32,
 }
 
 impl Character {
@@ -270,12 +278,21 @@ impl Character {
             y += tmp_y;
             y_add += tmp_y_add;
         }
-        if self.y + y >= map.y + MAP_SIZE as i32 * 8 || self.y + y < map.y
-            || self.x + x >= map.x + MAP_SIZE as i32 * 8 || self.x + x < map.x {
+        if self.y + y >= map.y + MAP_SIZE as i32 * 8
+            || self.y + y < map.y
+            || self.x + x >= map.x + MAP_SIZE as i32 * 8
+            || self.x + x < map.x
+        {
             return;
         }
         let map_pos = (self.y + y - map.y) / 8 * MAP_SIZE as i32 + (self.x + x - map.x) / 8;
-        println!("{}|{} => ({}, {})", map.data.len(), map_pos, self.x + x, self.y + y);
+        println!(
+            "{}|{} => ({}, {})",
+            map.data.len(),
+            map_pos,
+            self.x + x,
+            self.y + y
+        );
         if map_pos < 0 || map_pos as usize >= map.data.len() {
             return;
         } else if map.data[map_pos as usize] != 0 {
@@ -284,6 +301,95 @@ impl Character {
         }
         self.x += x_add;
         self.y += y_add;
+    }
+}
+
+#[inline]
+fn create_bar<'a>(
+    bar_name: &str,
+    width: u32,
+    height: u32,
+    color: Color,
+    texture_creator: &'a TextureCreator<WindowContext>,
+) -> Texture<'a> {
+    let mut bar = Surface::new(width, height, texture_creator.default_pixel_format())
+        .expect(&format!("failed to create {} surface", bar_name));
+    bar.fill_rect(None, color)
+        .expect(&format!("failed to fill {} surface", bar_name));
+    texture_creator
+        .create_texture_from_surface(bar)
+        .expect(&format!(
+            "failed to build texture from {} surface",
+            bar_name
+        ))
+}
+
+struct HUD<'a> {
+    bars: Texture<'a>,
+    bars_width: u32,
+    bars_height: u32,
+    health_bar: Texture<'a>,
+    mana_bar: Texture<'a>,
+    stamina_bar: Texture<'a>,
+    xp_bar: Texture<'a>,
+}
+
+impl<'a> HUD<'a> {
+    fn new(texture_creator: &'a TextureCreator<WindowContext>) -> HUD<'a> {
+        let bars =
+            Surface::from_file("resources/bars.png").expect("failed to load `resources/bars.png`");
+        let bars_width = bars.width();
+        let bars_height = bars.height();
+        let bars = texture_creator
+            .create_texture_from_surface(bars)
+            .expect("failed to build texture from bars surface");
+
+        let health_bar = create_bar("health bar", 144, 4, Color::RGB(247, 0, 43), texture_creator);
+        let mana_bar = create_bar("mana bar", 144, 4, Color::RGB(0, 153, 207), texture_creator);
+        let stamina_bar = create_bar(
+            "stamina bar",
+            144,
+            4,
+            Color::RGB(111, 169, 90),
+            texture_creator,
+        );
+        let xp_bar = create_bar("xp bar", 144, 2, Color::RGB(237, 170, 66), texture_creator);
+
+        HUD {
+            bars,
+            bars_width,
+            bars_height,
+            health_bar,
+            mana_bar,
+            stamina_bar,
+            xp_bar,
+        }
+    }
+
+    fn draw(&self, player: &Character, canvas: &mut Canvas<Window>) {
+        macro_rules! draw_bar {
+            ($total:ident, $current:ident, $height:expr, $name:expr, $y:expr, $texture:ident) => {{
+                let show = 144 * player.$current / player.$total;
+                canvas
+                    .copy(
+                        &self.$texture,
+                        Rect::new(0, 0, show, $height),
+                        Rect::new(2, $y, show, $height),
+                    )
+                    .expect(concat!("copy ", $name, " bar failed"));
+            }};
+        }
+        canvas
+            .copy(
+                &self.bars,
+                None,
+                Rect::new(0, 0, self.bars_width, self.bars_height),
+            )
+            .expect("copy bars failed");
+        draw_bar!(total_health, health, 4, "health", 2, health_bar);
+        draw_bar!(total_mana, mana, 4, "mana", 8, mana_bar);
+        draw_bar!(total_stamina, stamina, 4, "stamina", 14, stamina_bar);
+        draw_bar!(xp_to_next_level, xp, 2, "xp", 20, xp_bar);
     }
 }
 
@@ -315,9 +421,18 @@ pub fn main() {
             secondary: None,
             movement: None,
         },
-        x: -3800,
-        y: -3800,
+        x: 0,
+        y: 0,
+        total_health: 100,
+        health: 75,
+        total_mana: 100,
+        mana: 20,
+        total_stamina: 100,
+        stamina: 100,
+        xp_to_next_level: 1000,
+        xp: 150,
     };
+    let hud = HUD::new(&texture_creator);
 
     'running: loop {
         for event in event_pump.poll_iter() {
@@ -353,7 +468,6 @@ pub fn main() {
         canvas.present();
         canvas.clear();
 
-
         let x = player.x - map_data.x - WIDTH as i32 / 2;
         let y = player.y - map_data.y - HEIGHT as i32 / 2;
         let (s_x, pos_x, width) = if x < 0 {
@@ -375,15 +489,13 @@ pub fn main() {
         canvas
             .copy(
                 &map_data.texture,
-                Rect::new(
-                    s_x,
-                    s_y,
-                    width,
-                    height,
-                ),
+                Rect::new(s_x, s_y, width, height),
                 Rect::new(pos_x, pos_y, width, height),
             )
             .expect("copy map failed");
+
+        hud.draw(&player, &mut canvas);
+
         let width = WIDTH / 2 - TILE_WIDTH / 2;
         let height = HEIGHT / 2 - TILE_HEIGHT / 2;
         let (x, y) = player.action.get_current();
