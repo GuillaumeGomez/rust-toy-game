@@ -44,9 +44,13 @@ struct Action {
 }
 
 impl Action {
-    fn get_current(&self) -> (i32, i32) {
+    fn get_current(&self, is_running: bool) -> (i32, i32) {
         if let Some(ref pos) = self.movement {
-            let pos = (pos % 60) as i32 / 6;
+            let pos = if is_running {
+                (pos % 30) as i32 / 3
+            } else {
+                (pos % 60) as i32 / 6
+            };
             match self.direction {
                 Direction::Front => {
                     let (x, y) = FRONT_MOVE;
@@ -221,15 +225,16 @@ fn handle_move(action: &mut Action, dir: Direction) {
     }
 }
 
-fn handle_release(action: &mut Action, dir: Direction) {
-    if Some(dir) == action.secondary {
-        action.secondary = None;
-    } else if dir == action.direction {
-        if let Some(second) = action.secondary.take() {
-            action.movement = Some(0);
-            action.direction = second;
+fn handle_release(player: &mut Character, dir: Direction) {
+    if Some(dir) == player.action.secondary {
+        player.action.secondary = None;
+    } else if dir == player.action.direction {
+        if let Some(second) = player.action.secondary.take() {
+            player.action.movement = Some(0);
+            player.action.direction = second;
         } else {
-            action.movement = None;
+            player.action.movement = None;
+            player.is_running = false;
         }
     }
 }
@@ -253,6 +258,7 @@ struct Character {
     stamina: u32,
     xp_to_next_level: u32,
     xp: u32,
+    is_running: bool,
 }
 
 impl Character {
@@ -264,12 +270,7 @@ impl Character {
             Direction::Right => ((TILE_WIDTH as i32 / 2, 1), (0, 0)),
         }
     }
-    fn apply_move(&mut self, map: &Map) {
-        if let Some(ref mut pos) = self.action.movement {
-            *pos += 1;
-        } else {
-            return;
-        }
+    fn inner_apply_move(&mut self, map: &Map) -> bool {
         let ((mut x, mut x_add), (mut y, mut y_add)) = self.move_result(self.action.direction);
         if let Some(second) = self.action.secondary {
             let ((tmp_x, tmp_x_add), (tmp_y, tmp_y_add)) = self.move_result(second);
@@ -283,7 +284,7 @@ impl Character {
             || self.x + x >= map.x + MAP_SIZE as i32 * 8
             || self.x + x < map.x
         {
-            return;
+            return false;
         }
         let map_pos = (self.y + y - map.y) / 8 * MAP_SIZE as i32 + (self.x + x - map.x) / 8;
         println!(
@@ -294,13 +295,38 @@ impl Character {
             self.y + y
         );
         if map_pos < 0 || map_pos as usize >= map.data.len() {
-            return;
+            return false;
         } else if map.data[map_pos as usize] != 0 {
             println!("/!\\ {:?}", map.data[map_pos as usize]);
-            return;
+            return false;
         }
         self.x += x_add;
         self.y += y_add;
+        true
+    }
+    fn apply_move(&mut self, map: &Map) {
+        if let Some(ref mut pos) = self.action.movement {
+            *pos += 1;
+        } else {
+            if self.stamina < self.total_stamina {
+                self.stamina += 1;
+            }
+            return;
+        }
+        if !self.inner_apply_move(map) {
+            return;
+        }
+        if self.is_running {
+            self.inner_apply_move(map);
+            if self.stamina > 0 {
+                self.stamina -= 1;
+                if self.stamina == 0 {
+                    self.is_running = false;
+                }
+            }
+        } else if self.stamina < self.total_stamina {
+            self.stamina += 1;
+        }
     }
 }
 
@@ -350,7 +376,7 @@ impl<'a> HUD<'a> {
             "stamina bar",
             144,
             4,
-            Color::RGB(111, 169, 90),
+            Color::RGB(149, 38, 172),
             texture_creator,
         );
         let xp_bar = create_bar("xp bar", 144, 2, Color::RGB(237, 170, 66), texture_creator);
@@ -431,6 +457,7 @@ pub fn main() {
         stamina: 100,
         xp_to_next_level: 1000,
         xp: 150,
+        is_running: false,
     };
     let hud = HUD::new(&texture_creator);
 
@@ -446,6 +473,7 @@ pub fn main() {
                     Keycode::Right => handle_move(&mut player.action, Direction::Right),
                     Keycode::Up => handle_move(&mut player.action, Direction::Back),
                     Keycode::Down => handle_move(&mut player.action, Direction::Front),
+                    Keycode::LShift => player.is_running = true,
                     _ => {}
                 },
                 Event::KeyUp {
@@ -454,10 +482,11 @@ pub fn main() {
                     match x {
                         // Not complete: if a second direction is pressed, it should then go to this
                         // direction. :)
-                        Keycode::Left => handle_release(&mut player.action, Direction::Left),
-                        Keycode::Right => handle_release(&mut player.action, Direction::Right),
-                        Keycode::Up => handle_release(&mut player.action, Direction::Back),
-                        Keycode::Down => handle_release(&mut player.action, Direction::Front),
+                        Keycode::Left => handle_release(&mut player, Direction::Left),
+                        Keycode::Right => handle_release(&mut player, Direction::Right),
+                        Keycode::Up => handle_release(&mut player, Direction::Back),
+                        Keycode::Down => handle_release(&mut player, Direction::Front),
+                        Keycode::LShift => player.is_running = false,
                         _ => {}
                     }
                 }
@@ -494,11 +523,9 @@ pub fn main() {
             )
             .expect("copy map failed");
 
-        hud.draw(&player, &mut canvas);
-
         let width = WIDTH / 2 - TILE_WIDTH / 2;
         let height = HEIGHT / 2 - TILE_HEIGHT / 2;
-        let (x, y) = player.action.get_current();
+        let (x, y) = player.action.get_current(player.is_running);
         canvas
             .copy(
                 &texture,
@@ -507,6 +534,7 @@ pub fn main() {
             )
             .expect("copy character failed");
         player.apply_move(&map_data);
+        hud.draw(&player, &mut canvas);
         ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
     }
 }
