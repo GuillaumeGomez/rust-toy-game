@@ -15,31 +15,22 @@ use sdl2::video::{Window, WindowContext};
 use std::time::Duration;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
+use std::ops::Deref;
 
-const TILE_WIDTH: u32 = 23;
-const TILE_HEIGHT: u32 = 23;
-const STANDING_FRONT: (i32, i32) = (15, 9);
-const STANDING_LEFT: (i32, i32) = (51, 9);
-const STANDING_RIGHT: (i32, i32) = (100, 9);
-const STANDING_BACK: (i32, i32) = (78, 9);
-const FRONT_MOVE: (i32, i32) = (15, 77);
-const LEFT_MOVE: (i32, i32) = (350, 77);
-const RIGHT_MOVE: (i32, i32) = (350, 50);
-const BACK_MOVE: (i32, i32) = (683, 77);
-const INCR: i32 = 32;
-
-const WIDTH: u32 = 800;
-const HEIGHT: u32 = 600;
+const WIDTH: i32 = 800;
+const HEIGHT: i32 = 600;
 const MAP_SIZE: u32 = 1_000;
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Hash, Debug)]
+#[repr(usize)]
 enum Direction {
-    Front,
-    Left,
-    Right,
-    Back,
+    Front = 0,
+    Left = 1,
+    Right = 2,
+    Back = 3,
 }
 
+#[derive(Copy, Clone, PartialEq, Hash, Debug)]
 struct Action {
     direction: Direction,
     secondary: Option<Direction>,
@@ -47,43 +38,28 @@ struct Action {
 }
 
 impl Action {
-    fn get_current(&self, is_running: bool) -> (i32, i32) {
+    /// Returns `(x, y, width, height)`.
+    fn get_current(&self, is_running: bool, textures: &TextureHandler<'_>) -> (i32, i32, i32, i32) {
         if let Some(ref pos) = self.movement {
+            let (info, nb_animations) = &textures.actions_moving[self.direction as usize];
             let pos = if is_running {
-                (pos % 30) as i32 / 3
+                (pos % 30) as i32 / (30 / nb_animations)
             } else {
-                (pos % 60) as i32 / 6
+                (pos % 60) as i32 / (60 / nb_animations)
             };
-            match self.direction {
-                Direction::Front => {
-                    let (x, y) = FRONT_MOVE;
-                    (pos * INCR + x, y)
-                }
-                Direction::Left => {
-                    let (x, y) = LEFT_MOVE;
-                    (pos * INCR + x, y)
-                }
-                Direction::Right => {
-                    let (x, y) = RIGHT_MOVE;
-                    (pos * INCR + x, y)
-                }
-                Direction::Back => {
-                    let (x, y) = BACK_MOVE;
-                    (pos * INCR + x, y)
-                }
-            }
+            (pos * info.incr_to_next + info.x, info.y, info.width() as i32, info.height() as i32)
         } else {
-            match self.direction {
-                Direction::Front => STANDING_FRONT,
-                Direction::Left => STANDING_LEFT,
-                Direction::Right => STANDING_RIGHT,
-                Direction::Back => STANDING_BACK,
-            }
+            let info = &textures.actions_standing[self.direction as usize];
+            (info.x, info.y, info.width() as i32, info.height() as i32)
         }
     }
 }
 
-fn create_right_actions<'a>(texture_creator: &'a TextureCreator<WindowContext>) -> Texture<'a> {
+fn create_right_actions<'a>(
+    texture_creator: &'a TextureCreator<WindowContext>,
+    actions_standing: &[Dimension],
+    actions_moving: &[(Dimension, i32)],
+) -> Texture<'a> {
     let mut surface =
         Surface::from_file("resources/zelda.png").expect("failed to load `resources/zelda.png`");
 
@@ -91,14 +67,16 @@ fn create_right_actions<'a>(texture_creator: &'a TextureCreator<WindowContext>) 
     let block_size = surface.pitch() / width;
 
     surface.with_lock_mut(|data| {
-        let (src_x, src_y) = STANDING_LEFT;
-        let (dest_x, dest_y) = STANDING_RIGHT;
+        let left = &actions_standing[Direction::Left as usize];
+        let (src_x, src_y) = (left.x, left.y);
+        let right = &actions_standing[Direction::Right as usize];
+        let (dest_x, dest_y) = (right.x, right.y);
 
-        for y in 0..TILE_HEIGHT {
-            for x in 0..TILE_WIDTH {
+        for y in 0..left.height() {
+            for x in 0..left.width() {
                 for tmp in 0..block_size {
                     let dest = tmp
-                        + (TILE_WIDTH - x + dest_x as u32 - 6) * block_size
+                        + (left.width() - x + dest_x as u32 - 6) * block_size
                         + (y + dest_y as u32) * width * block_size;
                     let src = tmp
                         + (x + src_x as u32) * block_size
@@ -107,11 +85,14 @@ fn create_right_actions<'a>(texture_creator: &'a TextureCreator<WindowContext>) 
                 }
             }
         }
-        let (src_x, src_y) = LEFT_MOVE;
-        let (dest_x, dest_y) = RIGHT_MOVE;
-        let max = 10 * INCR as u32 - (INCR as u32 - TILE_WIDTH);
+        let (left, incr) = &actions_moving[Direction::Left as usize];
+        let (src_x, src_y) = (left.x, left.y);
+        let (right, _) = &actions_moving[Direction::Right as usize];
+        let (dest_x, dest_y) = (right.x, right.y);
+        let max = 10 * *incr - (*incr - left.width() as i32);
+        let max = max as u32;
 
-        for y in 0..TILE_HEIGHT {
+        for y in 0..left.height() {
             for x in 0..max {
                 for tmp in 0..block_size {
                     let dest = tmp
@@ -173,25 +154,25 @@ fn draw_in_map(
     true
 }
 
-fn handle_move(player: &mut Character, dir: Direction) {
-    if player.action.movement.is_none() {
-        player.action.direction = dir;
-        player.action.movement = Some(0);
-        player.is_running = player.is_run_pressed && player.stamina > 0;
-    } else if player.action.secondary.is_none() && dir != player.action.direction {
-        player.action.secondary = Some(dir);
+fn handle_move(player: &mut Player, dir: Direction) {
+    if player.character.action.movement.is_none() {
+        player.character.action.direction = dir;
+        player.character.action.movement = Some(0);
+        player.is_running = player.is_run_pressed && player.character.stamina > 0;
+    } else if player.character.action.secondary.is_none() && dir != player.character.action.direction {
+        player.character.action.secondary = Some(dir);
     }
 }
 
-fn handle_release(player: &mut Character, dir: Direction) {
-    if Some(dir) == player.action.secondary {
-        player.action.secondary = None;
-    } else if dir == player.action.direction {
-        if let Some(second) = player.action.secondary.take() {
-            player.action.movement = Some(0);
-            player.action.direction = second;
+fn handle_release(player: &mut Player, dir: Direction) {
+    if Some(dir) == player.character.action.secondary {
+        player.character.action.secondary = None;
+    } else if dir == player.character.action.direction {
+        if let Some(second) = player.character.action.secondary.take() {
+            player.character.action.movement = Some(0);
+            player.character.action.direction = second;
         } else {
-            player.action.movement = None;
+            player.character.action.movement = None;
             player.is_running = false;
         }
     }
@@ -249,24 +230,24 @@ impl<'a> Map<'a> {
         }
     }
 
-    fn draw(&self, player: &Character, canvas: &mut Canvas<Window>) {
-        let x = player.x - self.x - WIDTH as i32 / 2;
-        let y = player.y - self.y - HEIGHT as i32 / 2;
+    fn draw(&self, canvas: &mut Canvas<Window>, screen: &Rect) {
+        let x = screen.x - self.x;
+        let y = screen.y - self.y;
         let (s_x, pos_x, width) = if x < 0 {
-            (0, x * -1, (WIDTH as i32 + x) as u32)
-        } else if x + WIDTH as i32 > MAP_SIZE as i32 * 8 {
-            let sub = WIDTH as i32 - (WIDTH as i32 + x - MAP_SIZE as i32 * 8);
+            (0, x * -1, (screen.width() as i32 + x) as u32)
+        } else if x + screen.width() as i32 > MAP_SIZE as i32 * 8 {
+            let sub = screen.width() as i32 - (screen.width() as i32 + x - MAP_SIZE as i32 * 8);
             (x, 0, sub as u32)
         } else {
-            (x, 0, WIDTH)
+            (x, 0, screen.width() as u32)
         };
         let (s_y, pos_y, height) = if y < 0 {
-            (0, y * -1, (HEIGHT as i32 + y) as u32)
-        } else if y + HEIGHT as i32 > MAP_SIZE as i32 * 8 {
-            let sub = HEIGHT as i32 - (HEIGHT as i32 + y - MAP_SIZE as i32 * 8);
+            (0, y * -1, (screen.height() as i32 + y) as u32)
+        } else if y + screen.height() as i32 > MAP_SIZE as i32 * 8 {
+            let sub = screen.height() as i32 - (screen.height() as i32 + y - MAP_SIZE as i32 * 8);
             (y, 0, sub as u32)
         } else {
-            (y, 0, HEIGHT)
+            (y, 0, screen.height())
         };
         canvas
             .copy(
@@ -276,6 +257,36 @@ impl<'a> Map<'a> {
             )
             .expect("copy map failed");
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct Dimension {
+    rect: Rect,
+    incr_to_next: i32,
+}
+
+impl Dimension {
+    fn new(rect: Rect, incr_to_next: i32) -> Dimension {
+        Dimension {
+            rect,
+            incr_to_next,
+        }
+    }
+}
+
+impl Deref for Dimension {
+    type Target = Rect;
+
+    fn deref(&self) -> &Self::Target {
+        &self.rect
+    }
+}
+
+struct TextureHandler<'a> {
+    texture: Texture<'a>,
+    actions_standing: Vec<Dimension>,
+    /// The second element is the number of "animations".
+    actions_moving: Vec<(Dimension, i32)>,
 }
 
 struct Character<'a> {
@@ -290,46 +301,24 @@ struct Character<'a> {
     stamina: u32,
     xp_to_next_level: u32,
     xp: u32,
-    is_running: bool,
-    is_run_pressed: bool,
-    texture: Texture<'a>,
+    texture_handler: TextureHandler<'a>,
 }
 
 impl<'a> Character<'a> {
-    fn new(texture_creator: &'a TextureCreator<WindowContext>) -> Character<'a> {
-        let texture = create_right_actions(&texture_creator);
-
-        Character {
-            action: Action {
-                direction: Direction::Front,
-                secondary: None,
-                movement: None,
-            },
-            x: 0,
-            y: 0,
-            total_health: 100,
-            health: 75,
-            total_mana: 100,
-            mana: 20,
-            total_stamina: 100,
-            stamina: 100,
-            xp_to_next_level: 1000,
-            xp: 150,
-            is_running: false,
-            is_run_pressed: false,
-            texture,
-        }
-    }
     fn move_result(&self, dir: Direction) -> ((i32, i32), (i32, i32)) {
+        let (info, _) = &self.texture_handler.actions_moving[dir as usize];
         match dir {
-            Direction::Front => ((0, 0), (TILE_HEIGHT as i32 / 2, 1)),
-            Direction::Back => ((0, 0), (TILE_HEIGHT as i32 / -4, -1)),
-            Direction::Left => ((TILE_WIDTH as i32 / -2, -1), (0, 0)),
-            Direction::Right => ((TILE_WIDTH as i32 / 2, 1), (0, 0)),
+            Direction::Front => ((0, 0), (info.height() as i32 / 2, 1)),
+            Direction::Back => ((0, 0), (info.height() as i32 / -4, -1)),
+            Direction::Left => ((info.width() as i32 / -2, -1), (0, 0)),
+            Direction::Right => ((info.width() as i32 / 2, 1), (0, 0)),
         }
     }
 
     fn inner_apply_move(&mut self, map: &Map) -> bool {
+        if self.action.movement.is_none() {
+            return false;
+        }
         let ((mut x, mut x_add), (mut y, mut y_add)) = self.move_result(self.action.direction);
         if let Some(second) = self.action.secondary {
             let ((tmp_x, tmp_x_add), (tmp_y, tmp_y_add)) = self.move_result(second);
@@ -364,35 +353,19 @@ impl<'a> Character<'a> {
         true
     }
 
-    fn apply_move(&mut self, map: &Map) {
-        if self.action.movement.is_none() {
+    fn draw(&mut self, canvas: &mut Canvas<Window>, is_running: bool, screen: &Rect) {
+        let (tile_x, tile_y, tile_width, tile_height) =
+            self.action.get_current(is_running, &self.texture_handler);
+        if (self.x + tile_width < screen.x || self.x > screen.x + screen.width() as i32) &&
+            (self.y + tile_height < screen.y || self.y > screen.y + screen.height() as i32) {
+            // No need to draw if we don't see the character.
             return;
         }
-        if !self.inner_apply_move(map) {
-            return;
-        }
-        if self.is_running {
-            self.inner_apply_move(map);
-            if self.stamina > 0 {
-                self.stamina -= 1;
-                if self.stamina == 0 {
-                    self.is_running = false;
-                }
-            }
-        } else if self.stamina < self.total_stamina {
-            self.stamina += 1;
-        }
-    }
-
-    fn draw(&mut self, canvas: &mut Canvas<Window>) {
-        let width = WIDTH / 2 - TILE_WIDTH / 2;
-        let height = HEIGHT / 2 - TILE_HEIGHT / 2;
-        let (x, y) = self.action.get_current(self.is_running);
         canvas
             .copy(
-                &self.texture,
-                Rect::new(x, y, TILE_WIDTH, TILE_HEIGHT),
-                Rect::new(width as _, height as _, TILE_WIDTH, TILE_HEIGHT),
+                &self.texture_handler.texture,
+                Rect::new(tile_x, tile_y, tile_width as u32, tile_height as u32),
+                Rect::new(self.x - screen.x, self.y - screen.y, tile_width as u32, tile_height as u32),
             )
             .expect("copy character failed");
 
@@ -404,6 +377,96 @@ impl<'a> Character<'a> {
                 self.stamina += 1;
             }
             return;
+        }
+    }
+}
+
+struct Player<'a> {
+    character: Character<'a>,
+    is_running: bool,
+    is_run_pressed: bool,
+}
+
+impl<'a> Player<'a> {
+    fn new(texture_creator: &'a TextureCreator<WindowContext>) -> Player<'a> {
+        let tile_width = 23;
+        let tile_height = 23;
+        let mut actions_standing = Vec::with_capacity(4);
+        actions_standing.push(
+            Dimension::new(Rect::new(15, 9, tile_width, tile_height), 0),
+        );
+        actions_standing.push(
+            Dimension::new(Rect::new(51, 9, tile_width, tile_height), 0),
+        );
+        actions_standing.push(
+            Dimension::new(Rect::new(100, 9, tile_width, tile_height), 0),
+        );
+        actions_standing.push(
+            Dimension::new(Rect::new(78, 9, tile_width, tile_height), 0),
+        );
+        let mut actions_moving = Vec::with_capacity(4);
+        actions_moving.push(
+            (Dimension::new(Rect::new(15, 77, tile_width, tile_height), 32), 10),
+        );
+        actions_moving.push(
+            (Dimension::new(Rect::new(350, 77, tile_width, tile_height), 32), 10),
+        );
+        actions_moving.push(
+            (Dimension::new(Rect::new(350, 50, tile_width, tile_height), 32), 10),
+        );
+        actions_moving.push(
+            (Dimension::new(Rect::new(683, 77, tile_width, tile_height), 32), 10),
+        );
+        let texture = create_right_actions(&texture_creator, &actions_standing, &actions_moving);
+        let texture_handler = TextureHandler {
+            texture,
+            actions_standing,
+            actions_moving,
+        };
+
+        Player {
+            character: Character {
+                action: Action {
+                    direction: Direction::Front,
+                    secondary: None,
+                    movement: None,
+                },
+                x: 0,
+                y: 0,
+                total_health: 100,
+                health: 75,
+                total_mana: 100,
+                mana: 20,
+                total_stamina: 100,
+                stamina: 100,
+                xp_to_next_level: 1000,
+                xp: 150,
+                texture_handler,
+            },
+            is_running: false,
+            is_run_pressed: false,
+        }
+    }
+
+    fn draw(&mut self, canvas: &mut Canvas<Window>, screen: &Rect) {
+        self.character.draw(canvas, self.is_running, screen)
+    }
+
+    fn apply_move(&mut self, map: &Map) {
+        if self.character.inner_apply_move(map) {
+            if self.is_running {
+                self.character.inner_apply_move(map);
+                if self.character.stamina > 0 {
+                    self.character.stamina -= 1;
+                    if self.character.stamina == 0 {
+                        self.is_running = false;
+                    }
+                }
+                return;
+            }
+        }
+        if self.character.stamina < self.character.total_stamina {
+            self.character.stamina += 1;
         }
     }
 }
@@ -470,10 +533,10 @@ impl<'a> HUD<'a> {
         }
     }
 
-    fn draw(&self, player: &Character, canvas: &mut Canvas<Window>) {
+    fn draw(&self, player: &Player, canvas: &mut Canvas<Window>) {
         macro_rules! draw_bar {
             ($total:ident, $current:ident, $height:expr, $name:expr, $y:expr, $texture:ident) => {{
-                let show = 144 * player.$current / player.$total;
+                let show = 144 * player.character.$current / player.character.$total;
                 canvas
                     .copy(
                         &self.$texture,
@@ -507,7 +570,7 @@ pub fn main() {
     let video_subsystem = sdl_context.video().expect("failed to get video context");
 
     let window = video_subsystem
-        .window("toy game", WIDTH, HEIGHT)
+        .window("toy game", WIDTH as u32, HEIGHT as u32)
         .position_centered()
         .build()
         .expect("failed to build window");
@@ -522,8 +585,14 @@ pub fn main() {
 
     let mut event_pump = sdl_context.event_pump().expect("failed to get event pump");
     let map = Map::new(&texture_creator, &mut rng);
-    let mut player = Character::new(&texture_creator);
+    let mut player = Player::new(&texture_creator);
     let hud = HUD::new(&texture_creator);
+    let mut screen = Rect::new(
+        player.character.x - WIDTH / 2,
+        player.character.y - HEIGHT / 2,
+        WIDTH as u32,
+        HEIGHT as u32,
+    );
 
     'running: loop {
         for event in event_pump.poll_iter() {
@@ -539,7 +608,7 @@ pub fn main() {
                     Keycode::Down => handle_move(&mut player, Direction::Front),
                     Keycode::LShift => {
                         player.is_run_pressed = true;
-                        player.is_running = player.action.movement.is_some();
+                        player.is_running = player.character.action.movement.is_some();
                     }
                     _ => {}
                 },
@@ -567,9 +636,12 @@ pub fn main() {
         canvas.present();
         canvas.clear();
 
-        map.draw(&player, &mut canvas);
         player.apply_move(&map);
-        player.draw(&mut canvas);
+        // For now, the screen follows the player.
+        screen.x = player.character.x - WIDTH / 2;
+        screen.y = player.character.y - HEIGHT / 2;
+        map.draw(&mut canvas, &screen);
+        player.draw(&mut canvas, &screen);
         hud.draw(&player, &mut canvas);
 
         ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
