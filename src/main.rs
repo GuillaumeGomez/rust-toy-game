@@ -1,6 +1,7 @@
 extern crate sdl2;
 
-use rand::{self, rngs::ThreadRng, Rng};
+use rand_chacha::ChaCha8Rng;
+use rand::{Rng, SeedableRng};
 use sdl2::event::Event;
 use sdl2::image;
 use sdl2::image::LoadSurface;
@@ -12,6 +13,8 @@ use sdl2::surface::Surface;
 use sdl2::video::{Window, WindowContext};
 
 use std::time::Duration;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
 const TILE_WIDTH: u32 = 23;
 const TILE_HEIGHT: u32 = 23;
@@ -132,7 +135,7 @@ fn draw_in_map(
     map: &mut [u8],
     surface_map: &mut Surface,
     surface: &Surface,
-    rng: &mut ThreadRng,
+    rng: &mut ChaCha8Rng,
     value: u8,
 ) -> bool {
     let pos: u32 = rng.gen::<u32>() % (MAP_SIZE * MAP_SIZE - 1);
@@ -202,7 +205,7 @@ struct Map<'a> {
 }
 
 impl<'a> Map<'a> {
-    fn new(texture_creator: &'a TextureCreator<WindowContext>) -> Map<'a> {
+    fn new(texture_creator: &'a TextureCreator<WindowContext>, rng: &mut ChaCha8Rng) -> Map<'a> {
         let tree =
             Surface::from_file("resources/tree.png").expect("failed to load `resources/tree.png`");
         let bush =
@@ -219,12 +222,10 @@ impl<'a> Map<'a> {
 
         let mut map = vec![0; (MAP_SIZE * MAP_SIZE) as usize];
 
-        let mut rng = rand::thread_rng();
-
         // We first create trees
         for _ in 0..200 {
             loop {
-                if draw_in_map(&mut map, &mut surface_map, &tree, &mut rng, 1) {
+                if draw_in_map(&mut map, &mut surface_map, &tree, rng, 1) {
                     break;
                 }
             }
@@ -232,7 +233,7 @@ impl<'a> Map<'a> {
         // We then create bushes
         for _ in 0..500 {
             loop {
-                if draw_in_map(&mut map, &mut surface_map, &bush, &mut rng, 2) {
+                if draw_in_map(&mut map, &mut surface_map, &bush, rng, 2) {
                     break;
                 }
             }
@@ -497,12 +498,16 @@ impl<'a> HUD<'a> {
 }
 
 pub fn main() {
+    let mut hasher = DefaultHasher::new();
+    "hello!".hash(&mut hasher);
+    let mut rng = ChaCha8Rng::seed_from_u64(hasher.finish());
+
     let sdl_context = sdl2::init().expect("failed to init SDL");
     let _sdl_img_context = image::init(image::InitFlag::PNG).expect("failed to init SDL image");
     let video_subsystem = sdl_context.video().expect("failed to get video context");
 
     let window = video_subsystem
-        .window("sdl2 demo", WIDTH, HEIGHT)
+        .window("toy game", WIDTH, HEIGHT)
         .position_centered()
         .build()
         .expect("failed to build window");
@@ -516,7 +521,7 @@ pub fn main() {
     let texture_creator = canvas.texture_creator();
 
     let mut event_pump = sdl_context.event_pump().expect("failed to get event pump");
-    let map = Map::new(&texture_creator);
+    let map = Map::new(&texture_creator, &mut rng);
     let mut player = Character::new(&texture_creator);
     let hud = HUD::new(&texture_creator);
 

@@ -6,4 +6,5 @@ edition = "2018"
 
 [dependencies]
 sdl2 = { version = "0.33", features = ["image"] }
+rand_chacha = "0.2"
 rand = "0.7"
