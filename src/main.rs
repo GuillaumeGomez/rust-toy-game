@@ -20,6 +20,7 @@ use std::ops::Deref;
 const WIDTH: i32 = 800;
 const HEIGHT: i32 = 600;
 const MAP_SIZE: u32 = 1_000;
+const SPRIT_MAX_SIZE: u32 = 32;
 
 #[derive(Copy, Clone, PartialEq, Hash, Debug)]
 #[repr(usize)]
@@ -76,7 +77,7 @@ fn create_right_actions<'a>(
             for x in 0..left.width() {
                 for tmp in 0..block_size {
                     let dest = tmp
-                        + (left.width() - x + dest_x as u32 - 6) * block_size
+                        + (left.width() - x + dest_x as u32 - 1) * block_size
                         + (y + dest_y as u32) * width * block_size;
                     let src = tmp
                         + (x + src_x as u32) * block_size
@@ -85,23 +86,26 @@ fn create_right_actions<'a>(
                 }
             }
         }
-        let (left, incr) = &actions_moving[Direction::Left as usize];
+        let (left, _) = &actions_moving[Direction::Left as usize];
         let (src_x, src_y) = (left.x, left.y);
         let (right, _) = &actions_moving[Direction::Right as usize];
         let (dest_x, dest_y) = (right.x, right.y);
-        let max = 10 * *incr - (*incr - left.width() as i32);
-        let max = max as u32;
 
-        for y in 0..left.height() {
-            for x in 0..max {
-                for tmp in 0..block_size {
-                    let dest = tmp
-                        + (max - x + dest_x as u32 - 4) * block_size
-                        + (y + dest_y as u32) * width * block_size;
-                    let src = tmp
-                        + (x + src_x as u32) * block_size
-                        + (y + src_y as u32) * width * block_size;
-                    data[dest as usize] = data[src as usize];
+        for step in 0..10 {
+            for y in 0..left.height() {
+                for x in 0..left.width() {
+                    for tmp in 0..block_size {
+                        let step_padding = step * SPRIT_MAX_SIZE;
+                        let dest = tmp
+                            + step_padding
+                            + (left.width() - x + dest_x as u32 - 1) * block_size
+                            + (y + dest_y as u32) * width * block_size;
+                        let src = tmp
+                            + step_padding
+                            + (x + src_x as u32) * block_size
+                            + (y + src_y as u32) * width * block_size;
+                        data[dest as usize] = data[src as usize];
+                    }
                 }
             }
         }
@@ -406,16 +410,16 @@ impl<'a> Player<'a> {
         );
         let mut actions_moving = Vec::with_capacity(4);
         actions_moving.push(
-            (Dimension::new(Rect::new(15, 77, tile_width, tile_height), 32), 10),
+            (Dimension::new(Rect::new(15, 77, tile_width, tile_height), SPRIT_MAX_SIZE as i32), 10),
         );
         actions_moving.push(
-            (Dimension::new(Rect::new(350, 77, tile_width, tile_height), 32), 10),
+            (Dimension::new(Rect::new(350, 77, tile_width, tile_height), SPRIT_MAX_SIZE as i32), 10),
         );
         actions_moving.push(
-            (Dimension::new(Rect::new(350, 50, tile_width, tile_height), 32), 10),
+            (Dimension::new(Rect::new(350, 50, tile_width, tile_height), SPRIT_MAX_SIZE as i32), 10),
         );
         actions_moving.push(
-            (Dimension::new(Rect::new(683, 77, tile_width, tile_height), 32), 10),
+            (Dimension::new(Rect::new(683, 77, tile_width, tile_height), SPRIT_MAX_SIZE as i32), 10),
         );
         let texture = create_right_actions(&texture_creator, &actions_standing, &actions_moving);
         let texture_handler = TextureHandler {
@@ -499,16 +503,16 @@ impl<'a> Enemy<'a> {
         let tile_width = 1;
         let tile_height = 1;
         actions_moving.push(
-            (Dimension::new(Rect::new(15, 77, tile_width, tile_height), 32), 10),
+            (Dimension::new(Rect::new(15, 77, tile_width, tile_height), SPRIT_MAX_SIZE as i32), 10),
         );
         actions_moving.push(
-            (Dimension::new(Rect::new(350, 77, tile_width, tile_height), 32), 10),
+            (Dimension::new(Rect::new(350, 77, tile_width, tile_height), SPRIT_MAX_SIZE as i32), 10),
         );
         actions_moving.push(
-            (Dimension::new(Rect::new(350, 50, tile_width, tile_height), 32), 10),
+            (Dimension::new(Rect::new(350, 50, tile_width, tile_height), SPRIT_MAX_SIZE as i32), 10),
         );
         actions_moving.push(
-            (Dimension::new(Rect::new(683, 77, tile_width, tile_height), 32), 10),
+            (Dimension::new(Rect::new(683, 77, tile_width, tile_height), SPRIT_MAX_SIZE as i32), 10),
         );
 
         let mut surface =
