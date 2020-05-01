@@ -39,26 +39,26 @@ fn create_right_actions<'a>(
                 }
             }
         }
-        let (left, incr) = &actions_moving[Direction::Left as usize];
-        let (src_x, src_y) = (left.x, left.y);
-        let (right, _) = &actions_moving[Direction::Right as usize];
-        let (dest_x, dest_y) = (right.x, right.y);
-        let max = 10 * *incr - (*incr - left.width() as i32);
-        let max = max as u32;
+        // let (left, incr) = &actions_moving[Direction::Left as usize];
+        // let (src_x, src_y) = (left.x, left.y);
+        // let (right, _) = &actions_moving[Direction::Right as usize];
+        // let (dest_x, dest_y) = (right.x, right.y);
+        // let max = 10 * *incr - (*incr - left.width() as i32);
+        // let max = max as u32;
 
-        for y in 0..left.height() {
-            for x in 0..max {
-                for tmp in 0..block_size {
-                    let dest = tmp
-                        + (max - x + dest_x as u32 - 4) * block_size
-                        + (y + dest_y as u32) * width * block_size;
-                    let src = tmp
-                        + (x + src_x as u32) * block_size
-                        + (y + src_y as u32) * width * block_size;
-                    data[dest as usize] = data[src as usize];
-                }
-            }
-        }
+        // for y in 0..left.height() {
+        //     for x in 0..max {
+        //         for tmp in 0..block_size {
+        //             let dest = tmp
+        //                 + (max - x + dest_x as u32 - 4) * block_size
+        //                 + (y + dest_y as u32) * width * block_size;
+        //             let src = tmp
+        //                 + (x + src_x as u32) * block_size
+        //                 + (y + src_y as u32) * width * block_size;
+        //             data[dest as usize] = data[src as usize];
+        //         }
+        //     }
+        // }
     });
 
     texture_creator
@@ -97,7 +97,7 @@ impl<'a> Player<'a> {
             (Dimension::new(Rect::new(350, 77, tile_width, tile_height), 32), 10),
         );
         actions_moving.push(
-            (Dimension::new(Rect::new(350, 50, tile_width, tile_height), 32), 10),
+            (Dimension::new(Rect::new(346, 44, tile_width, tile_height), 32), 10),
         );
         actions_moving.push(
             (Dimension::new(Rect::new(683, 77, tile_width, tile_height), 32), 10),
