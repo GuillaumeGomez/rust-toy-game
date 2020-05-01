@@ -81,7 +81,7 @@ pub fn main() {
     let mut event_pump = sdl_context.event_pump().expect("failed to get event pump");
     let map = Map::new(&texture_creator, &mut rng);
     let mut player = Player::new(&texture_creator, 0, 0);
-    let mut enemy = Enemy::new(&texture_creator, 140, 140);
+    let mut enemy = Enemy::new(&texture_creator, -40, -40);
     let hud = HUD::new(&texture_creator);
     let mut screen = Rect::new(
         player.character.x - WIDTH / 2,
