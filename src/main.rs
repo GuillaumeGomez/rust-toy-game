@@ -12,7 +12,7 @@ use sdl2::render::{Canvas, Texture, TextureCreator};
 use sdl2::surface::Surface;
 use sdl2::video::{Window, WindowContext};
 
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
@@ -20,6 +20,7 @@ use std::ops::Deref;
 const WIDTH: i32 = 800;
 const HEIGHT: i32 = 600;
 const MAP_SIZE: u32 = 1_000;
+const FRAME_DELAY : u32 = 1_000_000_000u32 / 60;
 
 #[derive(Copy, Clone, PartialEq, Hash, Debug)]
 #[repr(usize)]
@@ -679,6 +680,7 @@ pub fn main() {
         HEIGHT as u32,
     );
 
+    let mut loop_timer = Instant::now();
     'running: loop {
         for event in event_pump.poll_iter() {
             match event {
@@ -730,6 +732,10 @@ pub fn main() {
         player.draw(&mut canvas, &screen);
         hud.draw(&player, &mut canvas);
 
-        ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
+        let elapsed_time = loop_timer.elapsed();
+        if elapsed_time.as_nanos() < FRAME_DELAY as u128 {
+            ::std::thread::sleep(Duration::new(0, FRAME_DELAY - elapsed_time.as_nanos() as u32));
+        }
+        loop_timer = Instant::now();
     }
 }
