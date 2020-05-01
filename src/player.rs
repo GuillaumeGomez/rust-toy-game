@@ -4,15 +4,15 @@ use sdl2::render::{Canvas, Texture, TextureCreator};
 use sdl2::surface::Surface;
 use sdl2::video::{Window, WindowContext};
 
-use crate::{Action, Direction};
-use crate::character::Character;
+use crate::{GetDimension, GetPos};
+use crate::character::{Action, Character, Direction};
 use crate::map::Map;
 use crate::texture_handler::{Dimension, TextureHandler};
 
 fn create_right_actions<'a>(
     texture_creator: &'a TextureCreator<WindowContext>,
     actions_standing: &[Dimension],
-    actions_moving: &[(Dimension, i32)],
+    _actions_moving: &[(Dimension, i32)],
 ) -> Texture<'a> {
     let mut surface =
         Surface::from_file("resources/zelda.png").expect("failed to load `resources/zelda.png`");
@@ -157,5 +157,24 @@ impl<'a> Player<'a> {
                 self.is_running = false;
             }
         }
+    }
+}
+
+impl<'a> GetPos for Player<'a> {
+    fn x(&self) -> i32 {
+        self.character.x
+    }
+
+    fn y(&self) -> i32 {
+        self.character.y
+    }
+}
+
+impl<'a> GetDimension for Player<'a> {
+    fn width(&self) -> u32 {
+        self.character.width()
+    }
+    fn height(&self) -> u32 {
+        self.character.height()
     }
 }

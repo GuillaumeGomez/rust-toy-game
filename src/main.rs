@@ -20,50 +20,39 @@ mod hud;
 mod map;
 mod player;
 mod texture_handler;
+mod utils;
 
+use character::Direction;
 use enemy::Enemy;
 use hud::HUD;
 use map::Map;
 use player::Player;
-use texture_handler::TextureHandler;
 
 pub const WIDTH: i32 = 800;
 pub const HEIGHT: i32 = 600;
 pub const MAP_SIZE: u32 = 1_000;
-pub const FRAME_DELAY: u32 = 1_000_000_000u32 / 60;
+pub const FRAME_DELAY: u32 = 1_000_000_000 / 60;
+pub const MAX_DISTANCE_DETECTION: i32 = 200;
+pub const MAX_DISTANCE_PURSUIT: i32 = 300;
+pub const MAX_DISTANCE_WANDERING: i32 = 300;
 
-#[derive(Copy, Clone, PartialEq, Hash, Debug)]
-#[repr(usize)]
-pub enum Direction {
-    Front = 0,
-    Left = 1,
-    Right = 2,
-    Back = 3,
+pub trait GetPos {
+    fn x(&self) -> i32;
+    fn y(&self) -> i32;
 }
 
-#[derive(Copy, Clone, PartialEq, Hash, Debug)]
-pub struct Action {
-    direction: Direction,
-    secondary: Option<Direction>,
-    movement: Option<u64>,
-}
-
-impl Action {
-    /// Returns `(x, y, width, height)`.
-    pub fn get_current(&self, is_running: bool, textures: &TextureHandler<'_>) -> (i32, i32, i32, i32) {
-        if let Some(ref pos) = self.movement {
-            let (info, nb_animations) = &textures.actions_moving[self.direction as usize];
-            let pos = if is_running {
-                (pos % 30) as i32 / (30 / nb_animations)
-            } else {
-                (pos % 60) as i32 / (60 / nb_animations)
-            };
-            (pos * info.incr_to_next + info.x, info.y, info.width() as i32, info.height() as i32)
-        } else {
-            let info = &textures.actions_standing[self.direction as usize];
-            (info.x, info.y, info.width() as i32, info.height() as i32)
-        }
+impl GetPos for (i32, i32) {
+    fn x(&self) -> i32 {
+        self.0
     }
+    fn y(&self) -> i32 {
+        self.1
+    }
+}
+
+pub trait GetDimension {
+    fn width(&self) -> u32;
+    fn height(&self) -> u32;
 }
 
 pub fn main() {
@@ -92,7 +81,7 @@ pub fn main() {
     let mut event_pump = sdl_context.event_pump().expect("failed to get event pump");
     let map = Map::new(&texture_creator, &mut rng);
     let mut player = Player::new(&texture_creator, 0, 0);
-    let mut enemy = Enemy::new(&texture_creator, 50, 20);
+    let mut enemy = Enemy::new(&texture_creator, 140, 140);
     let hud = HUD::new(&texture_creator);
     let mut screen = Rect::new(
         player.character.x - WIDTH / 2,
@@ -145,6 +134,7 @@ pub fn main() {
         canvas.clear();
 
         player.apply_move(&map);
+        enemy.update(&player, &map);
         // For now, the screen follows the player.
         screen.x = player.character.x - WIDTH / 2;
         screen.y = player.character.y - HEIGHT / 2;

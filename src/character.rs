@@ -2,9 +2,43 @@ use sdl2::rect::Rect;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
 
-use crate::{Action, Direction, MAP_SIZE};
+use crate::{GetDimension, MAP_SIZE};
 use crate::map::Map;
 use crate::texture_handler::TextureHandler;
+
+#[derive(Copy, Clone, PartialEq, Hash, Debug)]
+#[repr(usize)]
+pub enum Direction {
+    Front = 0,
+    Left = 1,
+    Right = 2,
+    Back = 3,
+}
+
+#[derive(Copy, Clone, PartialEq, Hash, Debug)]
+pub struct Action {
+    pub direction: Direction,
+    pub secondary: Option<Direction>,
+    pub movement: Option<u64>,
+}
+
+impl Action {
+    /// Returns `(x, y, width, height)`.
+    pub fn compute_current(&self, is_running: bool, textures: &TextureHandler<'_>) -> (i32, i32, i32, i32) {
+        if let Some(ref pos) = self.movement {
+            let (info, nb_animations) = &textures.actions_moving[self.direction as usize];
+            let pos = if is_running {
+                (pos % 30) as i32 / (30 / nb_animations)
+            } else {
+                (pos % 60) as i32 / (60 / nb_animations)
+            };
+            (pos * info.incr_to_next + info.x, info.y, info.width() as i32, info.height() as i32)
+        } else {
+            let info = &textures.actions_standing[self.direction as usize];
+            (info.x, info.y, info.width() as i32, info.height() as i32)
+        }
+    }
+}
 
 pub struct Character<'a> {
     pub action: Action,
@@ -72,7 +106,7 @@ impl<'a> Character<'a> {
 
     pub fn draw(&mut self, canvas: &mut Canvas<Window>, is_running: bool, screen: &Rect) {
         let (tile_x, tile_y, tile_width, tile_height) =
-            self.action.get_current(is_running, &self.texture_handler);
+            self.action.compute_current(is_running, &self.texture_handler);
         if (self.x + tile_width < screen.x || self.x > screen.x + screen.width() as i32) &&
             (self.y + tile_height < screen.y || self.y > screen.y + screen.height() as i32) {
             // No need to draw if we don't see the character.
@@ -94,6 +128,24 @@ impl<'a> Character<'a> {
                 self.stamina += 1;
             }
             return;
+        }
+    }
+}
+
+impl<'a> GetDimension for Character<'a> {
+    fn width(&self) -> u32 {
+        if self.action.movement.is_none() {
+            self.texture_handler.actions_standing[self.action.direction as usize].width()
+        } else {
+            self.texture_handler.actions_moving[self.action.direction as usize].0.width()
+        }
+    }
+
+    fn height(&self) -> u32 {
+        if self.action.movement.is_none() {
+            self.texture_handler.actions_standing[self.action.direction as usize].height()
+        } else {
+            self.texture_handler.actions_moving[self.action.direction as usize].0.height()
         }
     }
 }
