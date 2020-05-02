@@ -101,7 +101,7 @@ pub fn main() {
     let font = ttf_context
         .load_font("resources/kreon-regular.ttf", 16)
         .expect("failed to load `resources/kreon-regular.ttf`");
-    let debug_display = DebugDisplay::new(&font, &texture_creator);
+    let debug_display = DebugDisplay::new(&font, &texture_creator, 16);
     let mut debug = None;
     let mut fps_str = String::new();
 
@@ -184,7 +184,7 @@ pub fn main() {
                 );
                 *debug = 0;
             }
-            debug_display.draw(&mut canvas, &fps_str);
+            debug_display.draw(&mut canvas, &format!("{}\nposition: ({}, {})", fps_str, player.x(), player.y()));
         }
         loop_timer = Instant::now();
     }
