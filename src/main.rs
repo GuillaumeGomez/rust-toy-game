@@ -99,10 +99,10 @@ pub fn main() {
                     keycode: Some(x), ..
                 } => match x {
                     Keycode::Escape => break 'running,
-                    Keycode::Left => player.handle_move(Direction::Left),
-                    Keycode::Right => player.handle_move(Direction::Right),
-                    Keycode::Up => player.handle_move(Direction::Back),
-                    Keycode::Down => player.handle_move(Direction::Front),
+                    Keycode::Left | Keycode::Q => player.handle_move(Direction::Left),
+                    Keycode::Right | Keycode::D => player.handle_move(Direction::Right),
+                    Keycode::Up | Keycode::Z => player.handle_move(Direction::Back),
+                    Keycode::Down | Keycode::S => player.handle_move(Direction::Front),
                     Keycode::LShift => {
                         player.is_run_pressed = true;
                         player.is_running = player.character.action.movement.is_some();
@@ -115,10 +115,10 @@ pub fn main() {
                     match x {
                         // Not complete: if a second direction is pressed, it should then go to this
                         // direction. :)
-                        Keycode::Left => player.handle_release(Direction::Left),
-                        Keycode::Right => player.handle_release(Direction::Right),
-                        Keycode::Up => player.handle_release(Direction::Back),
-                        Keycode::Down => player.handle_release(Direction::Front),
+                        Keycode::Left | Keycode::Q => player.handle_release(Direction::Left),
+                        Keycode::Right | Keycode::D => player.handle_release(Direction::Right),
+                        Keycode::Up | Keycode::Z => player.handle_release(Direction::Back),
+                        Keycode::Down | Keycode::S => player.handle_release(Direction::Front),
                         Keycode::LShift => {
                             player.is_run_pressed = false;
                             player.is_running = false;
