@@ -165,6 +165,15 @@ pub fn main() {
         player.draw(&mut canvas, &screen);
         hud.draw(&player, &mut canvas);
 
+
+        let elapsed_time = loop_timer.elapsed();
+
+        if elapsed_time.as_nanos() < FRAME_DELAY as u128 {
+            ::std::thread::sleep(Duration::new(
+                0,
+                FRAME_DELAY - elapsed_time.as_nanos() as u32,
+            ));
+        }
         if let Some(ref mut debug) = debug {
             *debug += 1;
             if *debug >= FPS_REFRESH {
@@ -176,14 +185,6 @@ pub fn main() {
                 *debug = 0;
             }
             debug_display.draw(&mut canvas, &fps_str);
-        }
-        let elapsed_time = loop_timer.elapsed();
-
-        if elapsed_time.as_nanos() < FRAME_DELAY as u128 {
-            ::std::thread::sleep(Duration::new(
-                0,
-                FRAME_DELAY - elapsed_time.as_nanos() as u32,
-            ));
         }
         loop_timer = Instant::now();
     }
