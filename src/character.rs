@@ -107,7 +107,7 @@ impl<'a> Character<'a> {
         if map_pos < 0 || map_pos as usize >= map.data.len() {
             return false;
         } else if map.data[map_pos as usize] != 0 {
-            println!("/!\\ {:?}", map.data[map_pos as usize]);
+            // println!("/!\\ {:?}", map.data[map_pos as usize]);
             return false;
         }
         self.x += x_add;
