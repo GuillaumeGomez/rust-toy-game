@@ -102,6 +102,8 @@ impl<'a> Character<'a> {
             self.x + x,
             self.y + y
         );
+        // TODO: this check doesn't take into account the full size of the character, meaning it can
+        // go through objects if it has the correct "alignment".
         if map_pos < 0 || map_pos as usize >= map.data.len() {
             return false;
         } else if map.data[map_pos as usize] != 0 {

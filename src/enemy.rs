@@ -151,6 +151,7 @@ impl<'a> Enemy<'a> {
                     x + self.start_x,
                     y + self.start_y
                 );
+                self.character.action.movement = Some(0);
             }
             EnemyAction::MoveTo(x, y) => {
                 if utils::compute_distance(self, &(x, y)) < 20 {
@@ -161,7 +162,7 @@ impl<'a> Enemy<'a> {
                 } else {
                     self.compute_destination(x, y);
                     if !self.character.inner_apply_move(map) {
-                        println!("Enemy cannot move forward");
+                        println!("Enemy cannot move there");
                         self.action = EnemyAction::None;
                         self.character.action.movement = None;
                     } else {
