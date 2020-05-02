@@ -11,10 +11,7 @@ pub struct Dimension {
 
 impl Dimension {
     pub fn new(rect: Rect, incr_to_next: i32) -> Dimension {
-        Dimension {
-            rect,
-            incr_to_next,
-        }
+        Dimension { rect, incr_to_next }
     }
 }
 

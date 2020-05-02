@@ -47,7 +47,13 @@ impl<'a> HUD<'a> {
             .create_texture_from_surface(bars)
             .expect("failed to build texture from bars surface");
 
-        let health_bar = create_bar("health bar", 144, 4, Color::RGB(247, 0, 43), texture_creator);
+        let health_bar = create_bar(
+            "health bar",
+            144,
+            4,
+            Color::RGB(247, 0, 43),
+            texture_creator,
+        );
         let mana_bar = create_bar("mana bar", 144, 4, Color::RGB(0, 153, 207), texture_creator);
         let stamina_bar = create_bar(
             "stamina bar",

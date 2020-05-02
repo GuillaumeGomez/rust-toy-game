@@ -5,12 +5,12 @@ use sdl2::render::{Canvas, TextureCreator};
 use sdl2::surface::Surface;
 use sdl2::video::{Window, WindowContext};
 
-use crate::{GetDimension, GetPos, MAX_DISTANCE_PURSUIT, MAX_DISTANCE_WANDERING};
 use crate::character::{Action, Character, Direction};
 use crate::map::Map;
 use crate::player::Player;
 use crate::texture_handler::{Dimension, TextureHandler};
 use crate::utils;
+use crate::{GetDimension, GetPos, MAX_DISTANCE_PURSUIT, MAX_DISTANCE_WANDERING};
 
 // TODO: for moveto and movetoplayer, add "nodes" after a little path finding to go around obstacles
 #[derive(Clone, Copy)]
@@ -35,37 +35,21 @@ impl<'a> Enemy<'a> {
         let mut actions_standing = Vec::with_capacity(4);
 
         // front
-        actions_standing.push(
-            Dimension::new(Rect::new(0, 73, 28, 36), 0),
-        );
+        actions_standing.push(Dimension::new(Rect::new(0, 73, 28, 36), 0));
         // left
-        actions_standing.push(
-            Dimension::new(Rect::new(0, 42, 37, 31), 0),
-        );
+        actions_standing.push(Dimension::new(Rect::new(0, 42, 37, 31), 0));
         // right
-        actions_standing.push(
-            Dimension::new(Rect::new(0, 115, 37, 31), 0),
-        );
+        actions_standing.push(Dimension::new(Rect::new(0, 115, 37, 31), 0));
         // back
-        actions_standing.push(
-            Dimension::new(Rect::new(0, 3, 29, 37), 0),
-        );
+        actions_standing.push(Dimension::new(Rect::new(0, 3, 29, 37), 0));
         let mut actions_moving = Vec::with_capacity(4);
-        actions_moving.push(
-            (Dimension::new(Rect::new(0, 73, 28, 36), 32), 1),
-        );
-        actions_moving.push(
-            (Dimension::new(Rect::new(0, 42, 37, 31), 32), 1),
-        );
-        actions_moving.push(
-            (Dimension::new(Rect::new(0, 115, 37, 31), 32), 1),
-        );
-        actions_moving.push(
-            (Dimension::new(Rect::new(0, 3, 29, 37), 32), 1),
-        );
+        actions_moving.push((Dimension::new(Rect::new(0, 73, 28, 36), 32), 1));
+        actions_moving.push((Dimension::new(Rect::new(0, 42, 37, 31), 32), 1));
+        actions_moving.push((Dimension::new(Rect::new(0, 115, 37, 31), 32), 1));
+        actions_moving.push((Dimension::new(Rect::new(0, 3, 29, 37), 32), 1));
 
-        let surface =
-            Surface::from_file("resources/enemy1.png").expect("failed to load `resources/enemy1.png`");
+        let surface = Surface::from_file("resources/enemy1.png")
+            .expect("failed to load `resources/enemy1.png`");
 
         let texture = texture_creator
             .create_texture_from_surface(surface)
@@ -148,9 +132,9 @@ impl<'a> Enemy<'a> {
     pub fn update(&mut self, player: &Player, map: &Map) {
         let distance = utils::compute_distance(player, self);
         match self.action {
-            EnemyAction::None
-            | EnemyAction::MoveTo(..)
-            if distance < (::std::cmp::min(self.height(), self.width()) * 2) as i32 => {
+            EnemyAction::None | EnemyAction::MoveTo(..)
+                if distance < (::std::cmp::min(self.height(), self.width()) * 2) as i32 =>
+            {
                 println!("Enemy is gonna chase player!");
                 self.action = EnemyAction::MoveToPlayer;
             }
@@ -162,7 +146,11 @@ impl<'a> Enemy<'a> {
                     y = 20 * if y < 0 { -1 } else { 1 };
                 }
                 self.action = EnemyAction::MoveTo(x + self.start_x, y + self.start_y);
-                println!("Enemy is gonna move to ({} {})", x + self.start_x, y + self.start_y);
+                println!(
+                    "Enemy is gonna move to ({} {})",
+                    x + self.start_x,
+                    y + self.start_y
+                );
             }
             EnemyAction::MoveTo(x, y) => {
                 if utils::compute_distance(self, &(x, y)) < 20 {

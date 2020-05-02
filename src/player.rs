@@ -4,10 +4,10 @@ use sdl2::render::{Canvas, Texture, TextureCreator};
 use sdl2::surface::Surface;
 use sdl2::video::{Window, WindowContext};
 
-use crate::{GetDimension, GetPos};
 use crate::character::{Action, Character, Direction};
 use crate::map::Map;
 use crate::texture_handler::{Dimension, TextureHandler};
+use crate::{GetDimension, GetPos};
 
 fn create_right_actions<'a>(
     texture_creator: &'a TextureCreator<WindowContext>,
@@ -57,31 +57,30 @@ impl<'a> Player<'a> {
         let tile_width = 23;
         let tile_height = 23;
         let mut actions_standing = Vec::with_capacity(4);
-        actions_standing.push(
-            Dimension::new(Rect::new(15, 9, tile_width, tile_height), 0),
-        );
-        actions_standing.push(
-            Dimension::new(Rect::new(51, 9, tile_width, tile_height), 0),
-        );
-        actions_standing.push(
-            Dimension::new(Rect::new(100, 9, tile_width, tile_height), 0),
-        );
-        actions_standing.push(
-            Dimension::new(Rect::new(78, 9, tile_width, tile_height), 0),
-        );
+        actions_standing.push(Dimension::new(Rect::new(15, 9, tile_width, tile_height), 0));
+        actions_standing.push(Dimension::new(Rect::new(51, 9, tile_width, tile_height), 0));
+        actions_standing.push(Dimension::new(
+            Rect::new(100, 9, tile_width, tile_height),
+            0,
+        ));
+        actions_standing.push(Dimension::new(Rect::new(78, 9, tile_width, tile_height), 0));
         let mut actions_moving = Vec::with_capacity(4);
-        actions_moving.push(
-            (Dimension::new(Rect::new(15, 77, tile_width, tile_height), 32), 10),
-        );
-        actions_moving.push(
-            (Dimension::new(Rect::new(350, 77, tile_width, tile_height), 32), 10),
-        );
-        actions_moving.push(
-            (Dimension::new(Rect::new(346, 44, tile_width, tile_height), 32), 10),
-        );
-        actions_moving.push(
-            (Dimension::new(Rect::new(683, 77, tile_width, tile_height), 32), 10),
-        );
+        actions_moving.push((
+            Dimension::new(Rect::new(15, 77, tile_width, tile_height), 32),
+            10,
+        ));
+        actions_moving.push((
+            Dimension::new(Rect::new(350, 77, tile_width, tile_height), 32),
+            10,
+        ));
+        actions_moving.push((
+            Dimension::new(Rect::new(346, 44, tile_width, tile_height), 32),
+            10,
+        ));
+        actions_moving.push((
+            Dimension::new(Rect::new(683, 77, tile_width, tile_height), 32),
+            10,
+        ));
         let texture = create_right_actions(&texture_creator, &actions_standing, &actions_moving);
         let texture_handler = TextureHandler {
             texture,
@@ -140,7 +139,9 @@ impl<'a> Player<'a> {
             self.character.action.direction = dir;
             self.character.action.movement = Some(0);
             self.is_running = self.is_run_pressed && self.character.stamina > 0;
-        } else if self.character.action.secondary.is_none() && dir != self.character.action.direction {
+        } else if self.character.action.secondary.is_none()
+            && dir != self.character.action.direction
+        {
             self.character.action.secondary = Some(dir);
         }
     }

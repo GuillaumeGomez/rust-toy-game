@@ -38,16 +38,18 @@ fn draw_in_map(
             }
         }
     }
-    surface.blit(
-        None,
-        surface_map,
-        Rect::new(
-            pos_x as i32 * 8,
-            pos_y as i32 * 8,
-            surface.width(),
-            surface.height(),
-        ),
-    ).expect("failed to blit");
+    surface
+        .blit(
+            None,
+            surface_map,
+            Rect::new(
+                pos_x as i32 * 8,
+                pos_y as i32 * 8,
+                surface.width(),
+                surface.height(),
+            ),
+        )
+        .expect("failed to blit");
     true
 }
 
@@ -59,7 +61,10 @@ pub struct Map<'a> {
 }
 
 impl<'a> Map<'a> {
-    pub fn new(texture_creator: &'a TextureCreator<WindowContext>, rng: &mut ChaCha8Rng) -> Map<'a> {
+    pub fn new(
+        texture_creator: &'a TextureCreator<WindowContext>,
+        rng: &mut ChaCha8Rng,
+    ) -> Map<'a> {
         let tree =
             Surface::from_file("resources/tree.png").expect("failed to load `resources/tree.png`");
         let bush =

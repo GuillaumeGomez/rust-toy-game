@@ -1,20 +1,22 @@
 extern crate sdl2;
 
-use rand_chacha::ChaCha8Rng;
 use rand::SeedableRng;
+use rand_chacha::ChaCha8Rng;
 use sdl2::event::Event;
 use sdl2::image;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 use sdl2::render::Canvas;
+use sdl2::ttf;
 use sdl2::video::Window;
 
-use std::time::{Duration, Instant};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
+use std::time::{Duration, Instant};
 
 mod character;
+mod debug_display;
 mod enemy;
 mod hud;
 mod map;
@@ -23,6 +25,7 @@ mod texture_handler;
 mod utils;
 
 use character::Direction;
+use debug_display::DebugDisplay;
 use enemy::Enemy;
 use hud::HUD;
 use map::Map;
@@ -35,6 +38,8 @@ pub const FRAME_DELAY: u32 = 1_000_000_000 / 60;
 pub const MAX_DISTANCE_DETECTION: i32 = 200;
 pub const MAX_DISTANCE_PURSUIT: i32 = 300;
 pub const MAX_DISTANCE_WANDERING: i32 = 300;
+
+const FPS_REFRESH: u32 = 5;
 
 pub trait GetPos {
     fn x(&self) -> i32;
@@ -56,12 +61,16 @@ pub trait GetDimension {
 }
 
 pub fn main() {
+    // This is the seed used to generate the same world based on its name.
     let mut hasher = DefaultHasher::new();
     "hello!".hash(&mut hasher);
     let mut rng = ChaCha8Rng::seed_from_u64(hasher.finish());
 
     let sdl_context = sdl2::init().expect("failed to init SDL");
     let _sdl_img_context = image::init(image::InitFlag::PNG).expect("failed to init SDL image");
+
+    let ttf_context = ttf::init().expect("failed to init SDL TTF");
+
     let video_subsystem = sdl_context.video().expect("failed to get video context");
 
     let window = video_subsystem
@@ -89,6 +98,12 @@ pub fn main() {
         WIDTH as u32,
         HEIGHT as u32,
     );
+    let font = ttf_context
+        .load_font("resources/kreon-regular.ttf", 16)
+        .expect("failed to load `resources/kreon-regular.ttf`");
+    let debug_display = DebugDisplay::new(&font, &texture_creator);
+    let mut debug = None;
+    let mut fps_str = String::new();
 
     let mut loop_timer = Instant::now();
     'running: loop {
@@ -106,6 +121,13 @@ pub fn main() {
                     Keycode::LShift => {
                         player.is_run_pressed = true;
                         player.is_running = player.character.action.movement.is_some();
+                    }
+                    Keycode::F3 => {
+                        if debug.is_some() {
+                            debug = None;
+                        } else {
+                            debug = Some(FPS_REFRESH - 1);
+                        }
                     }
                     _ => {}
                 },
@@ -143,9 +165,25 @@ pub fn main() {
         player.draw(&mut canvas, &screen);
         hud.draw(&player, &mut canvas);
 
+        if let Some(ref mut debug) = debug {
+            *debug += 1;
+            if *debug >= FPS_REFRESH {
+                let elapsed_time = loop_timer.elapsed();
+                fps_str = format!(
+                    "FPS: {:.2}",
+                    1_000_000_000f64 / elapsed_time.as_nanos() as f64
+                );
+                *debug = 0;
+            }
+            debug_display.draw(&mut canvas, &fps_str);
+        }
         let elapsed_time = loop_timer.elapsed();
+
         if elapsed_time.as_nanos() < FRAME_DELAY as u128 {
-            ::std::thread::sleep(Duration::new(0, FRAME_DELAY - elapsed_time.as_nanos() as u32));
+            ::std::thread::sleep(Duration::new(
+                0,
+                FRAME_DELAY - elapsed_time.as_nanos() as u32,
+            ));
         }
         loop_timer = Instant::now();
     }

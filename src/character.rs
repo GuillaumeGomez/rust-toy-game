@@ -2,9 +2,9 @@ use sdl2::rect::Rect;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
 
-use crate::{GetDimension, MAP_SIZE};
 use crate::map::Map;
 use crate::texture_handler::TextureHandler;
+use crate::{GetDimension, MAP_SIZE};
 
 #[derive(Copy, Clone, PartialEq, Hash, Debug)]
 #[repr(usize)]
@@ -24,7 +24,11 @@ pub struct Action {
 
 impl Action {
     /// Returns `(x, y, width, height)`.
-    pub fn compute_current(&self, is_running: bool, textures: &TextureHandler<'_>) -> (i32, i32, i32, i32) {
+    pub fn compute_current(
+        &self,
+        is_running: bool,
+        textures: &TextureHandler<'_>,
+    ) -> (i32, i32, i32, i32) {
         if let Some(ref pos) = self.movement {
             let (info, nb_animations) = &textures.actions_moving[self.direction as usize];
             let pos = if is_running {
@@ -32,7 +36,12 @@ impl Action {
             } else {
                 (pos % 60) as i32 / (60 / nb_animations)
             };
-            (pos * info.incr_to_next + info.x, info.y, info.width() as i32, info.height() as i32)
+            (
+                pos * info.incr_to_next + info.x,
+                info.y,
+                info.width() as i32,
+                info.height() as i32,
+            )
         } else {
             let info = &textures.actions_standing[self.direction as usize];
             (info.x, info.y, info.width() as i32, info.height() as i32)
@@ -105,10 +114,12 @@ impl<'a> Character<'a> {
     }
 
     pub fn draw(&mut self, canvas: &mut Canvas<Window>, is_running: bool, screen: &Rect) {
-        let (tile_x, tile_y, tile_width, tile_height) =
-            self.action.compute_current(is_running, &self.texture_handler);
-        if (self.x + tile_width < screen.x || self.x > screen.x + screen.width() as i32) &&
-            (self.y + tile_height < screen.y || self.y > screen.y + screen.height() as i32) {
+        let (tile_x, tile_y, tile_width, tile_height) = self
+            .action
+            .compute_current(is_running, &self.texture_handler);
+        if (self.x + tile_width < screen.x || self.x > screen.x + screen.width() as i32)
+            && (self.y + tile_height < screen.y || self.y > screen.y + screen.height() as i32)
+        {
             // No need to draw if we don't see the character.
             return;
         }
@@ -116,7 +127,12 @@ impl<'a> Character<'a> {
             .copy(
                 &self.texture_handler.texture,
                 Rect::new(tile_x, tile_y, tile_width as u32, tile_height as u32),
-                Rect::new(self.x - screen.x, self.y - screen.y, tile_width as u32, tile_height as u32),
+                Rect::new(
+                    self.x - screen.x,
+                    self.y - screen.y,
+                    tile_width as u32,
+                    tile_height as u32,
+                ),
             )
             .expect("copy character failed");
 
@@ -137,7 +153,9 @@ impl<'a> GetDimension for Character<'a> {
         if self.action.movement.is_none() {
             self.texture_handler.actions_standing[self.action.direction as usize].width()
         } else {
-            self.texture_handler.actions_moving[self.action.direction as usize].0.width()
+            self.texture_handler.actions_moving[self.action.direction as usize]
+                .0
+                .width()
         }
     }
 
@@ -145,7 +163,9 @@ impl<'a> GetDimension for Character<'a> {
         if self.action.movement.is_none() {
             self.texture_handler.actions_standing[self.action.direction as usize].height()
         } else {
-            self.texture_handler.actions_moving[self.action.direction as usize].0.height()
+            self.texture_handler.actions_moving[self.action.direction as usize]
+                .0
+                .height()
         }
     }
 }
