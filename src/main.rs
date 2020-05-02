@@ -34,7 +34,7 @@ use player::Player;
 pub const WIDTH: i32 = 800;
 pub const HEIGHT: i32 = 600;
 pub const MAP_SIZE: u32 = 1_000;
-pub const FRAME_DELAY: u32 = 1_000_000_000 / 60;
+pub const FRAME_DELAY: u128 = 1_000_000_000 / 60;
 pub const MAX_DISTANCE_DETECTION: i32 = 200;
 pub const MAX_DISTANCE_PURSUIT: i32 = 300;
 pub const MAX_DISTANCE_WANDERING: i32 = 300;
@@ -168,10 +168,10 @@ pub fn main() {
 
         let elapsed_time = loop_timer.elapsed();
 
-        if elapsed_time.as_nanos() < FRAME_DELAY as u128 {
+        if elapsed_time.as_nanos() < FRAME_DELAY {
             ::std::thread::sleep(Duration::new(
                 0,
-                FRAME_DELAY - elapsed_time.as_nanos() as u32,
+                (FRAME_DELAY - elapsed_time.as_nanos()) as u32,
             ));
         }
         if let Some(ref mut debug) = debug {
