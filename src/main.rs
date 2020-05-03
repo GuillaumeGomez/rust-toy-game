@@ -38,6 +38,7 @@ pub const FRAME_DELAY: u128 = 1_000_000_000 / 60;
 pub const MAX_DISTANCE_DETECTION: i32 = 200;
 pub const MAX_DISTANCE_PURSUIT: i32 = 300;
 pub const MAX_DISTANCE_WANDERING: i32 = 300;
+pub const MAP_CASE_SIZE: i32 = 8;
 
 const FPS_REFRESH: u32 = 5;
 
@@ -91,8 +92,8 @@ pub fn main() {
     let map = Map::new(
         &texture_creator,
         &mut rng,
-        MAP_SIZE as i32 * 8 / -2,
-        MAP_SIZE as i32 * 8 / -2,
+        MAP_SIZE as i32 * MAP_CASE_SIZE / -2,
+        MAP_SIZE as i32 * MAP_CASE_SIZE / -2,
     );
     let mut player = Player::new(&texture_creator, 0, 0);
     let mut enemy = Enemy::new(&texture_creator, -40, -40);

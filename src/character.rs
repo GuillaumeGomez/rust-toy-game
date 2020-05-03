@@ -3,8 +3,8 @@ use sdl2::render::Canvas;
 use sdl2::video::Window;
 
 use crate::map::Map;
-use crate::texture_handler::TextureHandler;
-use crate::{GetDimension, MAP_SIZE};
+use crate::texture_handler::{Dimension, TextureHandler};
+use crate::{GetDimension, MAP_CASE_SIZE, MAP_SIZE};
 
 #[derive(Copy, Clone, PartialEq, Hash, Debug)]
 #[repr(usize)]
@@ -47,6 +47,14 @@ impl Action {
             (info.x, info.y, info.width() as i32, info.height() as i32)
         }
     }
+
+    pub fn get_dimension<'a>(&self, textures: &'a TextureHandler<'_>) -> &'a Dimension {
+        if let Some(ref pos) = self.movement {
+            &textures.actions_moving[self.direction as usize].0
+        } else {
+            &textures.actions_standing[self.direction as usize]
+        }
+    }
 }
 
 pub struct Character<'a> {
@@ -75,6 +83,45 @@ impl<'a> Character<'a> {
         }
     }
 
+    fn check_hitbox(&self, new_x: i32, new_y: i32, map_data: &[u8]) -> bool {
+        let initial_x = new_x / MAP_CASE_SIZE;
+        let initial_y = new_y / MAP_CASE_SIZE;
+        let map_pos = initial_y * MAP_SIZE as i32 + initial_x;
+        // println!(
+        //     "{}|{} => ({}, {})",
+        //     map_data.len(),
+        //     map_pos,
+        //     new_x / MAP_CASE_SIZE,
+        //     new_y / MAP_CASE_SIZE,
+        // );
+        if map_pos < 0 || map_pos as usize >= map_data.len() {
+            return false;
+        }
+        let dimension = self.action.get_dimension(&self.texture_handler);
+        let height = dimension.height() as i32 / MAP_CASE_SIZE;
+        let width = dimension.width() as i32 / MAP_CASE_SIZE;
+        if self.xp == 150 {
+            println!("!!!!!! start !!!!!!");
+        }
+        for iy in 0..height {
+            let y = (initial_y + iy) * MAP_SIZE as i32;
+            for ix in 0..width {
+                let map_pos = y + initial_x + ix;
+                if self.xp == 150 {
+                    print!("{} ", map_data[map_pos as usize]);
+                }
+                if map_data[map_pos as usize] != 0 {
+                    // println!("/!\\ {:?}", map.data[map_pos as usize]);
+                    return false;
+                }
+            }
+            if self.xp == 150 {
+                println!("");
+            }
+        }
+        true
+    }
+
     pub fn inner_apply_move(&mut self, map: &Map) -> bool {
         if self.action.movement.is_none() {
             return false;
@@ -87,27 +134,12 @@ impl<'a> Character<'a> {
             y += tmp_y;
             y_add += tmp_y_add;
         }
-        if self.y + y >= map.y + MAP_SIZE as i32 * 8
+        if self.y + y >= map.y + MAP_SIZE as i32 * MAP_CASE_SIZE
             || self.y + y < map.y
-            || self.x + x >= map.x + MAP_SIZE as i32 * 8
+            || self.x + x >= map.x + MAP_SIZE as i32 * MAP_CASE_SIZE
             || self.x + x < map.x
+            || !self.check_hitbox(self.x + x - map.x, self.y + y - map.y, &map.data)
         {
-            return false;
-        }
-        let map_pos = (self.y + y - map.y) / 8 * MAP_SIZE as i32 + (self.x + x - map.x) / 8;
-        println!(
-            "{}|{} => ({}, {})",
-            map.data.len(),
-            map_pos,
-            (self.x + x - map.x) / 8,
-            (self.y + y - map.y) / 8,
-        );
-        // TODO: this check doesn't take into account the full size of the character, meaning it can
-        // go through objects if it has the correct "alignment".
-        if map_pos < 0 || map_pos as usize >= map.data.len() {
-            return false;
-        } else if map.data[map_pos as usize] != 0 {
-            // println!("/!\\ {:?}", map.data[map_pos as usize]);
             return false;
         }
         self.x += x_add;

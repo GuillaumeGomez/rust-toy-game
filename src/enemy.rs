@@ -77,7 +77,7 @@ impl<'a> Enemy<'a> {
                 total_stamina: 100,
                 stamina: 100,
                 xp_to_next_level: 1000,
-                xp: 150,
+                xp: 100,
                 texture_handler,
             },
             action: EnemyAction::None,

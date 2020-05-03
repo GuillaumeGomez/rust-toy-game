@@ -7,7 +7,7 @@ use sdl2::render::{Canvas, Texture, TextureCreator};
 use sdl2::surface::Surface;
 use sdl2::video::{Window, WindowContext};
 
-use crate::MAP_SIZE;
+use crate::{MAP_CASE_SIZE, MAP_SIZE};
 
 fn draw_in_map(
     map: &mut [u8],
@@ -21,8 +21,8 @@ fn draw_in_map(
     let pos_y = pos / MAP_SIZE;
 
     // First we check there is nothing there...
-    for y in 0..surface.height() / 8 {
-        for x in 0..surface.width() / 8 {
+    for y in 0..surface.height() / MAP_CASE_SIZE as u32 {
+        for x in 0..surface.width() / MAP_CASE_SIZE as u32 {
             let i = pos_x + x + (y + pos_y) * MAP_SIZE;
             if i < MAP_SIZE * MAP_SIZE && map[i as usize] != 0 {
                 return false;
@@ -30,8 +30,8 @@ fn draw_in_map(
         }
     }
 
-    for y in 0..surface.height() / 8 {
-        for x in 0..surface.width() / 8 {
+    for y in 0..surface.height() / MAP_CASE_SIZE as u32 {
+        for x in 0..surface.width() / MAP_CASE_SIZE as u32 {
             let i = pos_x + x + (y + pos_y) * MAP_SIZE;
             if i < MAP_SIZE * MAP_SIZE {
                 map[i as usize] = value;
@@ -43,8 +43,8 @@ fn draw_in_map(
             None,
             surface_map,
             Rect::new(
-                pos_x as i32 * 8,
-                pos_y as i32 * 8,
+                pos_x as i32 * MAP_CASE_SIZE,
+                pos_y as i32 * MAP_CASE_SIZE,
                 surface.width(),
                 surface.height(),
             ),
@@ -72,8 +72,8 @@ impl<'a> Map<'a> {
         let bush =
             Surface::from_file("resources/bush.png").expect("failed to load `resources/bush.png`");
         let mut surface_map = Surface::new(
-            MAP_SIZE * 8,
-            MAP_SIZE * 8,
+            MAP_SIZE * MAP_CASE_SIZE as u32,
+            MAP_SIZE * MAP_CASE_SIZE as u32,
             texture_creator.default_pixel_format(),
         )
         .expect("failed to create map surface");
@@ -115,16 +115,18 @@ impl<'a> Map<'a> {
         let y = screen.y - self.y;
         let (s_x, pos_x, width) = if x < 0 {
             (0, x * -1, (screen.width() as i32 + x) as u32)
-        } else if x + screen.width() as i32 > MAP_SIZE as i32 * 8 {
-            let sub = screen.width() as i32 - (screen.width() as i32 + x - MAP_SIZE as i32 * 8);
+        } else if x + screen.width() as i32 > MAP_SIZE as i32 * MAP_CASE_SIZE {
+            let sub = screen.width() as i32
+                - (screen.width() as i32 + x - MAP_SIZE as i32 * MAP_CASE_SIZE);
             (x, 0, sub as u32)
         } else {
             (x, 0, screen.width() as u32)
         };
         let (s_y, pos_y, height) = if y < 0 {
             (0, y * -1, (screen.height() as i32 + y) as u32)
-        } else if y + screen.height() as i32 > MAP_SIZE as i32 * 8 {
-            let sub = screen.height() as i32 - (screen.height() as i32 + y - MAP_SIZE as i32 * 8);
+        } else if y + screen.height() as i32 > MAP_SIZE as i32 * MAP_CASE_SIZE {
+            let sub = screen.height() as i32
+                - (screen.height() as i32 + y - MAP_SIZE as i32 * MAP_CASE_SIZE);
             (y, 0, sub as u32)
         } else {
             (y, 0, screen.height())
