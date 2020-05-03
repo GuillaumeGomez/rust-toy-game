@@ -64,6 +64,8 @@ impl<'a> Map<'a> {
     pub fn new(
         texture_creator: &'a TextureCreator<WindowContext>,
         rng: &mut ChaCha8Rng,
+        x: i32,
+        y: i32,
     ) -> Map<'a> {
         let tree =
             Surface::from_file("resources/tree.png").expect("failed to load `resources/tree.png`");
@@ -100,8 +102,8 @@ impl<'a> Map<'a> {
 
         Map {
             data: map,
-            x: MAP_SIZE as i32 * 8 / -2,
-            y: MAP_SIZE as i32 * 8 / -2,
+            x,
+            y,
             texture: texture_creator
                 .create_texture_from_surface(surface_map)
                 .expect("failed to build texture from surface"),

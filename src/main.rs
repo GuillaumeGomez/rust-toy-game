@@ -88,7 +88,12 @@ pub fn main() {
     let texture_creator = canvas.texture_creator();
 
     let mut event_pump = sdl_context.event_pump().expect("failed to get event pump");
-    let map = Map::new(&texture_creator, &mut rng);
+    let map = Map::new(
+        &texture_creator,
+        &mut rng,
+        MAP_SIZE as i32 * 8 / -2,
+        MAP_SIZE as i32 * 8 / -2,
+    );
     let mut player = Player::new(&texture_creator, 0, 0);
     let mut enemy = Enemy::new(&texture_creator, -40, -40);
     let hud = HUD::new(&texture_creator);
@@ -165,7 +170,6 @@ pub fn main() {
         player.draw(&mut canvas, &screen);
         hud.draw(&player, &mut canvas);
 
-
         let elapsed_time = loop_timer.elapsed();
 
         if elapsed_time.as_nanos() < FRAME_DELAY {
@@ -184,7 +188,10 @@ pub fn main() {
                 );
                 *debug = 0;
             }
-            debug_display.draw(&mut canvas, &format!("{}\nposition: ({}, {})", fps_str, player.x(), player.y()));
+            debug_display.draw(
+                &mut canvas,
+                &format!("{}\nposition: ({}, {})", fps_str, player.x(), player.y()),
+            );
         }
         loop_timer = Instant::now();
     }
