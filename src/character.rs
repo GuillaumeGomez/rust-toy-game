@@ -99,8 +99,8 @@ impl<'a> Character<'a> {
             "{}|{} => ({}, {})",
             map.data.len(),
             map_pos,
-            self.x + x,
-            self.y + y
+            (self.x + x - map.x) / 8,
+            (self.y + y - map.y) / 8,
         );
         // TODO: this check doesn't take into account the full size of the character, meaning it can
         // go through objects if it has the correct "alignment".

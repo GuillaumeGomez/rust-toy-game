@@ -135,7 +135,7 @@ impl<'a> Enemy<'a> {
             EnemyAction::None | EnemyAction::MoveTo(..)
                 if distance < (::std::cmp::min(self.height(), self.width()) * 2) as i32 =>
             {
-                println!("Enemy is gonna chase player!");
+                // println!("Enemy is gonna chase player!");
                 self.action = EnemyAction::MoveToPlayer;
             }
             EnemyAction::None => {
@@ -146,43 +146,43 @@ impl<'a> Enemy<'a> {
                     y = 20 * if y < 0 { -1 } else { 1 };
                 }
                 self.action = EnemyAction::MoveTo(x + self.start_x, y + self.start_y);
-                println!(
-                    "Enemy is gonna move to ({} {})",
-                    x + self.start_x,
-                    y + self.start_y
-                );
+                // println!(
+                //     "Enemy is gonna move to ({} {})",
+                //     x + self.start_x,
+                //     y + self.start_y
+                // );
                 self.character.action.movement = Some(0);
             }
             EnemyAction::MoveTo(x, y) => {
                 if utils::compute_distance(self, &(x, y)) < 20 {
-                    println!("Enemy reached destination!");
+                    // println!("Enemy reached destination!");
                     // We reached the goal, let's find another one. :)
                     self.action = EnemyAction::None;
                     self.character.action.movement = None;
                 } else {
                     self.compute_destination(x, y);
                     if !self.character.inner_apply_move(map) {
-                        println!("Enemy cannot move there");
+                        // println!("Enemy cannot move there");
                         self.action = EnemyAction::None;
                         self.character.action.movement = None;
                     } else {
                         self.character.action.movement = Some(0);
-                        println!("Enemy is moving");
+                        // println!("Enemy is moving");
                     }
                 }
             }
             EnemyAction::MoveToPlayer => {
                 if distance > MAX_DISTANCE_PURSUIT {
-                    println!("Enemy stop chasing player (player too far)");
+                    // println!("Enemy stop chasing player (player too far)");
                     // We come back to the initial position
                     self.action = EnemyAction::MoveTo(self.start_x, self.start_y);
                     self.character.action.movement = None;
                 } else if distance < player.width() as i32 || distance < player.height() as i32 {
-                    println!("Enemy stop chasing player (reached player)");
+                    // println!("Enemy stop chasing player (reached player)");
                     self.action = EnemyAction::None;
                     self.character.action.movement = None;
                 } else {
-                    println!("Enemy chasing player");
+                    // println!("Enemy chasing player");
                     self.compute_destination(player.x(), player.y());
                     self.character.action.movement = Some(0);
                     self.character.inner_apply_move(map);
