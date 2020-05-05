@@ -49,7 +49,7 @@ impl Action {
     }
 
     pub fn get_dimension<'a>(&self, textures: &'a TextureHandler<'_>) -> &'a Dimension {
-        if let Some(ref pos) = self.movement {
+        if let Some(_) = self.movement {
             &textures.actions_moving[self.direction as usize].0
         } else {
             &textures.actions_standing[self.direction as usize]
