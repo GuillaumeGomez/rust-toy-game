@@ -95,7 +95,7 @@ pub fn main() {
         MAP_SIZE as i32 * MAP_CASE_SIZE / -2,
         MAP_SIZE as i32 * MAP_CASE_SIZE / -2,
     );
-    let mut player = Player::new(&texture_creator, 0, 0);
+    let mut player = Player::new(&texture_creator, -3900, -3900);
     let mut enemy = Enemy::new(&texture_creator, -40, -40);
     let hud = HUD::new(&texture_creator);
     let mut screen = Rect::new(

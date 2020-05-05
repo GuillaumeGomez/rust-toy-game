@@ -83,7 +83,7 @@ impl<'a> Character<'a> {
         }
     }
 
-    fn check_hitbox(&self, new_x: i32, new_y: i32, map_data: &[u8]) -> bool {
+    fn check_hitbox(&self, new_x: i32, new_y: i32, map_data: &[u8], dir_to_check: Direction) -> bool {
         let initial_x = new_x / MAP_CASE_SIZE;
         let initial_y = new_y / MAP_CASE_SIZE;
         let map_pos = initial_y * MAP_SIZE as i32 + initial_x;
@@ -100,25 +100,61 @@ impl<'a> Character<'a> {
         let dimension = self.action.get_dimension(&self.texture_handler);
         let height = dimension.height() as i32 / MAP_CASE_SIZE;
         let width = dimension.width() as i32 / MAP_CASE_SIZE;
-        if self.xp == 150 {
-            println!("!!!!!! start !!!!!!");
-        }
-        for iy in 0..height {
-            let y = (initial_y + iy) * MAP_SIZE as i32;
-            for ix in 0..width {
-                let map_pos = y + initial_x + ix;
-                if self.xp == 150 {
-                    print!("{} ", map_data[map_pos as usize]);
-                }
-                if map_data[map_pos as usize] != 0 {
-                    // println!("/!\\ {:?}", map.data[map_pos as usize]);
-                    return false;
+        match dir_to_check {
+            Direction::Front => {
+                let y = initial_y * MAP_SIZE as i32;
+                for ix in 0..width {
+                    let map_pos = y + initial_x + ix;
+                    if map_data[map_pos as usize] != 0 {
+                        return false;
+                    }
                 }
             }
-            if self.xp == 150 {
-                println!("");
+            Direction::Back => {
+                let y = (height + initial_y) * MAP_SIZE as i32;
+                for ix in 0..width {
+                    let map_pos = y + initial_x + ix;
+                    if map_data[map_pos as usize] != 0 {
+                        return false;
+                    }
+                }
+            }
+            Direction::Right => {
+                for iy in 0..height {
+                    let map_pos = (initial_y + iy) * MAP_SIZE as i32 + initial_x + width;
+                    if map_data[map_pos as usize] != 0 {
+                        return false;
+                    }
+                }
+            }
+            Direction::Left => {
+                for iy in 0..height {
+                    let map_pos = (initial_y + iy) * MAP_SIZE as i32 + initial_x;
+                    if map_data[map_pos as usize] != 0 {
+                        return false;
+                    }
+                }
             }
         }
+        // if self.xp == 150 {
+        //     println!("!!!!!! start !!!!!!");
+        // }
+        // for iy in 0..height {
+        //     let y = (initial_y + iy) * MAP_SIZE as i32;
+        //     for ix in 0..width {
+        //         let map_pos = y + initial_x + ix;
+        //         if self.xp == 150 {
+        //             print!("({}, {}) {} ", initial_x, initial_y, map_data[map_pos as usize]);
+        //         }
+        //         if map_data[map_pos as usize] != 0 {
+        //             // println!("/!\\ {:?}", map.data[map_pos as usize]);
+        //             return false;
+        //         }
+        //     }
+        //     if self.xp == 150 {
+        //         println!("");
+        //     }
+        // }
         true
     }
 
@@ -134,17 +170,31 @@ impl<'a> Character<'a> {
             y += tmp_y;
             y_add += tmp_y_add;
         }
-        if self.y + y >= map.y + MAP_SIZE as i32 * MAP_CASE_SIZE
-            || self.y + y < map.y
-            || self.x + x >= map.x + MAP_SIZE as i32 * MAP_CASE_SIZE
-            || self.x + x < map.x
-            || !self.check_hitbox(self.x + x - map.x, self.y + y - map.y, &map.data)
-        {
-            return false;
+        let mut nb_updated = 0;
+
+        if y_add != 0 && self.y + y < map.y + MAP_SIZE as i32 * MAP_CASE_SIZE && self.y + y >= map.y {
+            let dir_to_check = if y_add > 0 {
+                Direction::Back
+            } else {
+                Direction::Front
+            };
+            if self.check_hitbox(self.x - map.x, self.y + y - map.y, &map.data, dir_to_check) {
+                self.y += y_add;
+                nb_updated += 1;
+            }
         }
-        self.x += x_add;
-        self.y += y_add;
-        true
+        if x_add != 0 && self.x + x < map.x + MAP_SIZE as i32 * MAP_CASE_SIZE && self.x + x >= map.x {
+            let dir_to_check = if x_add > 0 {
+                Direction::Right
+            } else {
+                Direction::Left
+            };
+            if self.check_hitbox(self.x + x - map.x, self.y - map.y, &map.data, dir_to_check) {
+                self.x += x_add;
+                nb_updated += 1;
+            }
+        }
+        nb_updated != 0
     }
 
     pub fn draw(&mut self, canvas: &mut Canvas<Window>, is_running: bool, screen: &Rect) {
