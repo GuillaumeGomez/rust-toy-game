@@ -5,7 +5,7 @@ use sdl2::surface::Surface;
 use sdl2::ttf::Font;
 use sdl2::video::{Window, WindowContext};
 
-use crate::WIDTH;
+use crate::{HEIGHT, MAP_CASE_SIZE, WIDTH};
 
 pub struct DebugDisplay<'a, 'b> {
     font: &'a Font<'a, 'static>,
@@ -14,6 +14,8 @@ pub struct DebugDisplay<'a, 'b> {
     width: u32,
     height: u32,
     font_size: i32,
+    draw_grid: bool,
+    grid: Texture<'b>,
 }
 
 impl<'a, 'b> DebugDisplay<'a, 'b> {
@@ -29,6 +31,30 @@ impl<'a, 'b> DebugDisplay<'a, 'b> {
         background
             .fill_rect(None, Color::RGBA(0, 0, 0, 150))
             .expect("failed to fill debug surface");
+
+        // The grid used for debug.
+        let mut grid = Surface::new(
+            width + MAP_CASE_SIZE as u32,
+            (HEIGHT + MAP_CASE_SIZE) as u32,
+            PixelFormatEnum::RGBA8888,
+        )
+        .expect("failed to create grid debug surface");
+        for y in 0..HEIGHT / MAP_CASE_SIZE + 1 {
+            grid.fill_rect(
+                Rect::new(0, y * MAP_CASE_SIZE, (WIDTH + MAP_CASE_SIZE) as u32, 1),
+                Color::RGB(255, 0, 0),
+            )
+            .expect("failed to fill grid debug surface");
+        }
+
+        for x in 0..WIDTH / MAP_CASE_SIZE + 1 {
+            grid.fill_rect(
+                Rect::new(x * MAP_CASE_SIZE, 0, 1, (HEIGHT + MAP_CASE_SIZE) as u32),
+                Color::RGB(255, 0, 0),
+            )
+            .expect("failed to fill grid debug surface");
+        }
+
         DebugDisplay {
             background: texture_creator
                 .create_texture_from_surface(background)
@@ -38,10 +64,37 @@ impl<'a, 'b> DebugDisplay<'a, 'b> {
             width,
             height,
             font_size,
+            grid: texture_creator
+                .create_texture_from_surface(grid)
+                .expect("failed to build texture from grid debug surface"),
+            draw_grid: false,
         }
     }
 
-    pub fn draw(&self, canvas: &mut Canvas<Window>, text: &str) {
+    pub fn switch_draw_grid(&mut self) {
+        self.draw_grid = !self.draw_grid;
+    }
+
+    pub fn draw(&self, canvas: &mut Canvas<Window>, screen: &Rect, text: &str) {
+        if self.draw_grid {
+            let x_add = screen.x.abs() % MAP_CASE_SIZE;
+            let y_add = screen.y.abs() % MAP_CASE_SIZE;
+            canvas
+                .copy(
+                    &self.grid,
+                    Rect::new(
+                        MAP_CASE_SIZE - x_add,
+                        MAP_CASE_SIZE - y_add,
+                        WIDTH as u32,
+                        HEIGHT as u32,
+                    ),
+                    None,
+                )
+                .expect("copy failed for grid texture");
+        }
+        if text.is_empty() {
+            return;
+        }
         canvas
             .copy(
                 &self.background,
@@ -49,9 +102,6 @@ impl<'a, 'b> DebugDisplay<'a, 'b> {
                 Rect::new(0, 0, self.width, self.height),
             )
             .expect("copy failed for debug background");
-        if text.is_empty() {
-            return;
-        }
         let mut current_pos = 2;
         for line in text.lines() {
             if !line.is_empty() {

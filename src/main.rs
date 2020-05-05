@@ -107,7 +107,7 @@ pub fn main() {
     let font = ttf_context
         .load_font("resources/kreon-regular.ttf", 16)
         .expect("failed to load `resources/kreon-regular.ttf`");
-    let debug_display = DebugDisplay::new(&font, &texture_creator, 16);
+    let mut debug_display = DebugDisplay::new(&font, &texture_creator, 16);
     let mut debug = None;
     let mut fps_str = String::new();
 
@@ -135,6 +135,7 @@ pub fn main() {
                             debug = Some(FPS_REFRESH - 1);
                         }
                     }
+                    Keycode::F5 => debug_display.switch_draw_grid(),
                     _ => {}
                 },
                 Event::KeyUp {
@@ -191,8 +192,11 @@ pub fn main() {
             }
             debug_display.draw(
                 &mut canvas,
+                &screen,
                 &format!("{}\nposition: ({}, {})", fps_str, player.x(), player.y()),
             );
+        } else {
+            debug_display.draw(&mut canvas, &screen, "");
         }
         loop_timer = Instant::now();
     }
