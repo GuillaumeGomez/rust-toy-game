@@ -73,36 +73,29 @@ pub struct Character<'a> {
 }
 
 impl<'a> Character<'a> {
-    pub fn move_result(&self, dir: Direction) -> ((i32, i32), (i32, i32)) {
-        let (info, _) = &self.texture_handler.actions_moving[dir as usize];
-        match dir {
-            Direction::Front => ((0, 0), (info.height() as i32 / 2, 1)),
-            Direction::Back => ((0, 0), (info.height() as i32 / -4, -1)),
-            Direction::Left => ((info.width() as i32 / -2, -1), (0, 0)),
-            Direction::Right => ((info.width() as i32 / 2, 1), (0, 0)),
-        }
-    }
-
-    fn check_hitbox(&self, new_x: i32, new_y: i32, map_data: &[u8], dir_to_check: Direction) -> bool {
-        let initial_x = new_x / MAP_CASE_SIZE;
+    fn check_hitbox(
+        &self,
+        new_x: i32,
+        new_y: i32,
+        map_data: &[u8],
+        dir_to_check: Direction,
+    ) -> bool {
         let initial_y = new_y / MAP_CASE_SIZE;
-        let map_pos = initial_y * MAP_SIZE as i32 + initial_x;
-        // println!(
-        //     "{}|{} => ({}, {})",
-        //     map_data.len(),
-        //     map_pos,
-        //     new_x / MAP_CASE_SIZE,
-        //     new_y / MAP_CASE_SIZE,
-        // );
-        if map_pos < 0 || map_pos as usize >= map_data.len() {
-            return false;
-        }
+        let initial_x = new_x / MAP_CASE_SIZE;
         let dimension = self.action.get_dimension(&self.texture_handler);
         let height = dimension.height() as i32 / MAP_CASE_SIZE;
         let width = dimension.width() as i32 / MAP_CASE_SIZE;
+
         match dir_to_check {
             Direction::Front => {
-                let y = initial_y * MAP_SIZE as i32;
+                let y = (height + initial_y) * MAP_SIZE as i32;
+                for ix in 0..width {
+                    let map_pos = y + initial_x + ix;
+                    if map_data[map_pos as usize] != 0 {
+                        return false;
+                    }
+                }
+                let y = (height + initial_y + 1) * MAP_SIZE as i32;
                 for ix in 0..width {
                     let map_pos = y + initial_x + ix;
                     if map_data[map_pos as usize] != 0 {
@@ -111,7 +104,7 @@ impl<'a> Character<'a> {
                 }
             }
             Direction::Back => {
-                let y = (height + initial_y) * MAP_SIZE as i32;
+                let y = (initial_y + 1) * MAP_SIZE as i32;
                 for ix in 0..width {
                     let map_pos = y + initial_x + ix;
                     if map_data[map_pos as usize] != 0 {
@@ -120,7 +113,7 @@ impl<'a> Character<'a> {
                 }
             }
             Direction::Right => {
-                for iy in 0..height {
+                for iy in 1..height {
                     let map_pos = (initial_y + iy) * MAP_SIZE as i32 + initial_x + width;
                     if map_data[map_pos as usize] != 0 {
                         return false;
@@ -128,7 +121,7 @@ impl<'a> Character<'a> {
                 }
             }
             Direction::Left => {
-                for iy in 0..height {
+                for iy in 1..height {
                     let map_pos = (initial_y + iy) * MAP_SIZE as i32 + initial_x;
                     if map_data[map_pos as usize] != 0 {
                         return false;
@@ -136,65 +129,78 @@ impl<'a> Character<'a> {
                 }
             }
         }
-        // if self.xp == 150 {
-        //     println!("!!!!!! start !!!!!!");
-        // }
-        // for iy in 0..height {
-        //     let y = (initial_y + iy) * MAP_SIZE as i32;
-        //     for ix in 0..width {
-        //         let map_pos = y + initial_x + ix;
-        //         if self.xp == 150 {
-        //             print!("({}, {}) {} ", initial_x, initial_y, map_data[map_pos as usize]);
-        //         }
-        //         if map_data[map_pos as usize] != 0 {
-        //             // println!("/!\\ {:?}", map.data[map_pos as usize]);
-        //             return false;
-        //         }
-        //     }
-        //     if self.xp == 150 {
-        //         println!("");
-        //     }
-        // }
         true
+    }
+
+    fn check_move(&mut self, direction: Direction, map: &Map) -> bool {
+        let (info, _) = &self.texture_handler.actions_moving[direction as usize];
+        match direction {
+            Direction::Front => {
+                if self.y + info.height() as i32 + 1 < map.y + MAP_SIZE as i32 * MAP_CASE_SIZE {
+                    if self.check_hitbox(
+                        self.x - map.x,
+                        self.y + 1 - map.y,
+                        &map.data,
+                        Direction::Front,
+                    ) {
+                        self.y += 1;
+                        return true;
+                    }
+                }
+            }
+            Direction::Back => {
+                if self.y - 1 >= map.y {
+                    if self.check_hitbox(
+                        self.x - map.x,
+                        self.y - 1 - map.y,
+                        &map.data,
+                        Direction::Back,
+                    ) {
+                        self.y -= 1;
+                        return true;
+                    }
+                }
+            }
+            Direction::Left => {
+                if self.x - 1 >= map.x {
+                    if self.check_hitbox(
+                        self.x - 1 - map.x,
+                        self.y - map.y,
+                        &map.data,
+                        Direction::Left,
+                    ) {
+                        self.x -= 1;
+                        return true;
+                    }
+                }
+            }
+            Direction::Right => {
+                if self.x + info.width() as i32 + 1 < map.x + MAP_SIZE as i32 * MAP_CASE_SIZE {
+                    if self.check_hitbox(
+                        self.x + 1 - map.x,
+                        self.y - map.y,
+                        &map.data,
+                        Direction::Right,
+                    ) {
+                        self.x += 1;
+                        return true;
+                    }
+                }
+            }
+        }
+        false
     }
 
     pub fn inner_apply_move(&mut self, map: &Map) -> bool {
         if self.action.movement.is_none() {
             return false;
         }
-        let ((mut x, mut x_add), (mut y, mut y_add)) = self.move_result(self.action.direction);
+        let moved = self.check_move(self.action.direction, map);
         if let Some(second) = self.action.secondary {
-            let ((tmp_x, tmp_x_add), (tmp_y, tmp_y_add)) = self.move_result(second);
-            x += tmp_x;
-            x_add += tmp_x_add;
-            y += tmp_y;
-            y_add += tmp_y_add;
+            self.check_move(second, map) || moved
+        } else {
+            moved
         }
-        let mut nb_updated = 0;
-
-        if y_add != 0 && self.y + y < map.y + MAP_SIZE as i32 * MAP_CASE_SIZE && self.y + y >= map.y {
-            let dir_to_check = if y_add > 0 {
-                Direction::Back
-            } else {
-                Direction::Front
-            };
-            if self.check_hitbox(self.x - map.x, self.y + y - map.y, &map.data, dir_to_check) {
-                self.y += y_add;
-                nb_updated += 1;
-            }
-        }
-        if x_add != 0 && self.x + x < map.x + MAP_SIZE as i32 * MAP_CASE_SIZE && self.x + x >= map.x {
-            let dir_to_check = if x_add > 0 {
-                Direction::Right
-            } else {
-                Direction::Left
-            };
-            if self.check_hitbox(self.x + x - map.x, self.y - map.y, &map.data, dir_to_check) {
-                self.x += x_add;
-                nb_updated += 1;
-            }
-        }
-        nb_updated != 0
     }
 
     pub fn draw(&mut self, canvas: &mut Canvas<Window>, is_running: bool, screen: &Rect) {
