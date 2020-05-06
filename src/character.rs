@@ -232,10 +232,10 @@ impl<'a> Character<'a> {
             let width = weapon.width() as i32;
             let height = weapon.height() as i32;
             let (x, y) = match self.action.direction {
-                Direction::Up => (self.x + tile_width / 2, self.y - height),
-                Direction::Down => (self.x + tile_width / 2, self.y + tile_height),
-                Direction::Left => (self.x, self.y + tile_height / 2),
-                Direction::Right => (self.x + tile_width, self.y + tile_height / 2),
+                Direction::Up => (self.x + tile_width / 2 - 3, self.y - height),
+                Direction::Down => (self.x + tile_width / 2 - 4, self.y + tile_height - height),
+                Direction::Left => (self.x - 2, self.y + tile_height / 2 - height + 2),
+                Direction::Right => (self.x + tile_width - width + 2, self.y + tile_height / 2 - height),
             };
             weapon.draw(x, y, canvas, screen);
         }

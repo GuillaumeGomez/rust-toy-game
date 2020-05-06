@@ -10,7 +10,7 @@ use crate::GetDimension;
 pub trait Weapon {
     fn draw(&mut self, x: i32, y: i32, canvas: &mut Canvas<Window>, screen: &Rect);
     /// Returns `false` if there is already an action in progress.
-    fn use_it(&mut self, direction: Direction) -> bool;
+    fn use_it(&mut self, direction: Direction);
     fn stop_use(&mut self);
     fn weight(&self) -> u32;
 }
@@ -35,10 +35,10 @@ impl<'a> Weapon for WeaponHandler<'a> {
             _ => {}
         }
     }
-    fn use_it(&mut self, direction: Direction) -> bool {
+    fn use_it(&mut self, direction: Direction) {
         match *self {
             Self::Sword(ref mut s) => s.use_it(direction),
-            _ => false,
+            _ => {},
         }
     }
     fn stop_use(&mut self) {
@@ -117,23 +117,19 @@ impl<'a> Weapon for Sword<'a> {
                 )
                 .expect("failed to copy sword");
             if action.angle < action.max_angle {
-                action.angle += 5;
+                action.angle += 10;
                 self.action = Some(action);
             }
         }
     }
-    fn use_it(&mut self, direction: Direction) -> bool {
-        if self.action.is_some() {
-            return false;
-        }
+    fn use_it(&mut self, direction: Direction) {
         let (angle, max_angle, x_add, y_add) = match direction {
             Direction::Up => (-45, 45, self.width() as i32 / 2, self.height() as i32),
-            Direction::Down => (135, 225, self.width() as i32 / 2, 0),
-            Direction::Left => (225, 315, self.width() as i32, self.height() as i32 / 2),
-            Direction::Right => (45, 135, 0, self.height() as i32 / 2),
+            Direction::Down => (135, 225, self.width() as i32 / 2, self.height() as i32),
+            Direction::Left => (225, 315, 0, self.height() as i32),
+            Direction::Right => (45, 135, 0, self.height() as i32),
         };
         self.action = Some(WeaponAction { angle, max_angle, x_add, y_add });
-        true
     }
     fn stop_use(&mut self) {
         self.action = None;
