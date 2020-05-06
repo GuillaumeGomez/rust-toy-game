@@ -125,7 +125,10 @@ pub fn main() {
                     Keycode::Right | Keycode::D => player.handle_move(Direction::Right),
                     Keycode::Up | Keycode::Z => player.handle_move(Direction::Up),
                     Keycode::Down | Keycode::S => player.handle_move(Direction::Down),
-                    Keycode::Space => player.attack(),
+                    Keycode::Space => {
+                        // TODO: if space isn't released, continue the attacks!
+                        player.attack();
+                    }
                     Keycode::LShift => {
                         player.is_run_pressed = true;
                         player.is_running = player.character.action.movement.is_some();
