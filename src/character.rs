@@ -9,10 +9,10 @@ use crate::{GetDimension, MAP_CASE_SIZE, MAP_SIZE};
 #[derive(Copy, Clone, PartialEq, Hash, Debug)]
 #[repr(usize)]
 pub enum Direction {
-    Front = 0,
-    Left = 1,
-    Right = 2,
-    Back = 3,
+    Down = 0,
+    Up = 1,
+    Left = 2,
+    Right = 3,
 }
 
 #[derive(Copy, Clone, PartialEq, Hash, Debug)]
@@ -87,7 +87,7 @@ impl<'a> Character<'a> {
         let width = dimension.width() as i32 / MAP_CASE_SIZE;
 
         match dir_to_check {
-            Direction::Front => {
+            Direction::Down => {
                 let y = (height + initial_y) * MAP_SIZE as i32;
                 for ix in 0..width {
                     let map_pos = y + initial_x + ix;
@@ -103,7 +103,7 @@ impl<'a> Character<'a> {
                     }
                 }
             }
-            Direction::Back => {
+            Direction::Up => {
                 let y = (initial_y + 1) * MAP_SIZE as i32;
                 for ix in 0..width {
                     let map_pos = y + initial_x + ix;
@@ -135,26 +135,26 @@ impl<'a> Character<'a> {
     fn check_move(&mut self, direction: Direction, map: &Map) -> bool {
         let (info, _) = &self.texture_handler.actions_moving[direction as usize];
         match direction {
-            Direction::Front => {
+            Direction::Down => {
                 if self.y + info.height() as i32 + 1 < map.y + MAP_SIZE as i32 * MAP_CASE_SIZE {
                     if self.check_hitbox(
                         self.x - map.x,
                         self.y + 1 - map.y,
                         &map.data,
-                        Direction::Front,
+                        Direction::Down,
                     ) {
                         self.y += 1;
                         return true;
                     }
                 }
             }
-            Direction::Back => {
+            Direction::Up => {
                 if self.y - 1 >= map.y {
                     if self.check_hitbox(
                         self.x - map.x,
                         self.y - 1 - map.y,
                         &map.data,
-                        Direction::Back,
+                        Direction::Up,
                     ) {
                         self.y -= 1;
                         return true;

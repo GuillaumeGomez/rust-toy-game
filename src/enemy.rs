@@ -34,19 +34,19 @@ impl<'a> Enemy<'a> {
     pub fn new(texture_creator: &'a TextureCreator<WindowContext>, x: i32, y: i32) -> Enemy<'a> {
         let mut actions_standing = Vec::with_capacity(4);
 
-        // front
+        // up
         actions_standing.push(Dimension::new(Rect::new(0, 73, 28, 36), 0));
+        // down
+        actions_standing.push(Dimension::new(Rect::new(0, 3, 29, 37), 0));
         // left
         actions_standing.push(Dimension::new(Rect::new(0, 42, 37, 31), 0));
         // right
         actions_standing.push(Dimension::new(Rect::new(0, 115, 37, 31), 0));
-        // back
-        actions_standing.push(Dimension::new(Rect::new(0, 3, 29, 37), 0));
         let mut actions_moving = Vec::with_capacity(4);
         actions_moving.push((Dimension::new(Rect::new(0, 73, 28, 36), 32), 1));
+        actions_moving.push((Dimension::new(Rect::new(0, 3, 29, 37), 32), 1));
         actions_moving.push((Dimension::new(Rect::new(0, 42, 37, 31), 32), 1));
         actions_moving.push((Dimension::new(Rect::new(0, 115, 37, 31), 32), 1));
-        actions_moving.push((Dimension::new(Rect::new(0, 3, 29, 37), 32), 1));
 
         let surface = Surface::from_file("resources/enemy1.png")
             .expect("failed to load `resources/enemy1.png`");
@@ -64,7 +64,7 @@ impl<'a> Enemy<'a> {
         Enemy {
             character: Character {
                 action: Action {
-                    direction: Direction::Front,
+                    direction: Direction::Down,
                     secondary: None,
                     movement: None,
                 },
@@ -99,9 +99,9 @@ impl<'a> Enemy<'a> {
             dir_x = Some((Direction::Left, self.x() - x));
         }
         if y > self.y() {
-            dir_y = Some((Direction::Front, y - self.y()));
+            dir_y = Some((Direction::Down, y - self.y()));
         } else if y < self.y() {
-            dir_y = Some((Direction::Back, self.y() - y));
+            dir_y = Some((Direction::Up, self.y() - y));
         }
         match (dir_x, dir_y) {
             (Some((dir_x, distance_x)), Some((dir_y, distance_y))) => {

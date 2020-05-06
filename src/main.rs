@@ -95,7 +95,7 @@ pub fn main() {
         MAP_SIZE as i32 * MAP_CASE_SIZE / -2,
         MAP_SIZE as i32 * MAP_CASE_SIZE / -2,
     );
-    let mut player = Player::new(&texture_creator, -3900, -3900);
+    let mut player = Player::new(&texture_creator, -10, -10);
     let mut enemy = Enemy::new(&texture_creator, -40, -40);
     let hud = HUD::new(&texture_creator);
     let mut screen = Rect::new(
@@ -122,8 +122,8 @@ pub fn main() {
                     Keycode::Escape => break 'running,
                     Keycode::Left | Keycode::Q => player.handle_move(Direction::Left),
                     Keycode::Right | Keycode::D => player.handle_move(Direction::Right),
-                    Keycode::Up | Keycode::Z => player.handle_move(Direction::Back),
-                    Keycode::Down | Keycode::S => player.handle_move(Direction::Front),
+                    Keycode::Up | Keycode::Z => player.handle_move(Direction::Up),
+                    Keycode::Down | Keycode::S => player.handle_move(Direction::Down),
                     Keycode::LShift => {
                         player.is_run_pressed = true;
                         player.is_running = player.character.action.movement.is_some();
@@ -146,8 +146,8 @@ pub fn main() {
                         // direction. :)
                         Keycode::Left | Keycode::Q => player.handle_release(Direction::Left),
                         Keycode::Right | Keycode::D => player.handle_release(Direction::Right),
-                        Keycode::Up | Keycode::Z => player.handle_release(Direction::Back),
-                        Keycode::Down | Keycode::S => player.handle_release(Direction::Front),
+                        Keycode::Up | Keycode::Z => player.handle_release(Direction::Up),
+                        Keycode::Down | Keycode::S => player.handle_release(Direction::Down),
                         Keycode::LShift => {
                             player.is_run_pressed = false;
                             player.is_running = false;
