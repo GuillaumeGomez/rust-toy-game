@@ -4,6 +4,7 @@ use sdl2::video::Window;
 
 use crate::map::Map;
 use crate::texture_handler::{Dimension, TextureHandler};
+use crate::weapon::{Weapon, WeaponHandler};
 use crate::{GetDimension, MAP_CASE_SIZE, MAP_SIZE};
 
 #[derive(Copy, Clone, PartialEq, Hash, Debug)]
@@ -70,6 +71,7 @@ pub struct Character<'a> {
     pub xp_to_next_level: u32,
     pub xp: u32,
     pub texture_handler: TextureHandler<'a>,
+    pub weapon: Option<WeaponHandler<'a>>,
 }
 
 impl<'a> Character<'a> {
@@ -226,6 +228,18 @@ impl<'a> Character<'a> {
             )
             .expect("copy character failed");
 
+        if let Some(ref mut weapon) = self.weapon {
+            let width = weapon.width() as i32;
+            let height = weapon.height() as i32;
+            let (x, y) = match self.action.direction {
+                Direction::Up => (self.x + tile_width / 2, self.y - height),
+                Direction::Down => (self.x + tile_width / 2, self.y + tile_height),
+                Direction::Left => (self.x, self.y + tile_height / 2),
+                Direction::Right => (self.x + tile_width, self.y + tile_height / 2),
+            };
+            weapon.draw(x, y, canvas, screen);
+        }
+
         // We now update the animation!
         if let Some(ref mut pos) = self.action.movement {
             *pos += 1;
@@ -234,6 +248,18 @@ impl<'a> Character<'a> {
                 self.stamina += 1;
             }
             return;
+        }
+    }
+
+    pub fn attack(&mut self) {
+        if let Some(ref mut weapon) = self.weapon {
+            weapon.use_it(self.action.direction);
+        }
+    }
+
+    pub fn stop_attack(&mut self) {
+        if let Some(ref mut weapon) = self.weapon {
+            weapon.stop_use();
         }
     }
 }

@@ -23,6 +23,7 @@ mod map;
 mod player;
 mod texture_handler;
 mod utils;
+mod weapon;
 
 use character::Direction;
 use debug_display::DebugDisplay;
@@ -124,6 +125,7 @@ pub fn main() {
                     Keycode::Right | Keycode::D => player.handle_move(Direction::Right),
                     Keycode::Up | Keycode::Z => player.handle_move(Direction::Up),
                     Keycode::Down | Keycode::S => player.handle_move(Direction::Down),
+                    Keycode::Space => player.attack(),
                     Keycode::LShift => {
                         player.is_run_pressed = true;
                         player.is_running = player.character.action.movement.is_some();

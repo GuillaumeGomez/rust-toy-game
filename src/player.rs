@@ -7,6 +7,7 @@ use sdl2::video::{Window, WindowContext};
 use crate::character::{Action, Character, Direction};
 use crate::map::Map;
 use crate::texture_handler::{Dimension, TextureHandler};
+use crate::weapon::Sword;
 use crate::{GetDimension, GetPos};
 
 fn create_right_actions<'a>(
@@ -106,6 +107,7 @@ impl<'a> Player<'a> {
                 xp_to_next_level: 1000,
                 xp: 150,
                 texture_handler,
+                weapon: Some(Sword::new(texture_creator)),
             },
             is_running: false,
             is_run_pressed: false,
@@ -136,6 +138,9 @@ impl<'a> Player<'a> {
 
     pub fn handle_move(&mut self, dir: Direction) {
         if self.character.action.movement.is_none() {
+            if self.character.action.direction != dir {
+                self.character.stop_attack();
+            }
             self.character.action.direction = dir;
             self.character.action.movement = Some(0);
             self.is_running = self.is_run_pressed && self.character.stamina > 0;
@@ -153,11 +158,16 @@ impl<'a> Player<'a> {
             if let Some(second) = self.character.action.secondary.take() {
                 self.character.action.movement = Some(0);
                 self.character.action.direction = second;
+                self.character.stop_attack();
             } else {
                 self.character.action.movement = None;
                 self.is_running = false;
             }
         }
+    }
+
+    pub fn attack(&mut self) {
+        self.character.attack();
     }
 }
 

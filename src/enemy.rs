@@ -79,6 +79,7 @@ impl<'a> Enemy<'a> {
                 xp_to_next_level: 1000,
                 xp: 100,
                 texture_handler,
+                weapon: None,
             },
             action: EnemyAction::None,
             start_x: x,
