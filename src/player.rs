@@ -14,7 +14,7 @@ fn create_right_actions<'a>(
     texture_creator: &'a TextureCreator<WindowContext>,
     actions_standing: &[Dimension],
     _actions_moving: &[(Dimension, i32)],
-) -> Texture<'a> {
+) -> (Texture<'a>, Surface<'a>) {
     let mut surface =
         Surface::from_file("resources/zelda.png").expect("failed to load `resources/zelda.png`");
 
@@ -42,9 +42,12 @@ fn create_right_actions<'a>(
         }
     });
 
-    texture_creator
-        .create_texture_from_surface(surface)
-        .expect("failed to build texture from surface")
+    (
+        texture_creator
+            .create_texture_from_surface(&surface)
+            .expect("failed to build texture from surface"),
+        surface,
+    )
 }
 
 pub struct Player<'a> {
@@ -82,12 +85,10 @@ impl<'a> Player<'a> {
             Dimension::new(Rect::new(346, 44, tile_width, tile_height), 32),
             10,
         ));
-        let texture = create_right_actions(&texture_creator, &actions_standing, &actions_moving);
-        let texture_handler = TextureHandler {
-            texture,
-            actions_standing,
-            actions_moving,
-        };
+        let (texture, surface) =
+            create_right_actions(&texture_creator, &actions_standing, &actions_moving);
+        let texture_handler =
+            TextureHandler::new(surface, texture, actions_standing, actions_moving);
 
         Player {
             character: Character {

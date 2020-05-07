@@ -168,6 +168,11 @@ pub fn main() {
         canvas.clear();
 
         player.apply_move(&map);
+        if player.character.is_attacking() {
+            enemy
+                .character
+                .check_intersection(player.character.weapon.as_ref().unwrap());
+        }
         enemy.update(&player, &map);
         // For now, the screen follows the player.
         screen.x = player.character.x - WIDTH / 2;

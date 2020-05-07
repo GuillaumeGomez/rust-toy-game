@@ -4,7 +4,7 @@ use sdl2::video::Window;
 
 use crate::map::Map;
 use crate::texture_handler::{Dimension, TextureHandler};
-use crate::weapon::{Weapon, WeaponHandler};
+use crate::weapon::Weapon;
 use crate::{GetDimension, MAP_CASE_SIZE, MAP_SIZE};
 
 #[derive(Copy, Clone, PartialEq, Hash, Debug)]
@@ -71,7 +71,7 @@ pub struct Character<'a> {
     pub xp_to_next_level: u32,
     pub xp: u32,
     pub texture_handler: TextureHandler<'a>,
-    pub weapon: Option<WeaponHandler<'a>>,
+    pub weapon: Option<Weapon<'a>>,
 }
 
 impl<'a> Character<'a> {
@@ -235,9 +235,13 @@ impl<'a> Character<'a> {
                 Direction::Up => (self.x + tile_width / 2 - 3, self.y - height),
                 Direction::Down => (self.x + tile_width / 2 - 4, self.y + tile_height - height),
                 Direction::Left => (self.x - 2, self.y + tile_height / 2 - height + 2),
-                Direction::Right => (self.x + tile_width - width + 2, self.y + tile_height / 2 - height),
+                Direction::Right => (
+                    self.x + tile_width - width + 2,
+                    self.y + tile_height / 2 - height,
+                ),
             };
-            weapon.draw(x, y, canvas, screen);
+            weapon.set_pos(x, y);
+            weapon.draw(canvas, screen);
         }
 
         // We now update the animation!
@@ -257,11 +261,93 @@ impl<'a> Character<'a> {
         }
     }
 
+    pub fn is_attacking(&self) -> bool {
+        self.weapon
+            .as_ref()
+            .map(|w| w.is_attacking())
+            .unwrap_or(false)
+    }
+
     pub fn stop_attack(&mut self) {
         if let Some(ref mut weapon) = self.weapon {
             weapon.stop_use();
         }
     }
+
+    pub fn check_intersection(&mut self, weapon: &Weapon<'a>) {
+        let width = self.width() as i32;
+        let height = self.height() as i32;
+        if weapon.x + height < self.x
+            || weapon.x - height > self.x
+            || weapon.y + height < self.y
+            || weapon.y - height > self.y
+        {
+            // The weapon is too far from this character, no need to check further!
+            return;
+        }
+        macro_rules! return_if_none {
+            ($x:expr) => {{
+                match $x {
+                    Some(x) => x,
+                    None => return,
+                }
+            }};
+        }
+
+        let (x2, y2) = return_if_none!(weapon.compute_angle());
+        if (weapon.x < self.x
+            || weapon.x > self.x + width
+            || weapon.y < self.y
+            || weapon.y > self.y + height)
+            && (x2 < self.x || x2 > self.x + width || y2 < self.y || y2 > self.y + height)
+            && !check_line(
+                (weapon.x, weapon.y),
+                (x2, y2),
+                (self.x, self.y),
+                (self.x + width, self.y),
+            )
+            && !check_line(
+                (weapon.x, weapon.y),
+                (x2, y2),
+                (self.x, self.y),
+                (self.x, self.y + height),
+            )
+            && !check_line(
+                (weapon.x, weapon.y),
+                (x2, y2),
+                (self.x, self.y + height),
+                (self.x + width, self.y + height),
+            )
+            && !check_line(
+                (weapon.x, weapon.y),
+                (x2, y2),
+                (self.x + width, self.y),
+                (self.x + width, self.y + height),
+            )
+        {
+            // They don't cross, no need to check!
+            return;
+        }
+        if self.texture_handler.check_intersection(
+            (weapon.x, weapon.y),
+            (x2, y2),
+            weapon.height() as i32,
+        ) {
+            println!("intersection!");
+        }
+    }
+}
+
+fn check_line(pos1: (i32, i32), pos2: (i32, i32), pos3: (i32, i32), pos4: (i32, i32)) -> bool {
+    let vec_a = ((pos4.0 - pos3.0) * (pos1.1 - pos3.1) - (pos4.1 - pos3.1) * (pos1.0 - pos3.1))
+        as f32
+        / ((pos4.1 - pos3.1) * (pos2.0 - pos1.0) - (pos4.0 - pos3.0) * (pos2.1 - pos1.1)) as f32;
+    let vec_b = ((pos2.0 - pos1.0) * (pos1.1 - pos3.1) - (pos2.1 - pos1.1) * (pos1.0 - pos3.0))
+        as f32
+        / ((pos4.1 - pos3.1) * (pos2.0 - pos1.0) - (pos4.0 - pos3.0) * (pos2.1 - pos1.1)) as f32;
+
+    // if vec_a and vec_b are between 0-1, lines are colliding
+    vec_a >= 0. && vec_a <= 1. && vec_b >= 0. && vec_b <= 1.
 }
 
 impl<'a> GetDimension for Character<'a> {

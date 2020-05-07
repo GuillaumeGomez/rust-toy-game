@@ -24,7 +24,7 @@ enum EnemyAction {
 }
 
 pub struct Enemy<'a> {
-    character: Character<'a>,
+    pub character: Character<'a>,
     action: EnemyAction,
     start_x: i32,
     start_y: i32,
@@ -52,14 +52,11 @@ impl<'a> Enemy<'a> {
             .expect("failed to load `resources/enemy1.png`");
 
         let texture = texture_creator
-            .create_texture_from_surface(surface)
+            .create_texture_from_surface(&surface)
             .expect("failed to build texture from surface");
         // let texture = create_right_actions(&texture_creator, &actions_standing, &actions_moving);
-        let texture_handler = TextureHandler {
-            texture,
-            actions_standing,
-            actions_moving,
-        };
+        let texture_handler =
+            TextureHandler::new(surface, texture, actions_standing, actions_moving);
 
         Enemy {
             character: Character {
