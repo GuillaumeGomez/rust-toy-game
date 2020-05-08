@@ -128,7 +128,7 @@ impl<'a> Enemy<'a> {
 
     pub fn update(&mut self, player: &Player, map: &Map) {
         let distance = utils::compute_distance(player, self);
-        match self.action {
+        /*match self.action {
             EnemyAction::None | EnemyAction::MoveTo(..)
                 if distance < (::std::cmp::min(self.height(), self.width()) * 2) as i32 =>
             {
@@ -185,7 +185,7 @@ impl<'a> Enemy<'a> {
                     self.character.inner_apply_move(map);
                 }
             }
-        }
+        }*/
     }
 }
 

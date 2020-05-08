@@ -15,6 +15,15 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::time::{Duration, Instant};
 
+macro_rules! return_if_none {
+    ($x:expr) => {{
+        match $x {
+            Some(x) => x,
+            None => return,
+        }
+    }};
+}
+
 mod character;
 mod debug_display;
 mod enemy;

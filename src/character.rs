@@ -199,11 +199,29 @@ impl<'a> Character<'a> {
             return false;
         }
         let moved = self.check_move(self.action.direction, map);
-        if let Some(second) = self.action.secondary {
+        let moved = if let Some(second) = self.action.secondary {
             self.check_move(second, map) || moved
         } else {
             moved
+        };
+        if let Some(ref mut weapon) = self.weapon {
+            let (tile_x, tile_y, tile_width, tile_height) = self
+                .action
+                .compute_current(self.is_running, &self.texture_handler);
+            let width = weapon.width() as i32;
+            let height = weapon.height() as i32;
+            let (x, y) = match self.action.direction {
+                Direction::Up => (self.x + tile_width / 2 - 3, self.y - height),
+                Direction::Down => (self.x + tile_width / 2 - 4, self.y + tile_height - height),
+                Direction::Left => (self.x - 2, self.y + tile_height / 2 - height + 2),
+                Direction::Right => (
+                    self.x + tile_width - width + 2,
+                    self.y + tile_height / 2 - height,
+                ),
+            };
+            weapon.set_pos(x, y);
         }
+        moved
     }
 
     pub fn draw(&mut self, canvas: &mut Canvas<Window>, screen: &Rect) {
@@ -228,20 +246,7 @@ impl<'a> Character<'a> {
                 ),
             )
             .expect("copy character failed");
-
         if let Some(ref mut weapon) = self.weapon {
-            let width = weapon.width() as i32;
-            let height = weapon.height() as i32;
-            let (x, y) = match self.action.direction {
-                Direction::Up => (self.x + tile_width / 2 - 3, self.y - height),
-                Direction::Down => (self.x + tile_width / 2 - 4, self.y + tile_height - height),
-                Direction::Left => (self.x - 2, self.y + tile_height / 2 - height + 2),
-                Direction::Right => (
-                    self.x + tile_width - width + 2,
-                    self.y + tile_height / 2 - height,
-                ),
-            };
-            weapon.set_pos(x, y);
             weapon.draw(canvas, screen);
         }
 
@@ -300,63 +305,64 @@ impl<'a> Character<'a> {
         let width = width as i32;
         let height = height as i32;
 
-        if weapon.x + height < self.x
-            || weapon.x - height > self.x
-            || weapon.y + height < self.y
-            || weapon.y - height > self.y
+        let w_height = weapon.height() as i32;
+        let w_width = weapon.width() as i32;
+        let w_biggest = if w_height > w_width {
+            w_height
+        } else {
+            w_width
+        };
+        let weapon_y = if self.action.direction == Direction::Down {
+            weapon.y + w_biggest
+        } else {
+            weapon.y
+        };
+
+        if weapon.x + w_biggest < self.x
+            || weapon.x - w_biggest > self.x + width
+            || weapon_y + w_biggest < self.y
+            || weapon_y - w_biggest > self.y + height
         {
             // The weapon is too far from this character, no need to check further!
             return;
         }
-        macro_rules! return_if_none {
-            ($x:expr) => {{
-                match $x {
-                    Some(x) => x,
-                    None => return,
-                }
-            }};
-        }
 
-        let (x2, y2) = return_if_none!(weapon.compute_angle());
-        if (weapon.x < self.x
-            || weapon.x > self.x + width
-            || weapon.y < self.y
-            || weapon.y > self.y + height)
-            && (x2 < self.x || x2 > self.x + width || y2 < self.y || y2 > self.y + height)
-            && !check_line(
-                (weapon.x, weapon.y),
-                (x2, y2),
-                (self.x, self.y),
-                (self.x + width, self.y),
-            )
-            && !check_line(
-                (weapon.x, weapon.y),
-                (x2, y2),
-                (self.x, self.y),
-                (self.x, self.y + height),
-            )
-            && !check_line(
-                (weapon.x, weapon.y),
-                (x2, y2),
-                (self.x, self.y + height),
-                (self.x + width, self.y + height),
-            )
-            && !check_line(
-                (weapon.x, weapon.y),
-                (x2, y2),
-                (self.x + width, self.y),
-                (self.x + width, self.y + height),
-            )
-        {
-            // They don't cross, no need to check!
-            return;
-        }
-        // TODO: only pass the character rect!!!
+        let ((x1, y1), (x2, y2)) = return_if_none!(weapon.compute_angle());
+        // if !check_line(
+        //         (weapon.x, weapon.y),
+        //         (x2, y2),
+        //         (self.x, self.y),
+        //         (self.x + width, self.y),
+        //     )
+        //     && !check_line(
+        //         (weapon.x, weapon.y),
+        //         (x2, y2),
+        //         (self.x, self.y),
+        //         (self.x, self.y + height),
+        //     )
+        //     && !check_line(
+        //         (weapon.x, weapon.y),
+        //         (x2, y2),
+        //         (self.x, self.y + height),
+        //         (self.x + width, self.y + height),
+        //     )
+        //     && !check_line(
+        //         (weapon.x, weapon.y),
+        //         (x2, y2),
+        //         (self.x + width, self.y),
+        //         (self.x + width, self.y + height),
+        //     )
+        // {
+        //     println!("no crossing! {} {}", x2, y2);
+        //     // They don't cross, no need to check!
+        //     return;
+        // }
+
         // TODO: pass the weapon rect too, for the rotation, make:
         //       x = (original_x - new_x), pixel + x
         if self.texture_handler.check_intersection(
-            (weapon.x, weapon.y),
-            (x2, y2),
+            (x1 - self.x, y2 - self.y),
+            (x2 - self.x, y2 - self.y),
             (tile_x, tile_y),
             (width, height),
             weapon.height() as i32,

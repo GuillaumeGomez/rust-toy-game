@@ -64,30 +64,26 @@ impl<'a> TextureHandler<'a> {
     ) -> bool {
         let (mut x_start, mut y_start) = (line_start.0 * 100, line_start.1 * 100);
         let (x_end, y_end) = (line_end.0 * 100, line_end.1 * 100);
-        let x_add = if x_end > x_start {
-            x_end - x_start
-        } else {
-            x_start - x_end
-        } / nb_checks;
-        let y_add = if y_end > y_start {
-            y_end - y_start
-        } else {
-            y_start - y_end
-        } / nb_checks;
+        let x_add = (x_end - x_start) / nb_checks;
+        let y_add = (y_end - y_start) / nb_checks;
 
         let pitch = self.surface.pitch() as i32;
         let max_len = (self.surface.height() * self.surface.pitch()) as i32;
         let surface = self.surface.raw();
         let pixels = unsafe { (*surface).pixels as *const u8 };
+        // println!("in! {} {} || {} {} XX {} {}", line_start.0, line_start.1, line_end.0, line_end.1, tile_pos.0, tile_pos.1);
         for _ in 0..nb_checks {
-            let y = y_start / 100;
-            let x = x_start / 100;
+            let y = y_start / 100 + tile_pos.1;
+            let x = x_start / 100 + tile_pos.0;
+            // println!("({}, {}) + ({}-{}, {}-{}) => ({}, {})", y_start / 100, x_start / 100, tile_pos.0, tile_pos.0 + tile_size.0, tile_pos.1, tile_pos.1 + tile_size.1, x, y);
+            x_start += x_add;
+            y_start += y_add;
             if y < tile_pos.1
                 || y > tile_pos.1 + tile_size.1
                 || x < tile_pos.0
                 || x > tile_pos.0 + tile_size.0
             {
-                // We outside of the tile we're looking for!
+                // We are outside of the tile we're looking for!
                 continue;
             }
             let pos = y * pitch + x * 4; // 4 is because the surfaces are always RGBA8888 so 4 bytes
@@ -99,8 +95,6 @@ impl<'a> TextureHandler<'a> {
                     return true;
                 }
             }
-            x_start += x_add;
-            y_start += y_add;
         }
         false
     }
