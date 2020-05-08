@@ -1,3 +1,5 @@
+use std::ops::{Deref, DerefMut};
+
 use sdl2::image::LoadSurface;
 use sdl2::rect::Rect;
 use sdl2::render::{Canvas, Texture, TextureCreator};
@@ -52,7 +54,6 @@ fn create_right_actions<'a>(
 
 pub struct Player<'a> {
     pub character: Character<'a>,
-    pub is_running: bool,
     pub is_run_pressed: bool,
 }
 
@@ -109,31 +110,9 @@ impl<'a> Player<'a> {
                 xp: 150,
                 texture_handler,
                 weapon: Some(Sword::new(texture_creator)),
+                is_running: false,
             },
-            is_running: false,
             is_run_pressed: false,
-        }
-    }
-
-    pub fn draw(&mut self, canvas: &mut Canvas<Window>, screen: &Rect) {
-        self.character.draw(canvas, self.is_running, screen)
-    }
-
-    pub fn apply_move(&mut self, map: &Map) {
-        if self.character.inner_apply_move(map) {
-            if self.is_running {
-                self.character.inner_apply_move(map);
-                if self.character.stamina > 0 {
-                    self.character.stamina -= 1;
-                    if self.character.stamina == 0 {
-                        self.is_running = false;
-                    }
-                }
-                return;
-            }
-        }
-        if self.character.stamina < self.character.total_stamina {
-            self.character.stamina += 1;
         }
     }
 
@@ -144,7 +123,7 @@ impl<'a> Player<'a> {
             }
             self.character.action.direction = dir;
             self.character.action.movement = Some(0);
-            self.is_running = self.is_run_pressed && self.character.stamina > 0;
+            self.character.is_running = self.is_run_pressed && self.character.stamina > 0;
         } else if self.character.action.secondary.is_none()
             && dir != self.character.action.direction
         {
@@ -162,13 +141,9 @@ impl<'a> Player<'a> {
                 self.character.stop_attack();
             } else {
                 self.character.action.movement = None;
-                self.is_running = false;
+                self.character.is_running = false;
             }
         }
-    }
-
-    pub fn attack(&mut self) {
-        self.character.attack();
     }
 }
 
@@ -188,5 +163,19 @@ impl<'a> GetDimension for Player<'a> {
     }
     fn height(&self) -> u32 {
         self.character.height()
+    }
+}
+
+impl<'a> Deref for Player<'a> {
+    type Target = Character<'a>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.character
+    }
+}
+
+impl<'a> DerefMut for Player<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.character
     }
 }

@@ -1,3 +1,5 @@
+use std::ops::{Deref, DerefMut};
+
 use rand::Rng;
 use sdl2::image::LoadSurface;
 use sdl2::rect::Rect;
@@ -77,15 +79,12 @@ impl<'a> Enemy<'a> {
                 xp: 100,
                 texture_handler,
                 weapon: None,
+                is_running: false,
             },
             action: EnemyAction::None,
             start_x: x,
             start_y: y,
         }
-    }
-
-    pub fn draw(&mut self, canvas: &mut Canvas<Window>, screen: &Rect) {
-        self.character.draw(canvas, false, screen)
     }
 
     fn compute_destination(&mut self, x: i32, y: i32) {
@@ -206,5 +205,19 @@ impl<'a> GetDimension for Enemy<'a> {
     }
     fn height(&self) -> u32 {
         self.character.height()
+    }
+}
+
+impl<'a> Deref for Enemy<'a> {
+    type Target = Character<'a>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.character
+    }
+}
+
+impl<'a> DerefMut for Enemy<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.character
     }
 }

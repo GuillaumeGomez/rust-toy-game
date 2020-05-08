@@ -58,6 +58,8 @@ impl<'a> TextureHandler<'a> {
         &self,
         line_start: (i32, i32),
         line_end: (i32, i32),
+        tile_pos: (i32, i32),
+        tile_size: (i32, i32),
         nb_checks: i32,
     ) -> bool {
         let (mut x_start, mut y_start) = (line_start.0 * 100, line_start.1 * 100);
@@ -78,7 +80,17 @@ impl<'a> TextureHandler<'a> {
         let surface = self.surface.raw();
         let pixels = unsafe { (*surface).pixels as *const u8 };
         for _ in 0..nb_checks {
-            let pos = y_start / 100 * pitch + x_start / 100 * 4;
+            let y = y_start / 100;
+            let x = x_start / 100;
+            if y < tile_pos.1
+                || y > tile_pos.1 + tile_size.1
+                || x < tile_pos.0
+                || x > tile_pos.0 + tile_size.0
+            {
+                // We outside of the tile we're looking for!
+                continue;
+            }
+            let pos = y * pitch + x * 4; // 4 is because the surfaces are always RGBA8888 so 4 bytes
             if pos >= 0 && pos < max_len {
                 let target_pixel = unsafe { *(pixels.add(pos as usize) as *const u32) };
                 let alpha = target_pixel & 255;

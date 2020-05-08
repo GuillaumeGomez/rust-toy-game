@@ -72,6 +72,7 @@ pub struct Character<'a> {
     pub xp: u32,
     pub texture_handler: TextureHandler<'a>,
     pub weapon: Option<Weapon<'a>>,
+    pub is_running: bool,
 }
 
 impl<'a> Character<'a> {
@@ -205,10 +206,10 @@ impl<'a> Character<'a> {
         }
     }
 
-    pub fn draw(&mut self, canvas: &mut Canvas<Window>, is_running: bool, screen: &Rect) {
+    pub fn draw(&mut self, canvas: &mut Canvas<Window>, screen: &Rect) {
         let (tile_x, tile_y, tile_width, tile_height) = self
             .action
-            .compute_current(is_running, &self.texture_handler);
+            .compute_current(self.is_running, &self.texture_handler);
         if (self.x + tile_width < screen.x || self.x > screen.x + screen.width() as i32)
             && (self.y + tile_height < screen.y || self.y > screen.y + screen.height() as i32)
         {
@@ -274,9 +275,31 @@ impl<'a> Character<'a> {
         }
     }
 
+    pub fn apply_move(&mut self, map: &Map) {
+        if self.inner_apply_move(map) {
+            if self.is_running {
+                self.inner_apply_move(map);
+                if self.stamina > 0 {
+                    self.stamina -= 1;
+                    if self.stamina == 0 {
+                        self.is_running = false;
+                    }
+                }
+                return;
+            }
+        }
+        if self.stamina < self.total_stamina {
+            self.stamina += 1;
+        }
+    }
+
     pub fn check_intersection(&mut self, weapon: &Weapon<'a>) {
-        let width = self.width() as i32;
-        let height = self.height() as i32;
+        let (tile_x, tile_y, width, height) = self
+            .action
+            .compute_current(self.is_running, &self.texture_handler);
+        let width = width as i32;
+        let height = height as i32;
+
         if weapon.x + height < self.x
             || weapon.x - height > self.x
             || weapon.y + height < self.y
@@ -328,9 +351,14 @@ impl<'a> Character<'a> {
             // They don't cross, no need to check!
             return;
         }
+        // TODO: only pass the character rect!!!
+        // TODO: pass the weapon rect too, for the rotation, make:
+        //       x = (original_x - new_x), pixel + x
         if self.texture_handler.check_intersection(
             (weapon.x, weapon.y),
             (x2, y2),
+            (tile_x, tile_y),
+            (width, height),
             weapon.height() as i32,
         ) {
             println!("intersection!");
