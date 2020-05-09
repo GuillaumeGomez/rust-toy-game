@@ -1,6 +1,7 @@
 use std::ops::{Deref, DerefMut};
 
 use sdl2::image::LoadSurface;
+use sdl2::pixels::PixelFormatEnum;
 use sdl2::rect::Rect;
 use sdl2::render::{Canvas, Texture, TextureCreator};
 use sdl2::surface::Surface;
@@ -27,25 +28,38 @@ pub struct Weapon<'a> {
     pub y: i32,
     action: Option<WeaponAction>,
     pub kind: WeaponKind<'a>,
+    // TODO: optimize memory usage by putting 8 pixels into one
+    data: Vec<u8>,
 }
 
 impl<'a> Weapon<'a> {
-    /// Returns (base_point, new_head_point)
-    pub fn compute_angle(&self) -> Option<((i32, i32), (i32, i32))> {
+    /// Returns a vec of positions to check.
+    pub fn compute_angle(&self) -> Option<Vec<(i32, i32)>> {
         let action = self.get_action()?;
         let height = self.height() as i32;
-        let width = self.width() as i32 / 2;
+        let width = self.width() as i32;
+        let half_width = width / 2;
+        let mut matrix = Vec::with_capacity(self.data.len());
 
         let radian_angle = action.angle as f32 * 0.0174533;
-        let x2 = 0. - height as f32 * radian_angle.sin() + width as f32;
-        let y2 = 0. + height as f32 * radian_angle.cos();
-        Some((
-            (self.x + action.x_add, self.y + action.y_add),
-            (
-                self.x - x2 as i32 + action.x_add,
-                self.y + action.y_add - y2 as i32,
-            ),
-        ))
+        let radian_sin = radian_angle.sin();
+        let radian_cos = radian_angle.cos();
+        for y in 0..height {
+            let y = (height - 1 - y) as usize;
+            let y_f32 = y as f32;
+            let rad_sin_y = y_f32 * radian_sin;
+            let rad_cos_y = y_f32 * radian_cos;
+            for x in 0..width {
+                if self.data[y * width as usize + x as usize] == 0 {
+                    continue;
+                }
+                let x = x - half_width;
+                let x2 = x as f32 * radian_cos - rad_sin_y;
+                let y2 = x as f32 * radian_sin + rad_cos_y;
+                matrix.push((self.x - x2 as i32, self.y - y2 as i32 + action.y_add));
+            }
+        }
+        Some(matrix)
     }
 
     pub fn set_pos(&mut self, x: i32, y: i32) {
@@ -157,23 +171,45 @@ pub struct Sword<'a> {
     height: u32,
 }
 
+fn get_surface_data(surface: &Surface<'_>) -> Vec<u8> {
+    let height = surface.height() as usize;
+    let width = surface.width() as usize;
+    let mut data = Vec::with_capacity(width * height);
+
+    let surface = surface.raw();
+    let pixels = unsafe { (*surface).pixels as *const u32 };
+
+    for pos in 0..height * width {
+        let target_pixel = unsafe { *(pixels.add(pos) as *const u32) };
+        let alpha = target_pixel & 255;
+        data.push(if alpha > 220 { 1 } else { 0 });
+    }
+    data
+}
+
 impl<'a> Sword<'a> {
     pub fn new(texture_creator: &'a TextureCreator<WindowContext>) -> Weapon<'a> {
-        let surface = Surface::from_file("resources/weapon.png")
+        let mut surface = Surface::from_file("resources/weapon.png")
             .expect("failed to load `resources/weapon.png`");
 
-        let width = surface.width();
-        let height = surface.height();
+        if surface.pixel_format_enum() != PixelFormatEnum::RGBA8888 {
+            surface = surface
+                .convert_format(PixelFormatEnum::RGBA8888)
+                .expect("failed to convert surface to RGBA8888");
+        }
+
+        let data = get_surface_data(&surface);
         Weapon {
             x: 0,
             y: 0,
             action: None,
+            data,
             kind: WeaponKind::Sword(Sword {
+                width: surface.width(),
+                height: surface.height(),
                 texture: texture_creator
                     .create_texture_from_surface(surface)
                     .expect("failed to build weapon texture from surface"),
-                width,
-                height,
             }),
         }
     }

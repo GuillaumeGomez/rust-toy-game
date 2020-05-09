@@ -73,6 +73,8 @@ pub struct Character<'a> {
     pub texture_handler: TextureHandler<'a>,
     pub weapon: Option<Weapon<'a>>,
     pub is_running: bool,
+    // TODO: add an id so an attack with weapon won't be applied too many times, it'll match
+    //       the time required for the attack to end
 }
 
 impl<'a> Character<'a> {
@@ -94,14 +96,14 @@ impl<'a> Character<'a> {
                 let y = (height + initial_y) * MAP_SIZE as i32;
                 for ix in 0..width {
                     let map_pos = y + initial_x + ix;
-                    if map_data[map_pos as usize] != 0 {
+                    if map_pos < 0 || map_data.get(map_pos as usize).unwrap_or(&1) != &0 {
                         return false;
                     }
                 }
                 let y = (height + initial_y + 1) * MAP_SIZE as i32;
                 for ix in 0..width {
                     let map_pos = y + initial_x + ix;
-                    if map_data[map_pos as usize] != 0 {
+                    if map_pos < 0 || map_data.get(map_pos as usize).unwrap_or(&1) != &0 {
                         return false;
                     }
                 }
@@ -110,7 +112,7 @@ impl<'a> Character<'a> {
                 let y = (initial_y + 1) * MAP_SIZE as i32;
                 for ix in 0..width {
                     let map_pos = y + initial_x + ix;
-                    if map_data[map_pos as usize] != 0 {
+                    if map_pos < 0 || map_data.get(map_pos as usize).unwrap_or(&1) != &0 {
                         return false;
                     }
                 }
@@ -118,7 +120,7 @@ impl<'a> Character<'a> {
             Direction::Right => {
                 for iy in 1..height {
                     let map_pos = (initial_y + iy) * MAP_SIZE as i32 + initial_x + width;
-                    if map_data[map_pos as usize] != 0 {
+                    if map_pos < 0 || map_data.get(map_pos as usize).unwrap_or(&1) != &0 {
                         return false;
                     }
                 }
@@ -126,7 +128,7 @@ impl<'a> Character<'a> {
             Direction::Left => {
                 for iy in 1..height {
                     let map_pos = (initial_y + iy) * MAP_SIZE as i32 + initial_x;
-                    if map_data[map_pos as usize] != 0 {
+                    if map_pos < 0 || map_data.get(map_pos as usize).unwrap_or(&1) != &0 {
                         return false;
                     }
                 }
@@ -247,6 +249,11 @@ impl<'a> Character<'a> {
             )
             .expect("copy character failed");
         if let Some(ref mut weapon) = self.weapon {
+            // if let Some(matrix) = weapon.compute_angle() {
+            //     for (x, y) in matrix.iter() {
+            //         canvas.fill_rect(Rect::new(x - screen.x, y - screen.y, 8, 8));
+            //     }
+            // }
             weapon.draw(canvas, screen);
         }
 
@@ -327,61 +334,16 @@ impl<'a> Character<'a> {
             return;
         }
 
-        let ((x1, y1), (x2, y2)) = return_if_none!(weapon.compute_angle());
-        // if !check_line(
-        //         (weapon.x, weapon.y),
-        //         (x2, y2),
-        //         (self.x, self.y),
-        //         (self.x + width, self.y),
-        //     )
-        //     && !check_line(
-        //         (weapon.x, weapon.y),
-        //         (x2, y2),
-        //         (self.x, self.y),
-        //         (self.x, self.y + height),
-        //     )
-        //     && !check_line(
-        //         (weapon.x, weapon.y),
-        //         (x2, y2),
-        //         (self.x, self.y + height),
-        //         (self.x + width, self.y + height),
-        //     )
-        //     && !check_line(
-        //         (weapon.x, weapon.y),
-        //         (x2, y2),
-        //         (self.x + width, self.y),
-        //         (self.x + width, self.y + height),
-        //     )
-        // {
-        //     println!("no crossing! {} {}", x2, y2);
-        //     // They don't cross, no need to check!
-        //     return;
-        // }
-
-        // TODO: pass the weapon rect too, for the rotation, make:
-        //       x = (original_x - new_x), pixel + x
+        let matrix = return_if_none!(weapon.compute_angle());
         if self.texture_handler.check_intersection(
-            (x1 - self.x, y2 - self.y),
-            (x2 - self.x, y2 - self.y),
+            &matrix,
             (tile_x, tile_y),
             (width, height),
-            weapon.height() as i32,
+            (self.x, self.y),
         ) {
             println!("intersection!");
         }
     }
-}
-
-fn check_line(pos1: (i32, i32), pos2: (i32, i32), pos3: (i32, i32), pos4: (i32, i32)) -> bool {
-    let vec_a = ((pos4.0 - pos3.0) * (pos1.1 - pos3.1) - (pos4.1 - pos3.1) * (pos1.0 - pos3.1))
-        as f32
-        / ((pos4.1 - pos3.1) * (pos2.0 - pos1.0) - (pos4.0 - pos3.0) * (pos2.1 - pos1.1)) as f32;
-    let vec_b = ((pos2.0 - pos1.0) * (pos1.1 - pos3.1) - (pos2.1 - pos1.1) * (pos1.0 - pos3.0))
-        as f32
-        / ((pos4.1 - pos3.1) * (pos2.0 - pos1.0) - (pos4.0 - pos3.0) * (pos2.1 - pos1.1)) as f32;
-
-    // if vec_a and vec_b are between 0-1, lines are colliding
-    vec_a >= 0. && vec_a <= 1. && vec_b >= 0. && vec_b <= 1.
 }
 
 impl<'a> GetDimension for Character<'a> {

@@ -56,28 +56,18 @@ impl<'a> TextureHandler<'a> {
 
     pub fn check_intersection(
         &self,
-        line_start: (i32, i32),
-        line_end: (i32, i32),
+        matrix: &[(i32, i32)],
         tile_pos: (i32, i32),
         tile_size: (i32, i32),
-        nb_checks: i32,
+        character_pos: (i32, i32),
     ) -> bool {
-        let (mut x_start, mut y_start) = (line_start.0 * 100, line_start.1 * 100);
-        let (x_end, y_end) = (line_end.0 * 100, line_end.1 * 100);
-        let x_add = (x_end - x_start) / nb_checks;
-        let y_add = (y_end - y_start) / nb_checks;
-
         let pitch = self.surface.pitch() as i32;
         let max_len = (self.surface.height() * self.surface.pitch()) as i32;
         let surface = self.surface.raw();
         let pixels = unsafe { (*surface).pixels as *const u8 };
-        // println!("in! {} {} || {} {} XX {} {}", line_start.0, line_start.1, line_end.0, line_end.1, tile_pos.0, tile_pos.1);
-        for _ in 0..nb_checks {
-            let y = y_start / 100 + tile_pos.1;
-            let x = x_start / 100 + tile_pos.0;
-            // println!("({}, {}) + ({}-{}, {}-{}) => ({}, {})", y_start / 100, x_start / 100, tile_pos.0, tile_pos.0 + tile_size.0, tile_pos.1, tile_pos.1 + tile_size.1, x, y);
-            x_start += x_add;
-            y_start += y_add;
+        for (x, y) in matrix.iter() {
+            let x = x - character_pos.0 + tile_pos.0;
+            let y = y - character_pos.1 + tile_pos.1;
             if y < tile_pos.1
                 || y > tile_pos.1 + tile_size.1
                 || x < tile_pos.0
