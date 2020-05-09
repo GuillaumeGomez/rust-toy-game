@@ -120,6 +120,7 @@ pub fn main() {
     let mut debug_display = DebugDisplay::new(&font, &texture_creator, 16);
     let mut debug = None;
     let mut fps_str = String::new();
+    let mut is_attack_pressed = false;
 
     let mut loop_timer = Instant::now();
     'running: loop {
@@ -135,8 +136,10 @@ pub fn main() {
                     Keycode::Up | Keycode::Z => player.handle_move(Direction::Up),
                     Keycode::Down | Keycode::S => player.handle_move(Direction::Down),
                     Keycode::Space => {
-                        // TODO: if space isn't released, continue the attacks?
-                        player.attack();
+                        if !is_attack_pressed {
+                            player.attack();
+                            is_attack_pressed = true;
+                        }
                     }
                     Keycode::LShift => {
                         player.is_run_pressed = true;
@@ -166,11 +169,15 @@ pub fn main() {
                             player.is_run_pressed = false;
                             player.is_running = false;
                         }
+                        Keycode::Space => is_attack_pressed = false,
                         _ => {}
                     }
                 }
                 _ => {}
             }
+        }
+        if is_attack_pressed && !player.is_attacking() {
+            player.attack();
         }
 
         canvas.present();
@@ -181,6 +188,11 @@ pub fn main() {
             enemy.check_intersection(player.weapon.as_ref().unwrap());
         }
         enemy.update(&player, &map);
+        // TODO: instead of having draw methods on each drawable objects, maybe create a Screen
+        // type which will get position, size and texture and perform the checks itself? Might be
+        // a complicated in case an object contains objects to draw though... It could be overcome
+        // by adding a methods "get_drawable_children" though.
+        //
         // For now, the screen follows the player.
         screen.x = player.character.x - WIDTH / 2;
         screen.y = player.character.y - HEIGHT / 2;

@@ -73,8 +73,9 @@ pub struct Character<'a> {
     pub texture_handler: TextureHandler<'a>,
     pub weapon: Option<Weapon<'a>>,
     pub is_running: bool,
-    // TODO: add an id so an attack with weapon won't be applied too many times, it'll match
-    //       the time required for the attack to end
+    // /// This ID is used when this character is attacking someone else. This "someone else" will
+    // /// invincible to any other attack from your ID until the total attack time is over.
+    // pub id: usize,
 }
 
 impl<'a> Character<'a> {
@@ -196,16 +197,7 @@ impl<'a> Character<'a> {
         false
     }
 
-    pub fn inner_apply_move(&mut self, map: &Map) -> bool {
-        if self.action.movement.is_none() {
-            return false;
-        }
-        let moved = self.check_move(self.action.direction, map);
-        let moved = if let Some(second) = self.action.secondary {
-            self.check_move(second, map) || moved
-        } else {
-            moved
-        };
+    fn set_weapon_pos(&mut self) {
         if let Some(ref mut weapon) = self.weapon {
             let (tile_x, tile_y, tile_width, tile_height) = self
                 .action
@@ -223,6 +215,21 @@ impl<'a> Character<'a> {
             };
             weapon.set_pos(x, y);
         }
+    }
+
+    pub fn inner_apply_move(&mut self, map: &Map) -> bool {
+        if self.action.movement.is_none() {
+            return false;
+        }
+        let moved = self.check_move(self.action.direction, map);
+        let moved = if let Some(second) = self.action.secondary {
+            self.check_move(second, map) || moved
+        } else {
+            moved
+        };
+        if moved {
+            self.set_weapon_pos();
+        }
         moved
     }
 
@@ -230,6 +237,7 @@ impl<'a> Character<'a> {
         let (tile_x, tile_y, tile_width, tile_height) = self
             .action
             .compute_current(self.is_running, &self.texture_handler);
+        let debug = self.xp == 150;
         if (self.x + tile_width < screen.x || self.x > screen.x + screen.width() as i32)
             && (self.y + tile_height < screen.y || self.y > screen.y + screen.height() as i32)
         {
@@ -268,9 +276,11 @@ impl<'a> Character<'a> {
         }
     }
 
+    // TODO: add stamina consumption when attacking
     pub fn attack(&mut self) {
         if let Some(ref mut weapon) = self.weapon {
             weapon.use_it(self.action.direction);
+            self.set_weapon_pos();
         }
     }
 

@@ -94,7 +94,7 @@ impl<'a> Player<'a> {
         Player {
             character: Character {
                 action: Action {
-                    direction: Direction::Down,
+                    direction: Direction::Up,
                     secondary: None,
                     movement: None,
                 },

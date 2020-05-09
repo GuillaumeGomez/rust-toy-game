@@ -61,7 +61,7 @@ impl<'a> Weapon<'a> {
         }
         Some(matrix)
     }
-
+    /// Set the position based on the character and its direction.
     pub fn set_pos(&mut self, x: i32, y: i32) {
         self.x = x;
         self.y = y;
@@ -82,13 +82,6 @@ impl<'a> Weapon<'a> {
                         false,
                     )
                     .expect("failed to copy sword");
-                // let ((x1, y1), (x2, y2)) = return_if_none!(self.compute_angle());
-                // let x = if x1 < x2 { x1 } else { x2 };
-                // let y = if y1 < y2 { y1 } else { y2 };
-                // let width = (x1 - x2).abs() as u32;
-                // let height = (y1 - y2).abs() as u32;
-
-                // canvas.fill_rect(Rect::new(x - screen.x, y - screen.y, width, height));
             }
             if action.angle < action.max_angle {
                 action.angle += 10;
