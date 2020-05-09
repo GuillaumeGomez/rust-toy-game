@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 
 use rand::Rng;
@@ -12,7 +13,7 @@ use crate::map::Map;
 use crate::player::Player;
 use crate::texture_handler::{Dimension, TextureHandler};
 use crate::utils;
-use crate::{GetDimension, GetPos, MAX_DISTANCE_PURSUIT, MAX_DISTANCE_WANDERING};
+use crate::{GetDimension, GetPos, Id, MAX_DISTANCE_PURSUIT, MAX_DISTANCE_WANDERING};
 
 // TODO: for moveto and movetoplayer, add "nodes" after a little path finding to go around obstacles
 #[derive(Clone, Copy)]
@@ -33,7 +34,12 @@ pub struct Enemy<'a> {
 }
 
 impl<'a> Enemy<'a> {
-    pub fn new(texture_creator: &'a TextureCreator<WindowContext>, x: i32, y: i32) -> Enemy<'a> {
+    pub fn new(
+        texture_creator: &'a TextureCreator<WindowContext>,
+        x: i32,
+        y: i32,
+        id: Id,
+    ) -> Enemy<'a> {
         let mut actions_standing = Vec::with_capacity(4);
 
         // up
@@ -80,6 +86,8 @@ impl<'a> Enemy<'a> {
                 texture_handler,
                 weapon: None,
                 is_running: false,
+                id,
+                invincible_against: HashMap::new(),
             },
             action: EnemyAction::None,
             start_x: x,
@@ -186,6 +194,7 @@ impl<'a> Enemy<'a> {
                 }
             }
         }*/
+        self.character.update(map);
     }
 }
 

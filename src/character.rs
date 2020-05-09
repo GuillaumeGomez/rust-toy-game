@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use sdl2::rect::Rect;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
@@ -5,7 +7,7 @@ use sdl2::video::Window;
 use crate::map::Map;
 use crate::texture_handler::{Dimension, TextureHandler};
 use crate::weapon::Weapon;
-use crate::{GetDimension, MAP_CASE_SIZE, MAP_SIZE};
+use crate::{GetDimension, Id, MAP_CASE_SIZE, MAP_SIZE};
 
 #[derive(Copy, Clone, PartialEq, Hash, Debug)]
 #[repr(usize)]
@@ -73,9 +75,10 @@ pub struct Character<'a> {
     pub texture_handler: TextureHandler<'a>,
     pub weapon: Option<Weapon<'a>>,
     pub is_running: bool,
-    // /// This ID is used when this character is attacking someone else. This "someone else" will
-    // /// invincible to any other attack from your ID until the total attack time is over.
-    // pub id: usize,
+    /// This ID is used when this character is attacking someone else. This "someone else" will
+    /// invincible to any other attack from your ID until the total attack time is over.
+    pub id: Id,
+    pub invincible_against: HashMap<Id, i32>,
 }
 
 impl<'a> Character<'a> {
@@ -315,7 +318,28 @@ impl<'a> Character<'a> {
         }
     }
 
-    pub fn check_intersection(&mut self, weapon: &Weapon<'a>) {
+    pub fn update(&mut self, map: &Map) {
+        self.apply_move(map);
+        if self.invincible_against.is_empty() {
+            return;
+        }
+        let mut to_remove = Vec::new();
+        for (key, value) in self.invincible_against.iter_mut() {
+            *value -= 1;
+            if *value <= 0 {
+                to_remove.push(*key);
+            }
+        }
+        for key in to_remove {
+            self.invincible_against.remove(&key);
+        }
+    }
+
+    pub fn check_intersection(&mut self, character: &Character<'a>) {
+        if self.invincible_against.contains_key(&character.id) {
+            return;
+        }
+        let weapon = return_if_none!(&character.weapon);
         let (tile_x, tile_y, width, height) = self
             .action
             .compute_current(self.is_running, &self.texture_handler);
@@ -351,7 +375,8 @@ impl<'a> Character<'a> {
             (width, height),
             (self.x, self.y),
         ) {
-            println!("intersection!");
+            self.invincible_against
+                .insert(character.id, weapon.total_time);
         }
     }
 }

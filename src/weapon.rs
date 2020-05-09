@@ -10,6 +10,9 @@ use sdl2::video::{Window, WindowContext};
 use crate::character::Direction;
 use crate::GetDimension;
 
+const ANGLE: i32 = 90;
+const ANGLE_UPDATE: i32 = 10;
+
 #[allow(dead_code)]
 pub enum WeaponKind<'a> {
     Sword(Sword<'a>),
@@ -30,6 +33,8 @@ pub struct Weapon<'a> {
     pub kind: WeaponKind<'a>,
     // TODO: optimize memory usage by putting 8 pixels into one
     data: Vec<u8>,
+    /// Total time required for this weapon to perform its action.
+    pub total_time: i32,
 }
 
 impl<'a> Weapon<'a> {
@@ -84,7 +89,7 @@ impl<'a> Weapon<'a> {
                     .expect("failed to copy sword");
             }
             if action.angle < action.max_angle {
-                action.angle += 10;
+                action.angle += ANGLE_UPDATE;
                 self.action = Some(action);
             }
         }
@@ -197,6 +202,7 @@ impl<'a> Sword<'a> {
             y: 0,
             action: None,
             data,
+            total_time: ANGLE / ANGLE_UPDATE,
             kind: WeaponKind::Sword(Sword {
                 width: surface.width(),
                 height: surface.height(),
@@ -209,10 +215,20 @@ impl<'a> Sword<'a> {
     /// In case there is a timeout or something, you might not be able to use the weapon.
     pub fn use_it(&mut self, direction: Direction) -> Option<WeaponAction> {
         let (angle, max_angle, x_add, y_add) = match direction {
-            Direction::Up => (-45, 45, self.width() as i32 / 2, self.height() as i32),
-            Direction::Down => (135, 225, self.width() as i32 / 2, self.height() as i32),
-            Direction::Left => (225, 315, 0, self.height() as i32),
-            Direction::Right => (45, 135, 0, self.height() as i32),
+            Direction::Up => (
+                -45,
+                -45 + ANGLE,
+                self.width() as i32 / 2,
+                self.height() as i32,
+            ),
+            Direction::Down => (
+                135,
+                135 + ANGLE,
+                self.width() as i32 / 2,
+                self.height() as i32,
+            ),
+            Direction::Left => (225, 225 + ANGLE, 0, self.height() as i32),
+            Direction::Right => (45, 45 + ANGLE, 0, self.height() as i32),
         };
         Some(WeaponAction {
             angle,

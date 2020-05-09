@@ -52,6 +52,9 @@ pub const MAP_CASE_SIZE: i32 = 8;
 
 const FPS_REFRESH: u32 = 5;
 
+/// Just for code clarity.
+pub type Id = usize;
+
 pub trait GetPos {
     fn x(&self) -> i32;
     fn y(&self) -> i32;
@@ -105,8 +108,8 @@ pub fn main() {
         MAP_SIZE as i32 * MAP_CASE_SIZE / -2,
         MAP_SIZE as i32 * MAP_CASE_SIZE / -2,
     );
-    let mut player = Player::new(&texture_creator, 3000, 3000);
-    let mut enemy = Enemy::new(&texture_creator, -40, -40);
+    let mut player = Player::new(&texture_creator, 0, 0, 1);
+    let mut enemy = Enemy::new(&texture_creator, -40, -40, 2);
     let hud = HUD::new(&texture_creator);
     let mut screen = Rect::new(
         player.character.x - WIDTH / 2,
@@ -183,9 +186,9 @@ pub fn main() {
         canvas.present();
         canvas.clear();
 
-        player.apply_move(&map);
+        player.update(&map);
         if player.is_attacking() {
-            enemy.check_intersection(player.weapon.as_ref().unwrap());
+            enemy.check_intersection(&player);
         }
         enemy.update(&player, &map);
         // TODO: instead of having draw methods on each drawable objects, maybe create a Screen

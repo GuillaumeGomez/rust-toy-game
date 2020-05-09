@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 
 use sdl2::image::LoadSurface;
@@ -10,7 +11,7 @@ use crate::character::{Action, Character, Direction};
 use crate::map::Map;
 use crate::texture_handler::{Dimension, TextureHandler};
 use crate::weapon::Sword;
-use crate::{GetDimension, GetPos};
+use crate::{GetDimension, GetPos, Id};
 
 fn create_right_actions<'a>(
     texture_creator: &'a TextureCreator<WindowContext>,
@@ -58,7 +59,12 @@ pub struct Player<'a> {
 }
 
 impl<'a> Player<'a> {
-    pub fn new(texture_creator: &'a TextureCreator<WindowContext>, x: i32, y: i32) -> Player<'a> {
+    pub fn new(
+        texture_creator: &'a TextureCreator<WindowContext>,
+        x: i32,
+        y: i32,
+        id: Id,
+    ) -> Player<'a> {
         let tile_width = 23;
         let tile_height = 23;
         let mut actions_standing = Vec::with_capacity(4);
@@ -111,6 +117,8 @@ impl<'a> Player<'a> {
                 texture_handler,
                 weapon: Some(Sword::new(texture_creator)),
                 is_running: false,
+                id,
+                invincible_against: HashMap::new(),
             },
             is_run_pressed: false,
         }
