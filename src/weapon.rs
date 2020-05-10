@@ -11,7 +11,7 @@ use crate::character::Direction;
 use crate::GetDimension;
 
 const ANGLE: i32 = 90;
-const ANGLE_UPDATE: i32 = 10;
+const ANGLE_UPDATE: i32 = 6;
 
 #[allow(dead_code)]
 pub enum WeaponKind<'a> {
@@ -198,12 +198,14 @@ impl<'a> Sword<'a> {
         }
 
         let data = get_surface_data(&surface);
+        let total_time = ANGLE / ANGLE_UPDATE;
         Weapon {
             x: 0,
             y: 0,
             action: None,
             data,
-            total_time: ANGLE / ANGLE_UPDATE,
+            // This computation is to prevent to have a little too short "total time" computation.
+            total_time: if ANGLE % ANGLE_UPDATE != 0 { total_time + 1 } else { total_time },
             kind: WeaponKind::Sword(Sword {
                 width: surface.width(),
                 height: surface.height(),
