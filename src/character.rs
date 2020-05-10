@@ -245,24 +245,21 @@ impl<'a> Character<'a> {
         let (tile_x, tile_y, tile_width, tile_height) = self
             .action
             .compute_current(self.is_running, &self.texture_handler);
-        if (self.x + tile_width < screen.x || self.x > screen.x + screen.width() as i32)
-            && (self.y + tile_height < screen.y || self.y > screen.y + screen.height() as i32)
+        let x = self.x - screen.x;
+        let y = self.y - screen.y;
+        if x + tile_width >= 0
+            && x < screen.width() as i32
+            && y + tile_height >= 0
+            && y < screen.height() as i32
         {
-            // No need to draw if we don't see the character.
-            return;
+            canvas
+                .copy(
+                    &self.texture_handler.texture,
+                    Rect::new(tile_x, tile_y, tile_width as u32, tile_height as u32),
+                    Rect::new(x, y, tile_width as u32, tile_height as u32),
+                )
+                .expect("copy character failed");
         }
-        canvas
-            .copy(
-                &self.texture_handler.texture,
-                Rect::new(tile_x, tile_y, tile_width as u32, tile_height as u32),
-                Rect::new(
-                    self.x - screen.x,
-                    self.y - screen.y,
-                    tile_width as u32,
-                    tile_height as u32,
-                ),
-            )
-            .expect("copy character failed");
         if let Some(ref mut weapon) = self.weapon {
             // if let Some(matrix) = weapon.compute_angle() {
             //     for (x, y) in matrix.iter() {

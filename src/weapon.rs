@@ -77,17 +77,23 @@ impl<'a> Weapon<'a> {
             if let Some(texture) = self.get_texture() {
                 let x = self.x - screen.x;
                 let y = self.y - screen.y;
-                canvas
-                    .copy_ex(
-                        texture,
-                        None,
-                        Rect::new(x, y, self.width(), self.height()),
-                        action.angle as _,
-                        Some((action.x_add, action.y_add).into()),
-                        false,
-                        false,
-                    )
-                    .expect("failed to copy sword");
+                if x + self.width() as i32 >= 0
+                    && x < screen.width() as i32
+                    && y + self.height() as i32 >= 0
+                    && y < screen.height() as i32
+                {
+                    canvas
+                        .copy_ex(
+                            texture,
+                            None,
+                            Rect::new(x, y, self.width(), self.height()),
+                            action.angle as _,
+                            Some((action.x_add, action.y_add).into()),
+                            false,
+                            false,
+                        )
+                        .expect("failed to copy sword");
+                }
             }
             if action.angle < action.max_angle {
                 action.angle += ANGLE_UPDATE;
@@ -205,7 +211,11 @@ impl<'a> Sword<'a> {
             action: None,
             data,
             // This computation is to prevent to have a little too short "total time" computation.
-            total_time: if ANGLE % ANGLE_UPDATE != 0 { total_time + 1 } else { total_time },
+            total_time: if ANGLE % ANGLE_UPDATE != 0 {
+                total_time + 1
+            } else {
+                total_time
+            },
             kind: WeaponKind::Sword(Sword {
                 width: surface.width(),
                 height: surface.height(),

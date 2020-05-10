@@ -41,27 +41,22 @@ impl<'a> Status<'a> {
     }
 
     pub fn draw(&mut self, canvas: &mut Canvas<Window>, screen: &Rect, x: i32, y: i32) {
-        let half_width = self.width / 2;
-        self.y_pos += 1;
-        if (x + half_width < screen.x || x - half_width > screen.x + screen.width() as i32)
-            && (y + self.height - self.y_pos < screen.y
-                || y - self.y_pos > screen.y + screen.height() as i32)
+        self.y_pos += 1; // increase position of the text
+        let x = x - screen.x - self.width / 2;
+        let y = y - screen.y - self.y_pos - 10;
+        if x + self.width >= 0
+            && x < screen.width() as i32
+            && y + self.height >= 0
+            && y < screen.height() as i32
         {
-            // No need to draw if we don't see the status.
-            return;
+            canvas
+                .copy(
+                    &self.texture,
+                    None,
+                    Rect::new(x, y, self.width as u32, self.height as u32),
+                )
+                .expect("copy status failed");
         }
-        canvas
-            .copy(
-                &self.texture,
-                None,
-                Rect::new(
-                    x - screen.x - half_width,
-                    y - screen.y - self.y_pos - 10,
-                    self.width as u32,
-                    self.height as u32,
-                ),
-            )
-            .expect("copy status failed");
     }
 
     pub fn should_be_removed(&self) -> bool {
