@@ -119,6 +119,7 @@ impl<'a> Player<'a> {
                 is_running: false,
                 id,
                 invincible_against: HashMap::new(),
+                statuses: Vec::new(),
             },
             is_run_pressed: false,
         }

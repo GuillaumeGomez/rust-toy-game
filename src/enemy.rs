@@ -88,6 +88,7 @@ impl<'a> Enemy<'a> {
                 is_running: false,
                 id,
                 invincible_against: HashMap::new(),
+                statuses: Vec::new(),
             },
             action: EnemyAction::None,
             start_x: x,

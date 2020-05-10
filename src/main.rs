@@ -30,6 +30,7 @@ mod enemy;
 mod hud;
 mod map;
 mod player;
+mod status;
 mod texture_handler;
 mod utils;
 mod weapon;
@@ -188,7 +189,7 @@ pub fn main() {
 
         player.update(&map);
         if player.is_attacking() {
-            enemy.check_intersection(&player);
+            enemy.check_intersection(&player, &font, &texture_creator);
         }
         enemy.update(&player, &map);
         // TODO: instead of having draw methods on each drawable objects, maybe create a Screen

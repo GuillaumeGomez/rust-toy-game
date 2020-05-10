@@ -35,6 +35,7 @@ pub struct Weapon<'a> {
     data: Vec<u8>,
     /// Total time required for this weapon to perform its action.
     pub total_time: i32,
+    pub attack: i32,
 }
 
 impl<'a> Weapon<'a> {
@@ -210,6 +211,7 @@ impl<'a> Sword<'a> {
                     .create_texture_from_surface(surface)
                     .expect("failed to build weapon texture from surface"),
             }),
+            attack: 10,
         }
     }
     /// In case there is a timeout or something, you might not be able to use the weapon.

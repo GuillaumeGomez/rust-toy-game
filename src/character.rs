@@ -1,10 +1,14 @@
 use std::collections::HashMap;
 
+use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 use sdl2::render::Canvas;
-use sdl2::video::Window;
+use sdl2::render::TextureCreator;
+use sdl2::ttf::Font;
+use sdl2::video::{Window, WindowContext};
 
 use crate::map::Map;
+use crate::status::Status;
 use crate::texture_handler::{Dimension, TextureHandler};
 use crate::weapon::Weapon;
 use crate::{GetDimension, Id, MAP_CASE_SIZE, MAP_SIZE};
@@ -79,6 +83,7 @@ pub struct Character<'a> {
     /// invincible to any other attack from your ID until the total attack time is over.
     pub id: Id,
     pub invincible_against: HashMap<Id, i32>,
+    pub statuses: Vec<Status<'a>>,
 }
 
 impl<'a> Character<'a> {
@@ -240,7 +245,6 @@ impl<'a> Character<'a> {
         let (tile_x, tile_y, tile_width, tile_height) = self
             .action
             .compute_current(self.is_running, &self.texture_handler);
-        let debug = self.xp == 150;
         if (self.x + tile_width < screen.x || self.x > screen.x + screen.width() as i32)
             && (self.y + tile_height < screen.y || self.y > screen.y + screen.height() as i32)
         {
@@ -266,6 +270,18 @@ impl<'a> Character<'a> {
             //     }
             // }
             weapon.draw(canvas, screen);
+        }
+
+        let x = self.x + self.width() as i32 / 2;
+        let mut it = 0;
+
+        while it < self.statuses.len() {
+            self.statuses[it].draw(canvas, screen, x, self.y);
+            if self.statuses[it].should_be_removed() {
+                self.statuses.remove(it);
+                continue;
+            }
+            it += 1;
         }
 
         // We now update the animation!
@@ -335,7 +351,13 @@ impl<'a> Character<'a> {
         }
     }
 
-    pub fn check_intersection(&mut self, character: &Character<'a>) {
+    // TODO: instead of this, pass a "impl Iterator<Character>" argument and go through all of them
+    pub fn check_intersection<'b>(
+        &mut self,
+        character: &Character<'a>,
+        font: &'b Font<'b, 'static>,
+        texture_creator: &'a TextureCreator<WindowContext>,
+    ) {
         if self.invincible_against.contains_key(&character.id) {
             return;
         }
@@ -377,6 +399,15 @@ impl<'a> Character<'a> {
         ) {
             self.invincible_against
                 .insert(character.id, weapon.total_time);
+            // TODO: add defense on characters and make computation here (also add dodge computation
+            // and the other stuff...)
+            self.statuses.push(Status::new(
+                font,
+                texture_creator,
+                10,
+                &weapon.attack.to_string(),
+                Color::RGB(255, 0, 0),
+            ));
         }
     }
 }
