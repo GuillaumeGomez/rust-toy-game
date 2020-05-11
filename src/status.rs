@@ -5,6 +5,8 @@ use sdl2::surface::Surface;
 use sdl2::ttf::Font;
 use sdl2::video::{Window, WindowContext};
 
+use crate::system::System;
+
 pub struct Status<'a> {
     texture: Texture<'a>,
     width: i32,
@@ -40,16 +42,14 @@ impl<'a> Status<'a> {
         }
     }
 
-    pub fn draw(&mut self, canvas: &mut Canvas<Window>, screen: &Rect, x: i32, y: i32) {
+    pub fn draw(&mut self, system: &mut System, x: i32, y: i32) {
         self.y_pos += 1; // increase position of the text
-        let x = x - screen.x - self.width / 2;
-        let y = y - screen.y - self.y_pos - 10;
-        if x + self.width >= 0
-            && x < screen.width() as i32
-            && y + self.height >= 0
-            && y < screen.height() as i32
+        let x = x - system.x() - self.width / 2;
+        let y = y - system.y() - self.y_pos - 10;
+        if x + self.width >= 0 && x < system.width() && y + self.height >= 0 && y < system.height()
         {
-            canvas
+            system
+                .canvas
                 .copy(
                     &self.texture,
                     None,

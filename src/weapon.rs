@@ -8,6 +8,7 @@ use sdl2::surface::Surface;
 use sdl2::video::{Window, WindowContext};
 
 use crate::character::Direction;
+use crate::system::System;
 use crate::GetDimension;
 
 const ANGLE: i32 = 90;
@@ -72,17 +73,18 @@ impl<'a> Weapon<'a> {
         self.x = x;
         self.y = y;
     }
-    pub fn draw(&mut self, canvas: &mut Canvas<Window>, screen: &Rect) {
+    pub fn draw(&mut self, system: &mut System) {
         if let Some(mut action) = self.action.take() {
             if let Some(texture) = self.get_texture() {
-                let x = self.x - screen.x;
-                let y = self.y - screen.y;
+                let x = self.x - system.x();
+                let y = self.y - system.y();
                 if x + self.width() as i32 >= 0
-                    && x < screen.width() as i32
+                    && x < system.width()
                     && y + self.height() as i32 >= 0
-                    && y < screen.height() as i32
+                    && y < system.height()
                 {
-                    canvas
+                    system
+                        .canvas
                         .copy_ex(
                             texture,
                             None,

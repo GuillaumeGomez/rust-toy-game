@@ -31,6 +31,7 @@ mod hud;
 mod map;
 mod player;
 mod status;
+mod system;
 mod texture_handler;
 mod utils;
 mod weapon;
@@ -41,6 +42,7 @@ use enemy::Enemy;
 use hud::HUD;
 use map::Map;
 use player::Player;
+use system::System;
 
 pub const WIDTH: i32 = 800;
 pub const HEIGHT: i32 = 600;
@@ -101,6 +103,7 @@ pub fn main() {
         .expect("failed to build window's canvas");
     canvas.set_draw_color(Color::RGB(0, 0, 0));
     let texture_creator = canvas.texture_creator();
+    let mut system = System::new(canvas, WIDTH as u32, HEIGHT as u32);
 
     let mut event_pump = sdl_context.event_pump().expect("failed to get event pump");
     let map = Map::new(
@@ -112,12 +115,6 @@ pub fn main() {
     let mut players = vec![Player::new(&texture_creator, 0, 0, 1)];
     let mut enemies = vec![Enemy::new(&texture_creator, -40, -40, 2)];
     let hud = HUD::new(&texture_creator);
-    let mut screen = Rect::new(
-        players[0].x() - WIDTH / 2,
-        players[0].y() - HEIGHT / 2,
-        WIDTH as u32,
-        HEIGHT as u32,
-    );
     let font = ttf_context
         .load_font("resources/kreon-regular.ttf", 16)
         .expect("failed to load `resources/kreon-regular.ttf`");
@@ -184,8 +181,7 @@ pub fn main() {
             players[0].attack();
         }
 
-        canvas.present();
-        canvas.clear();
+        system.clear();
 
         let len = players.len();
         for i in 0..len {
@@ -208,16 +204,15 @@ pub fn main() {
         // by adding a methods "get_drawable_children" though.
         //
         // For now, the screen follows the player.
-        screen.x = players[0].x() - WIDTH / 2;
-        screen.y = players[0].y() - HEIGHT / 2;
-        map.draw(&mut canvas, &screen);
+        system.set_screen_position(&players[0]);
+        map.draw(&mut system);
         for enemy in enemies.iter_mut() {
-            enemy.draw(&mut canvas, &screen);
+            enemy.draw(&mut system);
         }
         for player in players.iter_mut() {
-            player.draw(&mut canvas, &screen);
+            player.draw(&mut system);
         }
-        hud.draw(&players[0], &mut canvas);
+        hud.draw(&players[0], &mut system);
 
         let elapsed_time = loop_timer.elapsed();
 
@@ -238,8 +233,7 @@ pub fn main() {
                 *debug = 0;
             }
             debug_display.draw(
-                &mut canvas,
-                &screen,
+                &mut system,
                 &format!(
                     "{}\nposition: ({}, {})",
                     fps_str,
@@ -248,7 +242,7 @@ pub fn main() {
                 ),
             );
         } else {
-            debug_display.draw(&mut canvas, &screen, "");
+            debug_display.draw(&mut system, "");
         }
         loop_timer = Instant::now();
     }

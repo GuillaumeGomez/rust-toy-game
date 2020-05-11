@@ -5,6 +5,7 @@ use sdl2::surface::Surface;
 use sdl2::ttf::Font;
 use sdl2::video::{Window, WindowContext};
 
+use crate::system::System;
 use crate::{HEIGHT, MAP_CASE_SIZE, WIDTH};
 
 pub struct DebugDisplay<'a, 'b> {
@@ -75,18 +76,19 @@ impl<'a, 'b> DebugDisplay<'a, 'b> {
         self.draw_grid = !self.draw_grid;
     }
 
-    pub fn draw(&self, canvas: &mut Canvas<Window>, screen: &Rect, text: &str) {
+    pub fn draw(&self, system: &mut System, text: &str) {
         if self.draw_grid {
-            let x_add = screen.x.abs() % MAP_CASE_SIZE;
-            let y_add = screen.y.abs() % MAP_CASE_SIZE;
-            canvas
+            let x_add = system.x().abs() % MAP_CASE_SIZE;
+            let y_add = system.y().abs() % MAP_CASE_SIZE;
+            system
+                .canvas
                 .copy(
                     &self.grid,
                     Rect::new(
                         MAP_CASE_SIZE - x_add,
                         MAP_CASE_SIZE - y_add,
-                        WIDTH as u32,
-                        HEIGHT as u32,
+                        system.width() as u32,
+                        system.height() as u32,
                     ),
                     None,
                 )
@@ -95,7 +97,8 @@ impl<'a, 'b> DebugDisplay<'a, 'b> {
         if text.is_empty() {
             return;
         }
-        canvas
+        system
+            .canvas
             .copy(
                 &self.background,
                 None,
@@ -115,7 +118,8 @@ impl<'a, 'b> DebugDisplay<'a, 'b> {
                     .texture_creator
                     .create_texture_from_surface(text_surface)
                     .expect("failed to build texture from debug surface");
-                canvas
+                system
+                    .canvas
                     .copy(&text_texture, None, Rect::new(3, current_pos, w, h))
                     .expect("copy failed for text texture");
                 current_pos += h as i32 + 1; // 1 is for having spacing between lines

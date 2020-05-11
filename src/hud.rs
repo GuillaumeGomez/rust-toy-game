@@ -6,6 +6,7 @@ use sdl2::surface::Surface;
 use sdl2::video::{Window, WindowContext};
 
 use crate::player::Player;
+use crate::system::System;
 
 #[inline]
 fn create_bar<'a>(
@@ -75,11 +76,12 @@ impl<'a> HUD<'a> {
         }
     }
 
-    pub fn draw(&self, player: &Player, canvas: &mut Canvas<Window>) {
+    pub fn draw(&self, player: &Player, system: &mut System) {
         macro_rules! draw_bar {
             ($total:ident, $current:ident, $height:expr, $name:expr, $y:expr, $texture:ident) => {{
                 let show = 144 * player.character.$current / player.character.$total;
-                canvas
+                system
+                    .canvas
                     .copy(
                         &self.$texture,
                         Rect::new(0, 0, show, $height),
@@ -88,7 +90,8 @@ impl<'a> HUD<'a> {
                     .expect(concat!("copy ", $name, " bar failed"));
             }};
         }
-        canvas
+        system
+            .canvas
             .copy(
                 &self.bars,
                 None,

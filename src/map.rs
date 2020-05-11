@@ -7,6 +7,7 @@ use sdl2::render::{Canvas, Texture, TextureCreator};
 use sdl2::surface::Surface;
 use sdl2::video::{Window, WindowContext};
 
+use crate::system::System;
 use crate::{MAP_CASE_SIZE, MAP_SIZE};
 
 fn draw_in_map(
@@ -110,28 +111,27 @@ impl<'a> Map<'a> {
         }
     }
 
-    pub fn draw(&self, canvas: &mut Canvas<Window>, screen: &Rect) {
-        let x = screen.x - self.x;
-        let y = screen.y - self.y;
+    pub fn draw(&self, system: &mut System) {
+        let x = system.x() - self.x;
+        let y = system.y() - self.y;
         let (s_x, pos_x, width) = if x < 0 {
-            (0, x * -1, (screen.width() as i32 + x) as u32)
-        } else if x + screen.width() as i32 > MAP_SIZE as i32 * MAP_CASE_SIZE {
-            let sub = screen.width() as i32
-                - (screen.width() as i32 + x - MAP_SIZE as i32 * MAP_CASE_SIZE);
+            (0, x * -1, (system.width() + x) as u32)
+        } else if x + system.width() > MAP_SIZE as i32 * MAP_CASE_SIZE {
+            let sub = system.width() - (system.width() + x - MAP_SIZE as i32 * MAP_CASE_SIZE);
             (x, 0, sub as u32)
         } else {
-            (x, 0, screen.width() as u32)
+            (x, 0, system.width() as u32)
         };
         let (s_y, pos_y, height) = if y < 0 {
-            (0, y * -1, (screen.height() as i32 + y) as u32)
-        } else if y + screen.height() as i32 > MAP_SIZE as i32 * MAP_CASE_SIZE {
-            let sub = screen.height() as i32
-                - (screen.height() as i32 + y - MAP_SIZE as i32 * MAP_CASE_SIZE);
+            (0, y * -1, (system.height() + y) as u32)
+        } else if y + system.height() > MAP_SIZE as i32 * MAP_CASE_SIZE {
+            let sub = system.height() - (system.height() + y - MAP_SIZE as i32 * MAP_CASE_SIZE);
             (y, 0, sub as u32)
         } else {
-            (y, 0, screen.height())
+            (y, 0, system.height() as u32)
         };
-        canvas
+        system
+            .canvas
             .copy(
                 &self.texture,
                 Rect::new(s_x, s_y, width, height),

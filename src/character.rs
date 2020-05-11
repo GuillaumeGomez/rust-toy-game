@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
-use sdl2::render::Canvas;
 use sdl2::render::TextureCreator;
 use sdl2::ttf::Font;
 use sdl2::video::{Window, WindowContext};
@@ -11,6 +10,7 @@ use crate::enemy::Enemy;
 use crate::map::Map;
 use crate::player::Player;
 use crate::status::Status;
+use crate::system::System;
 use crate::texture_handler::{Dimension, TextureHandler};
 use crate::weapon::Weapon;
 use crate::{GetDimension, Id, MAP_CASE_SIZE, MAP_SIZE};
@@ -208,18 +208,19 @@ impl<'a> Character<'a> {
         (x, y)
     }
 
-    pub fn draw(&mut self, canvas: &mut Canvas<Window>, screen: &Rect) {
+    pub fn draw(&mut self, system: &mut System) {
         let (tile_x, tile_y, tile_width, tile_height) = self
             .action
             .compute_current(self.is_running, &self.texture_handler);
-        let x = self.x - screen.x;
-        let y = self.y - screen.y;
+        let x = self.x - system.x();
+        let y = self.y - system.y();
         if x + tile_width >= 0
-            && x < screen.width() as i32
+            && x < system.width() as i32
             && y + tile_height >= 0
-            && y < screen.height() as i32
+            && y < system.height() as i32
         {
-            canvas
+            system
+                .canvas
                 .copy(
                     &self.texture_handler.texture,
                     Rect::new(tile_x, tile_y, tile_width as u32, tile_height as u32),
@@ -233,14 +234,14 @@ impl<'a> Character<'a> {
             //         canvas.fill_rect(Rect::new(x - screen.x, y - screen.y, 8, 8));
             //     }
             // }
-            weapon.draw(canvas, screen);
+            weapon.draw(system);
         }
 
         let x = self.x + self.width() as i32 / 2;
         let mut it = 0;
 
         while it < self.statuses.len() {
-            self.statuses[it].draw(canvas, screen, x, self.y);
+            self.statuses[it].draw(system, x, self.y);
             if self.statuses[it].should_be_removed() {
                 self.statuses.remove(it);
                 continue;
