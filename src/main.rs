@@ -109,12 +109,12 @@ pub fn main() {
         MAP_SIZE as i32 * MAP_CASE_SIZE / -2,
         MAP_SIZE as i32 * MAP_CASE_SIZE / -2,
     );
-    let mut player = Player::new(&texture_creator, 0, 0, 1);
-    let mut enemy = Enemy::new(&texture_creator, -40, -40, 2);
+    let mut players = vec![Player::new(&texture_creator, 0, 0, 1)];
+    let mut enemies = vec![Enemy::new(&texture_creator, -40, -40, 2)];
     let hud = HUD::new(&texture_creator);
     let mut screen = Rect::new(
-        player.character.x - WIDTH / 2,
-        player.character.y - HEIGHT / 2,
+        players[0].x() - WIDTH / 2,
+        players[0].y() - HEIGHT / 2,
         WIDTH as u32,
         HEIGHT as u32,
     );
@@ -135,19 +135,19 @@ pub fn main() {
                     keycode: Some(x), ..
                 } => match x {
                     Keycode::Escape => break 'running,
-                    Keycode::Left | Keycode::Q => player.handle_move(Direction::Left),
-                    Keycode::Right | Keycode::D => player.handle_move(Direction::Right),
-                    Keycode::Up | Keycode::Z => player.handle_move(Direction::Up),
-                    Keycode::Down | Keycode::S => player.handle_move(Direction::Down),
+                    Keycode::Left | Keycode::Q => players[0].handle_move(Direction::Left),
+                    Keycode::Right | Keycode::D => players[0].handle_move(Direction::Right),
+                    Keycode::Up | Keycode::Z => players[0].handle_move(Direction::Up),
+                    Keycode::Down | Keycode::S => players[0].handle_move(Direction::Down),
                     Keycode::Space => {
                         if !is_attack_pressed {
-                            player.attack();
+                            players[0].attack();
                             is_attack_pressed = true;
                         }
                     }
                     Keycode::LShift => {
-                        player.is_run_pressed = true;
-                        player.is_running = player.action.movement.is_some();
+                        players[0].is_run_pressed = true;
+                        players[0].is_running = players[0].action.movement.is_some();
                     }
                     Keycode::F3 => {
                         if debug.is_some() {
@@ -165,13 +165,13 @@ pub fn main() {
                     match x {
                         // Not complete: if a second direction is pressed, it should then go to this
                         // direction. :)
-                        Keycode::Left | Keycode::Q => player.handle_release(Direction::Left),
-                        Keycode::Right | Keycode::D => player.handle_release(Direction::Right),
-                        Keycode::Up | Keycode::Z => player.handle_release(Direction::Up),
-                        Keycode::Down | Keycode::S => player.handle_release(Direction::Down),
+                        Keycode::Left | Keycode::Q => players[0].handle_release(Direction::Left),
+                        Keycode::Right | Keycode::D => players[0].handle_release(Direction::Right),
+                        Keycode::Up | Keycode::Z => players[0].handle_release(Direction::Up),
+                        Keycode::Down | Keycode::S => players[0].handle_release(Direction::Down),
                         Keycode::LShift => {
-                            player.is_run_pressed = false;
-                            player.is_running = false;
+                            players[0].is_run_pressed = false;
+                            players[0].is_running = false;
                         }
                         Keycode::Space => is_attack_pressed = false,
                         _ => {}
@@ -180,30 +180,44 @@ pub fn main() {
                 _ => {}
             }
         }
-        if is_attack_pressed && !player.is_attacking() {
-            player.attack();
+        if is_attack_pressed && !players[0].is_attacking() {
+            players[0].attack();
         }
 
         canvas.present();
         canvas.clear();
 
-        player.update(&map);
-        if player.is_attacking() {
-            enemy.check_intersection(&player, &font, &texture_creator);
+        let len = players.len();
+        for i in 0..len {
+            let (x, y) = players[i].apply_move(&map, &players, &enemies);
+            players[i].update(x, y);
+            if players[i].is_attacking() {
+                for enemy in enemies.iter_mut() {
+                    enemy.check_intersection(&players[i], &font, &texture_creator);
+                }
+            }
         }
-        enemy.update(&player, &map);
+        let len = enemies.len();
+        for i in 0..len {
+            let (x, y) = enemies[i].apply_move(&map, &players, &enemies);
+            enemies[i].update(x, y);
+        }
         // TODO: instead of having draw methods on each drawable objects, maybe create a Screen
         // type which will get position, size and texture and perform the checks itself? Might be
-        // a complicated in case an object contains objects to draw though... It could be overcome
+        // a bit complicated in case an object contains objects to draw though... It could be overcome
         // by adding a methods "get_drawable_children" though.
         //
         // For now, the screen follows the player.
-        screen.x = player.character.x - WIDTH / 2;
-        screen.y = player.character.y - HEIGHT / 2;
+        screen.x = players[0].x() - WIDTH / 2;
+        screen.y = players[0].y() - HEIGHT / 2;
         map.draw(&mut canvas, &screen);
-        enemy.draw(&mut canvas, &screen);
-        player.draw(&mut canvas, &screen);
-        hud.draw(&player, &mut canvas);
+        for enemy in enemies.iter_mut() {
+            enemy.draw(&mut canvas, &screen);
+        }
+        for player in players.iter_mut() {
+            player.draw(&mut canvas, &screen);
+        }
+        hud.draw(&players[0], &mut canvas);
 
         let elapsed_time = loop_timer.elapsed();
 
@@ -226,7 +240,12 @@ pub fn main() {
             debug_display.draw(
                 &mut canvas,
                 &screen,
-                &format!("{}\nposition: ({}, {})", fps_str, player.x(), player.y()),
+                &format!(
+                    "{}\nposition: ({}, {})",
+                    fps_str,
+                    players[0].x(),
+                    players[0].y()
+                ),
             );
         } else {
             debug_display.draw(&mut canvas, &screen, "");

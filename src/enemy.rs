@@ -135,68 +135,74 @@ impl<'a> Enemy<'a> {
         }
     }
 
-    pub fn update(&mut self, player: &Player, map: &Map) {
-        let distance = utils::compute_distance(player, self);
-        /*match self.action {
-            EnemyAction::None | EnemyAction::MoveTo(..)
-                if distance < (::std::cmp::min(self.height(), self.width()) * 2) as i32 =>
-            {
-                // println!("Enemy is gonna chase player!");
-                self.action = EnemyAction::MoveToPlayer;
-            }
-            EnemyAction::None => {
-                let mut x = rand::thread_rng().gen::<i32>() % MAX_DISTANCE_WANDERING;
-                let mut y = rand::thread_rng().gen::<i32>() % MAX_DISTANCE_WANDERING;
-                if x > -20 && x < 20 && y > -20 && y < 20 {
-                    x = 20 * if x < 0 { -1 } else { 1 };
-                    y = 20 * if y < 0 { -1 } else { 1 };
-                }
-                self.action = EnemyAction::MoveTo(x + self.start_x, y + self.start_y);
-                // println!(
-                //     "Enemy is gonna move to ({} {})",
-                //     x + self.start_x,
-                //     y + self.start_y
-                // );
-                self.character.action.movement = Some(0);
-            }
-            EnemyAction::MoveTo(x, y) => {
-                if utils::compute_distance(self, &(x, y)) < 20 {
-                    // println!("Enemy reached destination!");
-                    // We reached the goal, let's find another one. :)
-                    self.action = EnemyAction::None;
-                    self.character.action.movement = None;
-                } else {
-                    self.compute_destination(x, y);
-                    if !self.character.inner_apply_move(map) {
-                        // println!("Enemy cannot move there");
-                        self.action = EnemyAction::None;
-                        self.character.action.movement = None;
-                    } else {
-                        self.character.action.movement = Some(0);
-                        // println!("Enemy is moving");
-                    }
-                }
-            }
-            EnemyAction::MoveToPlayer => {
-                if distance > MAX_DISTANCE_PURSUIT {
-                    // println!("Enemy stop chasing player (player too far)");
-                    // We come back to the initial position
-                    self.action = EnemyAction::MoveTo(self.start_x, self.start_y);
-                    self.character.action.movement = None;
-                } else if distance < player.width() as i32 || distance < player.height() as i32 {
-                    // println!("Enemy stop chasing player (reached player)");
-                    self.action = EnemyAction::None;
-                    self.character.action.movement = None;
-                } else {
-                    // println!("Enemy chasing player");
-                    self.compute_destination(player.x(), player.y());
-                    self.character.action.movement = Some(0);
-                    self.character.inner_apply_move(map);
-                }
-            }
-        }*/
-        self.character.update(map);
-    }
+    // pub fn update(&mut self, map: &Map, players: &[Player], npcs: &[Enemy]) {
+    //     let mut distance = utils::compute_distance(&players[0], self);
+    //     for player in players.iter() {
+    //         let tmp = utils::compute_distance(player, self);
+    //         if tmp < distance {
+    //             distance = tmp;
+    //         }
+    //     }
+    //     match self.action {
+    //         EnemyAction::None | EnemyAction::MoveTo(..)
+    //             if distance < (::std::cmp::min(self.height(), self.width()) * 2) as i32 =>
+    //         {
+    //             // println!("Enemy is gonna chase player!");
+    //             self.action = EnemyAction::MoveToPlayer;
+    //         }
+    //         EnemyAction::None => {
+    //             let mut x = rand::thread_rng().gen::<i32>() % MAX_DISTANCE_WANDERING;
+    //             let mut y = rand::thread_rng().gen::<i32>() % MAX_DISTANCE_WANDERING;
+    //             if x > -20 && x < 20 && y > -20 && y < 20 {
+    //                 x = 20 * if x < 0 { -1 } else { 1 };
+    //                 y = 20 * if y < 0 { -1 } else { 1 };
+    //             }
+    //             self.action = EnemyAction::MoveTo(x + self.start_x, y + self.start_y);
+    //             // println!(
+    //             //     "Enemy is gonna move to ({} {})",
+    //             //     x + self.start_x,
+    //             //     y + self.start_y
+    //             // );
+    //             self.character.action.movement = Some(0);
+    //         }
+    //         EnemyAction::MoveTo(x, y) => {
+    //             if utils::compute_distance(self, &(x, y)) < 20 {
+    //                 // println!("Enemy reached destination!");
+    //                 // We reached the goal, let's find another one. :)
+    //                 self.action = EnemyAction::None;
+    //                 self.character.action.movement = None;
+    //             } else {
+    //                 self.compute_destination(x, y);
+    //                 if !self.character.inner_apply_move(map) {
+    //                     // println!("Enemy cannot move there");
+    //                     self.action = EnemyAction::None;
+    //                     self.character.action.movement = None;
+    //                 } else {
+    //                     self.character.action.movement = Some(0);
+    //                     // println!("Enemy is moving");
+    //                 }
+    //             }
+    //         }
+    //         EnemyAction::MoveToPlayer => {
+    //             if distance > MAX_DISTANCE_PURSUIT {
+    //                 // println!("Enemy stop chasing player (player too far)");
+    //                 // We come back to the initial position
+    //                 self.action = EnemyAction::MoveTo(self.start_x, self.start_y);
+    //                 self.character.action.movement = None;
+    //             } else if distance < player.width() as i32 || distance < player.height() as i32 {
+    //                 // println!("Enemy stop chasing player (reached player)");
+    //                 self.action = EnemyAction::None;
+    //                 self.character.action.movement = None;
+    //             } else {
+    //                 // println!("Enemy chasing player");
+    //                 self.compute_destination(player.x(), player.y());
+    //                 self.character.action.movement = Some(0);
+    //                 self.character.inner_apply_move(map);
+    //             }
+    //         }
+    //     }
+    //     self.character.update(map);
+    // }
 }
 
 impl<'a> GetPos for Enemy<'a> {

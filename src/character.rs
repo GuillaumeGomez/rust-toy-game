@@ -7,7 +7,9 @@ use sdl2::render::TextureCreator;
 use sdl2::ttf::Font;
 use sdl2::video::{Window, WindowContext};
 
+use crate::enemy::Enemy;
 use crate::map::Map;
+use crate::player::Player;
 use crate::status::Status;
 use crate::texture_handler::{Dimension, TextureHandler};
 use crate::weapon::Weapon;
@@ -146,99 +148,64 @@ impl<'a> Character<'a> {
         true
     }
 
-    fn check_move(&mut self, direction: Direction, map: &Map) -> bool {
+    fn check_character_move(&self, x: i32, y: i32, character: &Character) -> bool {
+        character.id == self.id
+            || !(self.width() as i32 + x >= character.x
+                && x <= character.x + character.width() as i32
+                && self.height() as i32 + y >= character.y
+                && y <= character.y + character.height() as i32)
+    }
+
+    fn check_move(
+        &self,
+        direction: Direction,
+        map: &Map,
+        players: &[Player],
+        npcs: &[Enemy],
+        x_add: i32,
+        y_add: i32,
+    ) -> (i32, i32) {
         let (info, _) = &self.texture_handler.actions_moving[direction as usize];
-        match direction {
-            Direction::Down => {
-                if self.y + info.height() as i32 + 1 < map.y + MAP_SIZE as i32 * MAP_CASE_SIZE {
-                    if self.check_hitbox(
-                        self.x - map.x,
-                        self.y + 1 - map.y,
-                        &map.data,
-                        Direction::Down,
-                    ) {
-                        self.y += 1;
-                        return true;
-                    }
-                }
+        let self_x = self.x + x_add;
+        let self_y = self.y + y_add;
+        let (x_add, y_add) = match direction {
+            Direction::Down
+                if self_y + info.height() as i32 + 1 < map.y + MAP_SIZE as i32 * MAP_CASE_SIZE =>
+            {
+                (0, 1)
             }
-            Direction::Up => {
-                if self.y - 1 >= map.y {
-                    if self.check_hitbox(
-                        self.x - map.x,
-                        self.y - 1 - map.y,
-                        &map.data,
-                        Direction::Up,
-                    ) {
-                        self.y -= 1;
-                        return true;
-                    }
-                }
+            Direction::Up if self_y - 1 >= map.y => (0, -1),
+            Direction::Left if self_x - 1 >= map.x => (-1, 0),
+            Direction::Right
+                if self_x + info.width() as i32 + 1 < map.x + MAP_SIZE as i32 * MAP_CASE_SIZE =>
+            {
+                (1, 0)
             }
-            Direction::Left => {
-                if self.x - 1 >= map.x {
-                    if self.check_hitbox(
-                        self.x - 1 - map.x,
-                        self.y - map.y,
-                        &map.data,
-                        Direction::Left,
-                    ) {
-                        self.x -= 1;
-                        return true;
-                    }
-                }
-            }
-            Direction::Right => {
-                if self.x + info.width() as i32 + 1 < map.x + MAP_SIZE as i32 * MAP_CASE_SIZE {
-                    if self.check_hitbox(
-                        self.x + 1 - map.x,
-                        self.y - map.y,
-                        &map.data,
-                        Direction::Right,
-                    ) {
-                        self.x += 1;
-                        return true;
-                    }
-                }
-            }
-        }
-        false
-    }
-
-    fn set_weapon_pos(&mut self) {
-        if let Some(ref mut weapon) = self.weapon {
-            let (tile_x, tile_y, tile_width, tile_height) = self
-                .action
-                .compute_current(self.is_running, &self.texture_handler);
-            let width = weapon.width() as i32;
-            let height = weapon.height() as i32;
-            let (x, y) = match self.action.direction {
-                Direction::Up => (self.x + tile_width / 2 - 3, self.y - height),
-                Direction::Down => (self.x + tile_width / 2 - 4, self.y + tile_height - height),
-                Direction::Left => (self.x - 2, self.y + tile_height / 2 - height + 2),
-                Direction::Right => (
-                    self.x + tile_width - width + 2,
-                    self.y + tile_height / 2 - height,
-                ),
-            };
-            weapon.set_pos(x, y);
-        }
-    }
-
-    pub fn inner_apply_move(&mut self, map: &Map) -> bool {
-        if self.action.movement.is_none() {
-            return false;
-        }
-        let moved = self.check_move(self.action.direction, map);
-        let moved = if let Some(second) = self.action.secondary {
-            self.check_move(second, map) || moved
-        } else {
-            moved
+            _ => return (0, 0),
         };
-        if moved {
-            self.set_weapon_pos();
+        let x = self_x + x_add;
+        let y = self_y + y_add;
+        if self.check_hitbox(x - map.x, y - map.y, &map.data, Direction::Down)
+            && npcs.iter().all(|n| self.check_character_move(x, y, &n))
+            && players.iter().all(|p| self.check_character_move(x, y, &p))
+        {
+            (x_add, y_add)
+        } else {
+            (0, 0)
         }
-        moved
+    }
+
+    pub fn inner_apply_move(&self, map: &Map, players: &[Player], npcs: &[Enemy]) -> (i32, i32) {
+        if self.action.movement.is_none() {
+            return (0, 0);
+        }
+        let (mut x, mut y) = self.check_move(self.action.direction, map, players, npcs, 0, 0);
+        if let Some(second) = self.action.secondary {
+            let (x2, y2) = self.check_move(second, map, players, npcs, x, y);
+            x += x2;
+            y += y2;
+        }
+        (x, y)
     }
 
     pub fn draw(&mut self, canvas: &mut Canvas<Window>, screen: &Rect) {
@@ -313,26 +280,32 @@ impl<'a> Character<'a> {
         }
     }
 
-    pub fn apply_move(&mut self, map: &Map) {
-        if self.inner_apply_move(map) {
-            if self.is_running {
-                self.inner_apply_move(map);
-                if self.stamina > 0 {
-                    self.stamina -= 1;
-                    if self.stamina == 0 {
-                        self.is_running = false;
-                    }
-                }
-                return;
-            }
+    pub fn apply_move(&self, map: &Map, players: &[Player], npcs: &[Enemy]) -> (i32, i32) {
+        let (mut x, mut y) = self.inner_apply_move(map, players, npcs);
+        if (x != 0 || y != 0) && self.is_running {
+            let (x2, y2) = self.inner_apply_move(map, players, npcs);
+            x += x2;
+            y += y2;
         }
-        if self.stamina < self.total_stamina {
-            self.stamina += 1;
-        }
+        (x, y)
     }
 
-    pub fn update(&mut self, map: &Map) {
-        self.apply_move(map);
+    pub fn update(&mut self, x: i32, y: i32) {
+        self.x += x;
+        self.y += y;
+        if x != 0 || y != 0 {
+            self.set_weapon_pos();
+        }
+        if self.is_running {
+            if self.stamina > 0 {
+                self.stamina -= 1;
+                if self.stamina == 0 {
+                    self.is_running = false;
+                }
+            }
+        } else if self.stamina < self.total_stamina {
+            self.stamina += 1;
+        }
         if self.invincible_against.is_empty() {
             return;
         }
@@ -345,6 +318,26 @@ impl<'a> Character<'a> {
         }
         for key in to_remove {
             self.invincible_against.remove(&key);
+        }
+    }
+
+    fn set_weapon_pos(&mut self) {
+        if let Some(ref mut weapon) = self.weapon {
+            let (tile_x, tile_y, tile_width, tile_height) = self
+                .action
+                .compute_current(self.is_running, &self.texture_handler);
+            let width = weapon.width() as i32;
+            let height = weapon.height() as i32;
+            let (x, y) = match self.action.direction {
+                Direction::Up => (self.x + tile_width / 2 - 3, self.y - height),
+                Direction::Down => (self.x + tile_width / 2 - 4, self.y + tile_height - height),
+                Direction::Left => (self.x - 2, self.y + tile_height / 2 - height + 2),
+                Direction::Right => (
+                    self.x + tile_width - width + 2,
+                    self.y + tile_height / 2 - height,
+                ),
+            };
+            weapon.set_pos(x, y);
         }
     }
 
