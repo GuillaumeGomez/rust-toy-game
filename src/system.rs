@@ -3,7 +3,6 @@ use sdl2::render::Canvas;
 use sdl2::video::Window;
 
 use crate::player::Player;
-use crate::{HEIGHT, WIDTH};
 
 pub struct System {
     pub canvas: Canvas<Window>,

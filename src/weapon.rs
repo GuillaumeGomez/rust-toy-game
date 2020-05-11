@@ -5,7 +5,7 @@ use sdl2::pixels::PixelFormatEnum;
 use sdl2::rect::Rect;
 use sdl2::render::{Canvas, Texture, TextureCreator};
 use sdl2::surface::Surface;
-use sdl2::video::{Window, WindowContext};
+use sdl2::video::WindowContext;
 
 use crate::character::Direction;
 use crate::system::System;
@@ -165,7 +165,7 @@ impl<'a> GetDimension for WeaponKind<'a> {
 }
 
 #[derive(Debug)]
-struct WeaponAction {
+pub struct WeaponAction {
     angle: i32,
     max_angle: i32,
     x_add: i32,

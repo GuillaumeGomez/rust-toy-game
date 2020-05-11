@@ -4,7 +4,7 @@ use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 use sdl2::render::TextureCreator;
 use sdl2::ttf::Font;
-use sdl2::video::{Window, WindowContext};
+use sdl2::video::WindowContext;
 
 use crate::enemy::Enemy;
 use crate::map::Map;
@@ -111,13 +111,6 @@ impl<'a> Character<'a> {
                         return false;
                     }
                 }
-                let y = (height + initial_y + 1) * MAP_SIZE as i32;
-                for ix in 0..width {
-                    let map_pos = y + initial_x + ix;
-                    if map_pos < 0 || map_data.get(map_pos as usize).unwrap_or(&1) != &0 {
-                        return false;
-                    }
-                }
             }
             Direction::Up => {
                 let y = (initial_y + 1) * MAP_SIZE as i32;
@@ -185,7 +178,7 @@ impl<'a> Character<'a> {
         };
         let x = self_x + x_add;
         let y = self_y + y_add;
-        if self.check_hitbox(x - map.x, y - map.y, &map.data, Direction::Down)
+        if self.check_hitbox(x - map.x, y - map.y, &map.data, direction)
             && npcs.iter().all(|n| self.check_character_move(x, y, &n))
             && players.iter().all(|p| self.check_character_move(x, y, &p))
         {

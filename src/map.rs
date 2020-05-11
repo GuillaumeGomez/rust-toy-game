@@ -3,7 +3,7 @@ use rand_chacha::ChaCha8Rng;
 use sdl2::image::LoadSurface;
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
-use sdl2::render::{Canvas, Texture, TextureCreator};
+use sdl2::render::{Texture, TextureCreator};
 use sdl2::surface::Surface;
 use sdl2::video::{Window, WindowContext};
 

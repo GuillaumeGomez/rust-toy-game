@@ -3,12 +3,11 @@ use std::ops::{Deref, DerefMut};
 
 use sdl2::image::LoadSurface;
 use sdl2::rect::Rect;
-use sdl2::render::{Canvas, Texture, TextureCreator};
+use sdl2::render::{Texture, TextureCreator};
 use sdl2::surface::Surface;
-use sdl2::video::{Window, WindowContext};
+use sdl2::video::WindowContext;
 
 use crate::character::{Action, Character, Direction};
-use crate::map::Map;
 use crate::texture_handler::{Dimension, TextureHandler};
 use crate::weapon::Sword;
 use crate::{GetDimension, GetPos, Id};
