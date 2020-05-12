@@ -384,14 +384,15 @@ impl<'a> Character<'a> {
     // TODO: instead of this, pass a "impl Iterator<Character>" argument and go through all of them
     pub fn check_intersection<'b>(
         &mut self,
-        character: &Character<'a>,
+        character_id: Id,
+        weapon: &Weapon<'a>,
+        matrix: &mut Option<Vec<(i64, i64)>>,
         font: &'b Font<'b, 'static>,
         texture_creator: &'a TextureCreator<WindowContext>,
     ) {
-        if self.invincible_against.contains_key(&character.id) {
+        if character_id == self.id || self.invincible_against.contains_key(&character_id) {
             return;
         }
-        let weapon = return_if_none!(&character.weapon);
         let (tile_x, tile_y, width, height) = self
             .action
             .compute_current(self.is_running, &self.texture_handler);
@@ -417,23 +418,27 @@ impl<'a> Character<'a> {
             return;
         }
 
-        let matrix = return_if_none!(weapon.compute_angle());
-        if self.texture_handler.check_intersection(
-            &matrix,
-            (tile_x, tile_y),
-            (width as i32, height as i32),
-            (self.x, self.y),
-        ) {
-            self.invincible_against
-                .insert(character.id, weapon.total_time);
-            // TODO: add defense on characters and make computation here (also add dodge computation
-            // and the other stuff...)
-            self.statuses.push(Status::new(
-                font,
-                texture_creator,
-                &weapon.attack.to_string(),
-                Color::RGB(255, 0, 0),
-            ));
+        if matrix.is_none() {
+            *matrix = weapon.compute_angle();
+        }
+        if let Some(ref matrix) = matrix {
+            if self.texture_handler.check_intersection(
+                &matrix,
+                (tile_x, tile_y),
+                (width as i32, height as i32),
+                (self.x, self.y),
+            ) {
+                self.invincible_against
+                    .insert(character_id, weapon.total_time);
+                // TODO: add defense on characters and make computation here (also add dodge computation
+                // and the other stuff...)
+                self.statuses.push(Status::new(
+                    font,
+                    texture_creator,
+                    &weapon.attack.to_string(),
+                    Color::RGB(255, 0, 0),
+                ));
+            }
         }
     }
 }

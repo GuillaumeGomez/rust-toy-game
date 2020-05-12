@@ -197,8 +197,19 @@ pub fn main() {
             let (x, y) = players[i].apply_move(&map, update_elapsed, &players, &enemies);
             players[i].update(update_elapsed, x, y);
             if players[i].is_attacking() {
-                for enemy in enemies.iter_mut() {
-                    enemy.check_intersection(&players[i], &font_14, &texture_creator);
+                let id = players[i].id;
+                if let Some(ref weapon) = players[i].weapon {
+                    let mut matrix = None;
+                    // TODO: for now, players can only attack NPCs
+                    for enemy in enemies.iter_mut() {
+                        enemy.check_intersection(
+                            id,
+                            weapon,
+                            &mut matrix,
+                            &font_14,
+                            &texture_creator,
+                        );
+                    }
                 }
             }
         }
@@ -206,6 +217,22 @@ pub fn main() {
         for i in 0..len {
             let (x, y) = enemies[i].apply_move(&map, update_elapsed, &players, &enemies);
             enemies[i].update(update_elapsed, x, y);
+            if enemies[i].is_attacking() {
+                let id = enemies[i].id;
+                if let Some(ref weapon) = enemies[i].weapon {
+                    let mut matrix = None;
+                    // TODO: for now, NPCs can only attack players
+                    for player in players.iter_mut() {
+                        player.check_intersection(
+                            id,
+                            weapon,
+                            &mut matrix,
+                            &font_14,
+                            &texture_creator,
+                        );
+                    }
+                }
+            }
         }
         // TODO: instead of having draw methods on each drawable objects, maybe create a Screen
         // type which will get position, size and texture and perform the checks itself? Might be
