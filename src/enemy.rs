@@ -11,6 +11,7 @@ use sdl2::video::WindowContext;
 use crate::character::{Action, Character, Direction};
 use crate::map::Map;
 use crate::player::Player;
+use crate::stat::Stat;
 use crate::texture_handler::{Dimension, TextureHandler};
 use crate::utils;
 use crate::{GetDimension, GetPos, Id, MAX_DISTANCE_PURSUIT, MAX_DISTANCE_WANDERING, ONE_SECOND};
@@ -79,8 +80,7 @@ impl<'a> Enemy<'a> {
                 health: 75,
                 total_mana: 100,
                 mana: 20,
-                total_stamina: 100,
-                stamina: 100,
+                stamina: Stat::new(1., 100),
                 xp_to_next_level: 1000,
                 xp: 100,
                 texture_handler,
@@ -90,7 +90,7 @@ impl<'a> Enemy<'a> {
                 invincible_against: HashMap::new(),
                 statuses: Vec::new(),
                 speed: ONE_SECOND / 60, // we want to move 60 times per second
-                delay: 0,
+                move_delay: 0,
             },
             action: EnemyAction::None,
             start_x: x,

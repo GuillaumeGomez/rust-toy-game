@@ -76,20 +76,18 @@ impl<'a> HUD<'a> {
         }
     }
 
+    fn draw_bar(&self, system: &mut System, value: u32, height: u32, y: i32, texture: &Texture) {
+        system
+            .canvas
+            .copy(
+                texture,
+                Rect::new(0, 0, value, height),
+                Rect::new(2, y, value, height),
+            )
+            .expect("copy health failed");
+    }
+
     pub fn draw(&self, player: &Player, system: &mut System) {
-        macro_rules! draw_bar {
-            ($total:ident, $current:ident, $height:expr, $name:expr, $y:expr, $texture:ident) => {{
-                let show = 144 * player.character.$current / player.character.$total;
-                system
-                    .canvas
-                    .copy(
-                        &self.$texture,
-                        Rect::new(0, 0, show, $height),
-                        Rect::new(2, $y, show, $height),
-                    )
-                    .expect(concat!("copy ", $name, " bar failed"));
-            }};
-        }
         system
             .canvas
             .copy(
@@ -98,9 +96,34 @@ impl<'a> HUD<'a> {
                 Rect::new(0, 0, self.bars_width, self.bars_height),
             )
             .expect("copy bars failed");
-        draw_bar!(total_health, health, 4, "health", 2, health_bar);
-        draw_bar!(total_mana, mana, 4, "mana", 8, mana_bar);
-        draw_bar!(total_stamina, stamina, 4, "stamina", 14, stamina_bar);
-        draw_bar!(xp_to_next_level, xp, 2, "xp", 20, xp_bar);
+        self.draw_bar(
+            system,
+            144 * player.character.health / player.character.total_health,
+            4,
+            2,
+            &self.health_bar,
+        );
+        self.draw_bar(
+            system,
+            144 * player.character.mana / player.character.total_mana,
+            4,
+            8,
+            &self.mana_bar,
+        );
+        self.draw_bar(
+            system,
+            144 * player.character.stamina.value() as u32
+                / player.character.stamina.max_value() as u32,
+            4,
+            14,
+            &self.stamina_bar,
+        );
+        self.draw_bar(
+            system,
+            144 * player.character.xp / player.character.xp_to_next_level,
+            2,
+            20,
+            &self.xp_bar,
+        );
     }
 }

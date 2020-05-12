@@ -29,6 +29,7 @@ mod enemy;
 mod hud;
 mod map;
 mod player;
+mod stat;
 mod status;
 mod system;
 mod texture_handler;

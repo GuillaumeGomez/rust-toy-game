@@ -8,6 +8,7 @@ use sdl2::surface::Surface;
 use sdl2::video::WindowContext;
 
 use crate::character::{Action, Character, Direction};
+use crate::stat::Stat;
 use crate::texture_handler::{Dimension, TextureHandler};
 use crate::weapon::Sword;
 use crate::{GetDimension, GetPos, Id, ONE_SECOND};
@@ -109,8 +110,7 @@ impl<'a> Player<'a> {
                 health: 75,
                 total_mana: 100,
                 mana: 20,
-                total_stamina: 100,
-                stamina: 100,
+                stamina: Stat::new(30., 200),
                 xp_to_next_level: 1000,
                 xp: 150,
                 texture_handler,
@@ -120,7 +120,7 @@ impl<'a> Player<'a> {
                 invincible_against: HashMap::new(),
                 statuses: Vec::new(),
                 speed: ONE_SECOND / 60, // we want to move 60 times per second
-                delay: 0,
+                move_delay: 0,
             },
             is_run_pressed: false,
         }
@@ -133,7 +133,7 @@ impl<'a> Player<'a> {
             }
             self.character.action.direction = dir;
             self.character.action.movement = Some(0);
-            self.character.is_running = self.is_run_pressed && self.character.stamina > 0;
+            self.character.is_running = self.is_run_pressed && self.character.stamina.value() > 0;
         } else if self.character.action.secondary.is_none()
             && dir != self.character.action.direction
         {

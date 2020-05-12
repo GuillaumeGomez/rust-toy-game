@@ -9,6 +9,7 @@ use sdl2::video::WindowContext;
 use crate::enemy::Enemy;
 use crate::map::Map;
 use crate::player::Player;
+use crate::stat::Stat;
 use crate::status::Status;
 use crate::system::System;
 use crate::texture_handler::{Dimension, TextureHandler};
@@ -74,8 +75,7 @@ pub struct Character<'a> {
     pub health: u32,
     pub total_mana: u32,
     pub mana: u32,
-    pub total_stamina: u32,
-    pub stamina: u32,
+    pub stamina: Stat,
     pub xp_to_next_level: u32,
     pub xp: u32,
     pub texture_handler: TextureHandler<'a>,
@@ -84,7 +84,7 @@ pub struct Character<'a> {
     /// How much time you need to move of 1.
     pub speed: u64,
     /// When "delay" is superior than "speed", we trigger the movement.
-    pub delay: u64,
+    pub move_delay: u64,
     /// This ID is used when this character is attacking someone else. This "someone else" will
     /// invincible to any other attack from your ID until the total attack time is over.
     pub id: Id,
@@ -283,8 +283,8 @@ impl<'a> Character<'a> {
         players: &[Player],
         npcs: &[Enemy],
     ) -> (i64, i64) {
-        let mut tmp = self.delay + elapsed;
-        let mut stamina = self.stamina;
+        let mut tmp = self.move_delay + elapsed;
+        let mut stamina = self.stamina.clone();
         let mut x = 0;
         let mut y = 0;
 
@@ -294,11 +294,11 @@ impl<'a> Character<'a> {
             y += y1;
             if x1 != 0 || y1 != 0 {
                 if self.is_running {
-                    if stamina > 0 {
+                    if stamina.value() > 0 {
                         let (x2, y2) = self.inner_apply_move(map, players, npcs, x, y);
                         x += x2;
                         y += y2;
-                        stamina -= 1;
+                        stamina.subtract(1);
                     }
                 }
             } else {
@@ -318,21 +318,19 @@ impl<'a> Character<'a> {
             self.set_weapon_pos();
         }
 
-        self.delay += elapsed;
-        while self.delay > self.speed {
+        self.stamina.refresh(elapsed);
+        self.move_delay += elapsed;
+        while self.move_delay > self.speed {
             // We now update the animation!
             if let Some(ref mut pos) = self.action.movement {
                 *pos += 1;
             }
-            if !self.is_running {
-                if self.stamina < self.total_stamina {
-                    self.stamina += 1;
-                }
-            } else if self.stamina > 0 {
-                self.stamina -= 1;
-                self.is_running = self.stamina > 0;
+            let stamina_value = self.stamina.value();
+            if self.is_running && stamina_value > 0 {
+                self.stamina.subtract(1);
+                self.is_running = stamina_value - 1 > 0;
             }
-            self.delay -= self.speed;
+            self.move_delay -= self.speed;
         }
 
         if let Some(ref mut weapon) = self.weapon {
