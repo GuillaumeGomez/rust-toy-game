@@ -46,11 +46,13 @@ use system::System;
 pub const WIDTH: i32 = 800;
 pub const HEIGHT: i32 = 600;
 pub const MAP_SIZE: u32 = 1_000;
-pub const FRAME_DELAY: u128 = 1_000_000_000 / 60;
+pub const ONE_SECOND: u64 = 1_000_000_000;
+pub const FPS: u64 = 60;
+pub const FRAME_DELAY: u128 = (ONE_SECOND / FPS) as u128;
 pub const MAX_DISTANCE_DETECTION: i32 = 200;
 pub const MAX_DISTANCE_PURSUIT: i32 = 300;
 pub const MAX_DISTANCE_WANDERING: i32 = 300;
-pub const MAP_CASE_SIZE: i32 = 8;
+pub const MAP_CASE_SIZE: i64 = 8;
 
 const FPS_REFRESH: u32 = 5;
 
@@ -58,15 +60,15 @@ const FPS_REFRESH: u32 = 5;
 pub type Id = usize;
 
 pub trait GetPos {
-    fn x(&self) -> i32;
-    fn y(&self) -> i32;
+    fn x(&self) -> i64;
+    fn y(&self) -> i64;
 }
 
-impl GetPos for (i32, i32) {
-    fn x(&self) -> i32 {
+impl GetPos for (i64, i64) {
+    fn x(&self) -> i64 {
         self.0
     }
-    fn y(&self) -> i32 {
+    fn y(&self) -> i64 {
         self.1
     }
 }
@@ -74,6 +76,14 @@ impl GetPos for (i32, i32) {
 pub trait GetDimension {
     fn width(&self) -> u32;
     fn height(&self) -> u32;
+}
+
+macro_rules! load_font {
+    ($ttf_context:expr, $size:expr) => {{
+        $ttf_context
+            .load_font("resources/kreon-regular.ttf", $size)
+            .expect("failed to load `resources/kreon-regular.ttf`")
+    }};
 }
 
 pub fn main() {
@@ -108,20 +118,20 @@ pub fn main() {
     let map = Map::new(
         &texture_creator,
         &mut rng,
-        MAP_SIZE as i32 * MAP_CASE_SIZE / -2,
-        MAP_SIZE as i32 * MAP_CASE_SIZE / -2,
+        MAP_SIZE as i64 * MAP_CASE_SIZE / -2,
+        MAP_SIZE as i64 * MAP_CASE_SIZE / -2,
     );
     let mut players = vec![Player::new(&texture_creator, 0, 0, 1)];
     let mut enemies = vec![Enemy::new(&texture_creator, -40, -40, 2)];
     let hud = HUD::new(&texture_creator);
-    let font = ttf_context
-        .load_font("resources/kreon-regular.ttf", 16)
-        .expect("failed to load `resources/kreon-regular.ttf`");
-    let mut debug_display = DebugDisplay::new(&font, &texture_creator, 16);
+    let font_14 = load_font!(ttf_context, 14);
+    let font_16 = load_font!(ttf_context, 16);
+    let mut debug_display = DebugDisplay::new(&font_16, &texture_creator, 16);
     let mut debug = None;
     let mut fps_str = String::new();
     let mut is_attack_pressed = false;
 
+    let mut update_elapsed = 0;
     let mut loop_timer = Instant::now();
     'running: loop {
         for event in event_pump.poll_iter() {
@@ -184,18 +194,18 @@ pub fn main() {
 
         let len = players.len();
         for i in 0..len {
-            let (x, y) = players[i].apply_move(&map, &players, &enemies);
-            players[i].update(x, y);
+            let (x, y) = players[i].apply_move(&map, update_elapsed, &players, &enemies);
+            players[i].update(update_elapsed, x, y);
             if players[i].is_attacking() {
                 for enemy in enemies.iter_mut() {
-                    enemy.check_intersection(&players[i], &font, &texture_creator);
+                    enemy.check_intersection(&players[i], &font_14, &texture_creator);
                 }
             }
         }
         let len = enemies.len();
         for i in 0..len {
-            let (x, y) = enemies[i].apply_move(&map, &players, &enemies);
-            enemies[i].update(x, y);
+            let (x, y) = enemies[i].apply_move(&map, update_elapsed, &players, &enemies);
+            enemies[i].update(update_elapsed, x, y);
         }
         // TODO: instead of having draw methods on each drawable objects, maybe create a Screen
         // type which will get position, size and texture and perform the checks itself? Might be
@@ -215,12 +225,14 @@ pub fn main() {
 
         let elapsed_time = loop_timer.elapsed();
 
-        if elapsed_time.as_nanos() < FRAME_DELAY {
-            ::std::thread::sleep(Duration::new(
-                0,
-                (FRAME_DELAY - elapsed_time.as_nanos()) as u32,
-            ));
-        }
+        let nano_elapsed = elapsed_time.as_nanos();
+        update_elapsed = if nano_elapsed < FRAME_DELAY {
+            let tmp = FRAME_DELAY - nano_elapsed;
+            ::std::thread::sleep(Duration::new(0, tmp as u32));
+            tmp
+        } else {
+            nano_elapsed
+        } as u64;
         if let Some(ref mut debug) = debug {
             *debug += 1;
             if *debug >= FPS_REFRESH {

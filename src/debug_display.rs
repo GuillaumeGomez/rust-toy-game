@@ -36,21 +36,31 @@ impl<'a, 'b> DebugDisplay<'a, 'b> {
         // The grid used for debug.
         let mut grid = Surface::new(
             width + MAP_CASE_SIZE as u32,
-            (HEIGHT + MAP_CASE_SIZE) as u32,
+            (HEIGHT + MAP_CASE_SIZE as i32) as u32,
             PixelFormatEnum::RGBA8888,
         )
         .expect("failed to create grid debug surface");
-        for y in 0..HEIGHT / MAP_CASE_SIZE + 1 {
+        for y in 0..HEIGHT / MAP_CASE_SIZE as i32 + 1 {
             grid.fill_rect(
-                Rect::new(0, y * MAP_CASE_SIZE, (WIDTH + MAP_CASE_SIZE) as u32, 1),
+                Rect::new(
+                    0,
+                    y * MAP_CASE_SIZE as i32,
+                    (WIDTH + MAP_CASE_SIZE as i32) as u32,
+                    1,
+                ),
                 Color::RGB(255, 0, 0),
             )
             .expect("failed to fill grid debug surface");
         }
 
-        for x in 0..WIDTH / MAP_CASE_SIZE + 1 {
+        for x in 0..WIDTH / MAP_CASE_SIZE as i32 + 1 {
             grid.fill_rect(
-                Rect::new(x * MAP_CASE_SIZE, 0, 1, (HEIGHT + MAP_CASE_SIZE) as u32),
+                Rect::new(
+                    x * MAP_CASE_SIZE as i32,
+                    0,
+                    1,
+                    (HEIGHT + MAP_CASE_SIZE as i32) as u32,
+                ),
                 Color::RGB(255, 0, 0),
             )
             .expect("failed to fill grid debug surface");
@@ -85,8 +95,8 @@ impl<'a, 'b> DebugDisplay<'a, 'b> {
                 .copy(
                     &self.grid,
                     Rect::new(
-                        MAP_CASE_SIZE - x_add,
-                        MAP_CASE_SIZE - y_add,
+                        (MAP_CASE_SIZE - x_add) as i32,
+                        (MAP_CASE_SIZE - y_add) as i32,
                         system.width() as u32,
                         system.height() as u32,
                     ),

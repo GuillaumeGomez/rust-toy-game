@@ -5,6 +5,9 @@ use sdl2::ttf::Font;
 use sdl2::video::WindowContext;
 
 use crate::system::System;
+use crate::ONE_SECOND;
+
+const STATUS_UPDATE_TIME: u64 = ONE_SECOND / 60;
 
 pub struct Status<'a> {
     texture: Texture<'a>,
@@ -13,13 +16,13 @@ pub struct Status<'a> {
     // When it reaches y_limit, the status should be removed.
     y_pos: i32,
     y_limit: i32,
+    duration: u64,
 }
 
 impl<'a> Status<'a> {
     pub fn new<'b>(
         font: &'b Font<'b, 'static>,
         texture_creator: &'a TextureCreator<WindowContext>,
-        font_size: i32,
         text: &str,
         color: Color,
     ) -> Status<'a> {
@@ -38,13 +41,22 @@ impl<'a> Status<'a> {
             height,
             y_pos: 0,
             y_limit: 30,
+            duration: 0,
         }
     }
 
-    pub fn draw(&mut self, system: &mut System, x: i32, y: i32) {
-        self.y_pos += 1; // increase position of the text
-        let x = x - system.x() - self.width / 2;
-        let y = y - system.y() - self.y_pos - 10;
+    pub fn update(&mut self, elapsed: u64) {
+        self.duration += elapsed;
+        while self.duration > STATUS_UPDATE_TIME && self.y_pos < self.y_limit {
+            self.duration -= STATUS_UPDATE_TIME;
+            self.y_pos += 1;
+        }
+    }
+
+    pub fn draw(&self, system: &mut System, x: i64, y: i64) {
+        // increase position of the text
+        let x = (x - system.x()) as i32 - self.width / 2;
+        let y = (y - system.y()) as i32 - self.y_pos - 10;
         if x + self.width >= 0 && x < system.width() && y + self.height >= 0 && y < system.height()
         {
             system

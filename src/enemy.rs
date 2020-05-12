@@ -13,7 +13,7 @@ use crate::map::Map;
 use crate::player::Player;
 use crate::texture_handler::{Dimension, TextureHandler};
 use crate::utils;
-use crate::{GetDimension, GetPos, Id, MAX_DISTANCE_PURSUIT, MAX_DISTANCE_WANDERING};
+use crate::{GetDimension, GetPos, Id, MAX_DISTANCE_PURSUIT, MAX_DISTANCE_WANDERING, ONE_SECOND};
 
 // TODO: for moveto and movetoplayer, add "nodes" after a little path finding to go around obstacles
 #[derive(Clone, Copy)]
@@ -21,7 +21,7 @@ enum EnemyAction {
     // Not doing anything for the moment...
     None,
     // MoveTo(x, y)
-    MoveTo(i32, i32),
+    MoveTo(i64, i64),
     // Targetted player (in case of multiplayer, might be nice to have IDs for players)
     MoveToPlayer,
 }
@@ -29,15 +29,15 @@ enum EnemyAction {
 pub struct Enemy<'a> {
     pub character: Character<'a>,
     action: EnemyAction,
-    start_x: i32,
-    start_y: i32,
+    start_x: i64,
+    start_y: i64,
 }
 
 impl<'a> Enemy<'a> {
     pub fn new(
         texture_creator: &'a TextureCreator<WindowContext>,
-        x: i32,
-        y: i32,
+        x: i64,
+        y: i64,
         id: Id,
     ) -> Enemy<'a> {
         let mut actions_standing = Vec::with_capacity(4);
@@ -89,6 +89,8 @@ impl<'a> Enemy<'a> {
                 id,
                 invincible_against: HashMap::new(),
                 statuses: Vec::new(),
+                speed: ONE_SECOND / 60, // we want to move 60 times per second
+                delay: 0,
             },
             action: EnemyAction::None,
             start_x: x,
@@ -96,7 +98,7 @@ impl<'a> Enemy<'a> {
         }
     }
 
-    fn compute_destination(&mut self, x: i32, y: i32) {
+    fn compute_destination(&mut self, x: i64, y: i64) {
         let mut dir_x = None;
         let mut dir_y = None;
         if x > self.x() {
@@ -206,11 +208,11 @@ impl<'a> Enemy<'a> {
 }
 
 impl<'a> GetPos for Enemy<'a> {
-    fn x(&self) -> i32 {
+    fn x(&self) -> i64 {
         self.character.x
     }
 
-    fn y(&self) -> i32 {
+    fn y(&self) -> i64 {
         self.character.y
     }
 }

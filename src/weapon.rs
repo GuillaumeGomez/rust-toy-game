@@ -3,16 +3,13 @@ use std::ops::{Deref, DerefMut};
 use sdl2::image::LoadSurface;
 use sdl2::pixels::PixelFormatEnum;
 use sdl2::rect::Rect;
-use sdl2::render::{Canvas, Texture, TextureCreator};
+use sdl2::render::{Texture, TextureCreator};
 use sdl2::surface::Surface;
 use sdl2::video::WindowContext;
 
 use crate::character::Direction;
 use crate::system::System;
 use crate::GetDimension;
-
-const ANGLE: i32 = 90;
-const ANGLE_UPDATE: i32 = 6;
 
 #[allow(dead_code)]
 pub enum WeaponKind<'a> {
@@ -28,23 +25,23 @@ pub enum WeaponKind<'a> {
 }
 
 pub struct Weapon<'a> {
-    pub x: i32,
-    pub y: i32,
+    pub x: i64,
+    pub y: i64,
     action: Option<WeaponAction>,
     pub kind: WeaponKind<'a>,
     // TODO: optimize memory usage by putting 8 pixels into one
     data: Vec<u8>,
     /// Total time required for this weapon to perform its action.
-    pub total_time: i32,
+    pub total_time: u64,
     pub attack: i32,
 }
 
 impl<'a> Weapon<'a> {
     /// Returns a vec of positions to check.
-    pub fn compute_angle(&self) -> Option<Vec<(i32, i32)>> {
+    pub fn compute_angle(&self) -> Option<Vec<(i64, i64)>> {
         let action = self.get_action()?;
-        let height = self.height() as i32;
-        let width = self.width() as i32;
+        let height = self.height() as i64;
+        let width = self.width() as i64;
         let half_width = width / 2;
         let mut matrix = Vec::with_capacity(self.data.len());
 
@@ -63,43 +60,51 @@ impl<'a> Weapon<'a> {
                 let x = x - half_width;
                 let x2 = x as f32 * radian_cos - rad_sin_y;
                 let y2 = x as f32 * radian_sin + rad_cos_y;
-                matrix.push((self.x - x2 as i32, self.y - y2 as i32 + action.y_add));
+                matrix.push((self.x - x2 as i64, self.y - y2 as i64 + action.y_add as i64));
             }
         }
         Some(matrix)
     }
     /// Set the position based on the character and its direction.
-    pub fn set_pos(&mut self, x: i32, y: i32) {
+    pub fn set_pos(&mut self, x: i64, y: i64) {
         self.x = x;
         self.y = y;
     }
-    pub fn draw(&mut self, system: &mut System) {
+    pub fn update(&mut self, elapsed: u64) {
         if let Some(mut action) = self.action.take() {
+            if action.duration > elapsed {
+                action.duration -= elapsed;
+
+                let angle_add = elapsed * action.total_angle as u64 / self.total_time as u64;
+
+                action.angle += angle_add as i32;
+                self.action = Some(action);
+            }
+        }
+    }
+    pub fn draw(&self, system: &mut System) {
+        if let Some(ref action) = self.action {
             if let Some(texture) = self.get_texture() {
                 let x = self.x - system.x();
                 let y = self.y - system.y();
-                if x + self.width() as i32 >= 0
-                    && x < system.width()
-                    && y + self.height() as i32 >= 0
-                    && y < system.height()
+                if x + self.width() as i64 >= 0
+                    && x < system.width() as i64
+                    && y + self.height() as i64 >= 0
+                    && y < system.height() as i64
                 {
                     system
                         .canvas
                         .copy_ex(
                             texture,
                             None,
-                            Rect::new(x, y, self.width(), self.height()),
-                            action.angle as _,
+                            Rect::new(x as i32, y as i32, self.width(), self.height()),
+                            action.angle as f64,
                             Some((action.x_add, action.y_add).into()),
                             false,
                             false,
                         )
                         .expect("failed to copy sword");
                 }
-            }
-            if action.angle < action.max_angle {
-                action.angle += ANGLE_UPDATE;
-                self.action = Some(action);
             }
         }
     }
@@ -167,7 +172,9 @@ impl<'a> GetDimension for WeaponKind<'a> {
 #[derive(Debug)]
 pub struct WeaponAction {
     angle: i32,
-    max_angle: i32,
+    /// The angle of the rotation.
+    total_angle: u32,
+    duration: u64,
     x_add: i32,
     y_add: i32,
 }
@@ -206,18 +213,12 @@ impl<'a> Sword<'a> {
         }
 
         let data = get_surface_data(&surface);
-        let total_time = ANGLE / ANGLE_UPDATE;
         Weapon {
             x: 0,
             y: 0,
             action: None,
             data,
-            // This computation is to prevent to have a little too short "total time" computation.
-            total_time: if ANGLE % ANGLE_UPDATE != 0 {
-                total_time + 1
-            } else {
-                total_time
-            },
+            total_time: 250_000_000,
             kind: WeaponKind::Sword(Sword {
                 width: surface.width(),
                 height: surface.height(),
@@ -230,25 +231,16 @@ impl<'a> Sword<'a> {
     }
     /// In case there is a timeout or something, you might not be able to use the weapon.
     pub fn use_it(&mut self, direction: Direction) -> Option<WeaponAction> {
-        let (angle, max_angle, x_add, y_add) = match direction {
-            Direction::Up => (
-                -45,
-                -45 + ANGLE,
-                self.width() as i32 / 2,
-                self.height() as i32,
-            ),
-            Direction::Down => (
-                135,
-                135 + ANGLE,
-                self.width() as i32 / 2,
-                self.height() as i32,
-            ),
-            Direction::Left => (225, 225 + ANGLE, 0, self.height() as i32),
-            Direction::Right => (45, 45 + ANGLE, 0, self.height() as i32),
+        let (angle, x_add, y_add) = match direction {
+            Direction::Up => (-45, self.width() as i32 / 2, self.height() as i32),
+            Direction::Down => (135, self.width() as i32 / 2, self.height() as i32),
+            Direction::Left => (225, 0, self.height() as i32),
+            Direction::Right => (45, 0, self.height() as i32),
         };
         Some(WeaponAction {
             angle,
-            max_angle,
+            total_angle: 90,
+            duration: 250_000_000, // 1/4 of a second
             x_add,
             y_add,
         })

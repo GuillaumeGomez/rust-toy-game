@@ -56,18 +56,18 @@ impl<'a> TextureHandler<'a> {
 
     pub fn check_intersection(
         &self,
-        matrix: &[(i32, i32)],
+        matrix: &[(i64, i64)],
         tile_pos: (i32, i32),
         tile_size: (i32, i32),
-        character_pos: (i32, i32),
+        character_pos: (i64, i64),
     ) -> bool {
         let pitch = self.surface.pitch() as i32;
         let max_len = (self.surface.height() * self.surface.pitch()) as i32;
         let surface = self.surface.raw();
         let pixels = unsafe { (*surface).pixels as *const u8 };
         for (x, y) in matrix.iter() {
-            let x = x - character_pos.0 + tile_pos.0;
-            let y = y - character_pos.1 + tile_pos.1;
+            let x = (x - character_pos.0) as i32 + tile_pos.0;
+            let y = (y - character_pos.1) as i32 + tile_pos.1;
             if y < tile_pos.1
                 || y > tile_pos.1 + tile_size.1
                 || x < tile_pos.0

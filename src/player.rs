@@ -10,7 +10,7 @@ use sdl2::video::WindowContext;
 use crate::character::{Action, Character, Direction};
 use crate::texture_handler::{Dimension, TextureHandler};
 use crate::weapon::Sword;
-use crate::{GetDimension, GetPos, Id};
+use crate::{GetDimension, GetPos, Id, ONE_SECOND};
 
 fn create_right_actions<'a>(
     texture_creator: &'a TextureCreator<WindowContext>,
@@ -60,8 +60,8 @@ pub struct Player<'a> {
 impl<'a> Player<'a> {
     pub fn new(
         texture_creator: &'a TextureCreator<WindowContext>,
-        x: i32,
-        y: i32,
+        x: i64,
+        y: i64,
         id: Id,
     ) -> Player<'a> {
         let tile_width = 23;
@@ -119,6 +119,8 @@ impl<'a> Player<'a> {
                 id,
                 invincible_against: HashMap::new(),
                 statuses: Vec::new(),
+                speed: ONE_SECOND / 60, // we want to move 60 times per second
+                delay: 0,
             },
             is_run_pressed: false,
         }
@@ -156,11 +158,11 @@ impl<'a> Player<'a> {
 }
 
 impl<'a> GetPos for Player<'a> {
-    fn x(&self) -> i32 {
+    fn x(&self) -> i64 {
         self.character.x
     }
 
-    fn y(&self) -> i32 {
+    fn y(&self) -> i64 {
         self.character.y
     }
 }
