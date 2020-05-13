@@ -47,9 +47,10 @@ use system::System;
 pub const WIDTH: i32 = 800;
 pub const HEIGHT: i32 = 600;
 pub const MAP_SIZE: u32 = 1_000;
-pub const ONE_SECOND: u64 = 1_000_000_000;
+// in micro-seconds
+pub const ONE_SECOND: u64 = 1_000_000;
 pub const FPS: u64 = 60;
-pub const FRAME_DELAY: u128 = (ONE_SECOND / FPS) as u128;
+pub const FRAME_DELAY: u64 = ONE_SECOND / FPS;
 pub const MAX_DISTANCE_DETECTION: i32 = 200;
 pub const MAX_DISTANCE_PURSUIT: i32 = 300;
 pub const MAX_DISTANCE_WANDERING: i32 = 300;
@@ -253,13 +254,13 @@ pub fn main() {
 
         let elapsed_time = loop_timer.elapsed();
 
-        let nano_elapsed = elapsed_time.as_nanos();
-        update_elapsed = if nano_elapsed < FRAME_DELAY {
-            let tmp = FRAME_DELAY - nano_elapsed;
-            ::std::thread::sleep(Duration::new(0, tmp as u32));
+        let micro_elapsed = elapsed_time.as_micros() as u64;
+        update_elapsed = if micro_elapsed < FRAME_DELAY {
+            let tmp = FRAME_DELAY - micro_elapsed;
+            ::std::thread::sleep(Duration::from_micros(tmp));
             tmp
         } else {
-            nano_elapsed
+            micro_elapsed
         } as u64;
         if let Some(ref mut debug) = debug {
             *debug += 1;
@@ -267,7 +268,7 @@ pub fn main() {
                 let elapsed_time = loop_timer.elapsed();
                 fps_str = format!(
                     "FPS: {:.2}",
-                    1_000_000_000f64 / elapsed_time.as_nanos() as f64
+                    1_000_000f64 / elapsed_time.as_micros() as f64
                 );
                 *debug = 0;
             }
