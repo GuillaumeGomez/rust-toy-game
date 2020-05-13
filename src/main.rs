@@ -268,7 +268,7 @@ pub fn main() {
                 let elapsed_time = loop_timer.elapsed();
                 fps_str = format!(
                     "FPS: {:.2}",
-                    1_000_000f64 / elapsed_time.as_micros() as f64
+                    ONE_SECOND as f64 / elapsed_time.as_micros() as f64
                 );
                 *debug = 0;
             }

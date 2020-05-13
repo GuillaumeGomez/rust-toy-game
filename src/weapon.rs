@@ -9,7 +9,7 @@ use sdl2::video::WindowContext;
 
 use crate::character::Direction;
 use crate::system::System;
-use crate::GetDimension;
+use crate::{GetDimension, ONE_SECOND};
 
 #[allow(dead_code)]
 pub enum WeaponKind<'a> {
@@ -218,7 +218,7 @@ impl<'a> Sword<'a> {
             y: 0,
             action: None,
             data,
-            total_time: 250_000_000,
+            total_time: ONE_SECOND / 4,
             kind: WeaponKind::Sword(Sword {
                 width: surface.width(),
                 height: surface.height(),
@@ -240,7 +240,7 @@ impl<'a> Sword<'a> {
         Some(WeaponAction {
             angle,
             total_angle: 90,
-            duration: 250_000_000, // 1/4 of a second
+            duration: ONE_SECOND / 4,
             x_add,
             y_add,
         })
