@@ -84,7 +84,7 @@ impl<'a> HUD<'a> {
                 Rect::new(0, 0, value, height),
                 Rect::new(2, y, value, height),
             )
-            .expect("copy health failed");
+            .expect("copy bar failed");
     }
 
     pub fn draw(&self, player: &Player, system: &mut System) {
@@ -95,17 +95,18 @@ impl<'a> HUD<'a> {
                 None,
                 Rect::new(0, 0, self.bars_width, self.bars_height),
             )
-            .expect("copy bars failed");
+            .expect("copy hud failed");
         self.draw_bar(
             system,
-            144 * player.character.health / player.character.total_health,
+            144 * player.character.health.value() as u32
+                / player.character.health.max_value() as u32,
             4,
             2,
             &self.health_bar,
         );
         self.draw_bar(
             system,
-            144 * player.character.mana / player.character.total_mana,
+            144 * player.character.mana.value() as u32 / player.character.mana.max_value() as u32,
             4,
             8,
             &self.mana_bar,
@@ -120,7 +121,7 @@ impl<'a> HUD<'a> {
         );
         self.draw_bar(
             system,
-            144 * player.character.xp / player.character.xp_to_next_level,
+            (144 * player.character.xp / player.character.xp_to_next_level) as u32,
             2,
             20,
             &self.xp_bar,
