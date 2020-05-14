@@ -247,11 +247,11 @@ pub fn main() {
         // For now, the screen follows the player.
         system.set_screen_position(&players[0]);
         map.draw(&mut system);
-        for enemy in enemies.iter_mut() {
-            enemy.draw(&mut system);
-        }
         for player in players.iter_mut() {
             player.draw(&mut system);
+        }
+        for enemy in enemies.iter_mut() {
+            enemy.draw(&mut system);
         }
         hud.draw(&players[0], &mut system);
 
