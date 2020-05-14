@@ -68,6 +68,17 @@ impl Action {
     }
 }
 
+pub struct InvincibleAgainst {
+    id: Id,
+    remaining_time: u64,
+}
+
+impl InvincibleAgainst {
+    fn new(id: Id, remaining_time: u64) -> InvincibleAgainst {
+        InvincibleAgainst { id, remaining_time }
+    }
+}
+
 pub struct Character<'a> {
     pub action: Action,
     pub x: i64,
@@ -87,7 +98,7 @@ pub struct Character<'a> {
     /// This ID is used when this character is attacking someone else. This "someone else" will
     /// invincible to any other attack from your ID until the total attack time is over.
     pub id: Id,
-    pub invincible_against: HashMap<Id, u64>,
+    pub invincible_against: Vec<InvincibleAgainst>,
     pub statuses: Vec<Status<'a>>,
     pub show_health_bar: bool,
 }
@@ -357,16 +368,14 @@ impl<'a> Character<'a> {
         if self.invincible_against.is_empty() {
             return;
         }
-        let mut to_remove = Vec::new();
-        for (key, value) in self.invincible_against.iter_mut() {
-            if *value <= elapsed {
-                to_remove.push(*key);
+        let mut i = 0;
+        while i < self.invincible_against.len() {
+            if self.invincible_against[i].remaining_time <= elapsed {
+                self.invincible_against.remove(i);
             } else {
-                *value -= elapsed;
+                self.invincible_against[i].remaining_time -= elapsed;
+                i += 1;
             }
-        }
-        for key in to_remove {
-            self.invincible_against.remove(&key);
         }
     }
 
@@ -399,7 +408,7 @@ impl<'a> Character<'a> {
         font: &'b Font<'b, 'static>,
         texture_creator: &'a TextureCreator<WindowContext>,
     ) {
-        if character_id == self.id || self.invincible_against.contains_key(&character_id) {
+        if character_id == self.id || self.invincible_against.iter().any(|e| e.id == character_id) {
             return;
         }
         let (tile_x, tile_y, width, height) = self
@@ -439,7 +448,7 @@ impl<'a> Character<'a> {
             ) {
                 self.health.subtract(weapon.attack as u64);
                 self.invincible_against
-                    .insert(character_id, weapon.total_time);
+                    .push(InvincibleAgainst::new(character_id, weapon.total_time));
                 // TODO: add defense on characters and make computation here (also add dodge computation
                 // and the other stuff...)
                 self.statuses.push(Status::new(

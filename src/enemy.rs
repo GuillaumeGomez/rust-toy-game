@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 
 use rand::Rng;
@@ -85,7 +84,7 @@ impl<'a> Enemy<'a> {
                 weapon: None,
                 is_running: false,
                 id,
-                invincible_against: HashMap::new(),
+                invincible_against: Vec::new(),
                 statuses: Vec::new(),
                 speed: ONE_SECOND / 60, // we want to move 60 times per second
                 move_delay: 0,
