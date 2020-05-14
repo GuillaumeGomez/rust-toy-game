@@ -26,6 +26,7 @@ macro_rules! return_if_none {
 mod character;
 mod debug_display;
 mod enemy;
+mod health_bar;
 mod hud;
 mod map;
 mod player;
@@ -39,6 +40,7 @@ mod weapon;
 use character::Direction;
 use debug_display::DebugDisplay;
 use enemy::Enemy;
+use health_bar::HealthBar;
 use hud::HUD;
 use map::Map;
 use player::Player;
@@ -114,7 +116,8 @@ pub fn main() {
         .expect("failed to build window's canvas");
     canvas.set_draw_color(Color::RGB(0, 0, 0));
     let texture_creator = canvas.texture_creator();
-    let mut system = System::new(canvas, WIDTH as u32, HEIGHT as u32);
+    let health_bar = HealthBar::new(&texture_creator, 30, 5);
+    let mut system = System::new(canvas, WIDTH as u32, HEIGHT as u32, &health_bar);
 
     let mut event_pump = sdl_context.event_pump().expect("failed to get event pump");
     let map = Map::new(

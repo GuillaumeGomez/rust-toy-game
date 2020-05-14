@@ -119,6 +119,9 @@ impl<'a> Player<'a> {
                 statuses: Vec::new(),
                 speed: ONE_SECOND / 60, // we want to move 60 times per second
                 move_delay: 0,
+                // TODO: take care if there are multiple local players: depending on where we want
+                // to put the second player information, we might want to set this to "true".
+                show_health_bar: false,
             },
             is_run_pressed: false,
         }

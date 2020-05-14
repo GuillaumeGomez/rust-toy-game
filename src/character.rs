@@ -7,6 +7,7 @@ use sdl2::ttf::Font;
 use sdl2::video::WindowContext;
 
 use crate::enemy::Enemy;
+use crate::health_bar::HealthBar;
 use crate::map::Map;
 use crate::player::Player;
 use crate::stat::Stat;
@@ -88,6 +89,7 @@ pub struct Character<'a> {
     pub id: Id,
     pub invincible_against: HashMap<Id, u64>,
     pub statuses: Vec<Status<'a>>,
+    pub show_health_bar: bool,
 }
 
 impl<'a> Character<'a> {
@@ -238,6 +240,15 @@ impl<'a> Character<'a> {
             //     }
             // }
             weapon.draw(system);
+        }
+
+        if self.show_health_bar && !self.health.is_full() {
+            system.health_bar.draw(
+                self.x + (tile_width as i32 - system.health_bar.width as i32) as i64 / 2,
+                self.y - (system.health_bar.height + 2) as i64,
+                self.health.pourcent(),
+                system,
+            );
         }
 
         let x = self.x + self.width() as i64 / 2;
@@ -424,6 +435,7 @@ impl<'a> Character<'a> {
                 (width as i32, height as i32),
                 (self.x, self.y),
             ) {
+                self.health.subtract(weapon.attack as u64);
                 self.invincible_against
                     .insert(character_id, weapon.total_time);
                 // TODO: add defense on characters and make computation here (also add dodge computation

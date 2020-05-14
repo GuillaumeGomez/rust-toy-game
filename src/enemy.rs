@@ -89,6 +89,7 @@ impl<'a> Enemy<'a> {
                 statuses: Vec::new(),
                 speed: ONE_SECOND / 60, // we want to move 60 times per second
                 move_delay: 0,
+                show_health_bar: true,
             },
             action: EnemyAction::None,
             start_x: x,

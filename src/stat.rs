@@ -41,6 +41,14 @@ impl Stat {
         self.max_value / 1_000
     }
 
+    pub fn is_full(&self) -> bool {
+        self.value >= self.max_value
+    }
+
+    pub fn pourcent(&self) -> u32 {
+        (self.value * 100 / self.max_value) as u32
+    }
+
     pub fn refresh(&mut self, elapsed: u64) {
         if self.value >= self.max_value {
             return;
