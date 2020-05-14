@@ -328,6 +328,8 @@ impl<'a> Character<'a> {
         }
 
         self.stamina.refresh(elapsed);
+        self.health.refresh(elapsed);
+        self.mana.refresh(elapsed);
         self.move_delay += elapsed;
         while self.move_delay > self.speed {
             // We now update the animation!
