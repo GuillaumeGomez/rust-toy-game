@@ -29,6 +29,7 @@ mod enemy;
 mod health_bar;
 mod hud;
 mod map;
+mod menu;
 mod player;
 mod stat;
 mod status;
@@ -43,6 +44,7 @@ use enemy::Enemy;
 use health_bar::HealthBar;
 use hud::HUD;
 use map::Map;
+use menu::{Menu, MenuEvent};
 use player::Player;
 use system::System;
 
@@ -128,54 +130,68 @@ pub fn main() {
     );
     let mut players = vec![Player::new(&texture_creator, 0, 0, 1)];
     let mut enemies = vec![Enemy::new(&texture_creator, -40, -40, 2)];
-    let hud = HUD::new(&texture_creator);
+
     let font_14 = load_font!(ttf_context, 14);
     let font_16 = load_font!(ttf_context, 16);
+
+    let hud = HUD::new(&texture_creator);
     let mut debug_display = DebugDisplay::new(&font_16, &texture_creator, 16);
+    let mut menu = Menu::new(&texture_creator, &font_16, WIDTH as u32, HEIGHT as u32);
+
     let mut debug = None;
     let mut fps_str = String::new();
     let mut is_attack_pressed = false;
+    let mut display_menu = false;
 
     let mut update_elapsed = 0;
     let mut loop_timer = Instant::now();
     'running: loop {
+        let mut mouse_state = event_pump.mouse_state();
         for event in event_pump.poll_iter() {
-            match event {
-                Event::Quit { .. } => break 'running,
-                Event::KeyDown {
-                    keycode: Some(x), ..
-                } => match x {
-                    Keycode::Escape => break 'running,
-                    Keycode::Left | Keycode::Q => players[0].handle_move(Direction::Left),
-                    Keycode::Right | Keycode::D => players[0].handle_move(Direction::Right),
-                    Keycode::Up | Keycode::Z => players[0].handle_move(Direction::Up),
-                    Keycode::Down | Keycode::S => players[0].handle_move(Direction::Down),
-                    Keycode::Space => {
-                        if !is_attack_pressed {
-                            players[0].attack();
-                            is_attack_pressed = true;
+            if display_menu {
+                match menu.handle_event(event) {
+                    MenuEvent::Quit => break 'running,
+                    MenuEvent::Resume => display_menu = false,
+                    MenuEvent::None => {}
+                }
+            } else {
+                match event {
+                    Event::Quit { .. } => break 'running,
+                    Event::KeyDown {
+                        keycode: Some(x), ..
+                    } => match x {
+                        Keycode::Escape => {
+                            display_menu = true;
+                            // To hover button in case the mouse is hovering one.
+                            menu.update(mouse_state.x(), mouse_state.y());
                         }
-                    }
-                    Keycode::LShift => {
-                        players[0].is_run_pressed = true;
-                        players[0].is_running = players[0].action.movement.is_some();
-                    }
-                    Keycode::F3 => {
-                        if debug.is_some() {
-                            debug = None;
-                        } else {
-                            debug = Some(FPS_REFRESH - 1);
+                        Keycode::Left | Keycode::Q => players[0].handle_move(Direction::Left),
+                        Keycode::Right | Keycode::D => players[0].handle_move(Direction::Right),
+                        Keycode::Up | Keycode::Z => players[0].handle_move(Direction::Up),
+                        Keycode::Down | Keycode::S => players[0].handle_move(Direction::Down),
+                        Keycode::Space => {
+                            if !is_attack_pressed {
+                                players[0].attack();
+                                is_attack_pressed = true;
+                            }
                         }
-                    }
-                    Keycode::F5 => debug_display.switch_draw_grid(),
-                    _ => {}
-                },
-                Event::KeyUp {
-                    keycode: Some(x), ..
-                } => {
-                    match x {
-                        // Not complete: if a second direction is pressed, it should then go to this
-                        // direction. :)
+                        Keycode::LShift => {
+                            players[0].is_run_pressed = true;
+                            players[0].is_running = players[0].action.movement.is_some();
+                        }
+                        Keycode::F3 => {
+                            if debug.is_some() {
+                                debug = None;
+                            } else {
+                                debug = Some(FPS_REFRESH - 1);
+                            }
+                        }
+                        Keycode::F5 => debug_display.switch_draw_grid(),
+                        _ => {}
+                    },
+                    Event::KeyUp {
+                        keycode: Some(x), ..
+                    } => match x {
                         Keycode::Left | Keycode::Q => players[0].handle_release(Direction::Left),
                         Keycode::Right | Keycode::D => players[0].handle_release(Direction::Right),
                         Keycode::Up | Keycode::Z => players[0].handle_release(Direction::Up),
@@ -186,59 +202,61 @@ pub fn main() {
                         }
                         Keycode::Space => is_attack_pressed = false,
                         _ => {}
-                    }
+                    },
+                    _ => {}
                 }
-                _ => {}
             }
         }
-        if is_attack_pressed && !players[0].is_attacking() {
-            players[0].attack();
+
+        if !display_menu {
+            if is_attack_pressed && !players[0].is_attacking() {
+                players[0].attack();
+            }
+            let len = players.len();
+            for i in 0..len {
+                let (x, y) = players[i].apply_move(&map, update_elapsed, &players, &enemies);
+                players[i].update(update_elapsed, x, y);
+                if players[i].is_attacking() {
+                    let id = players[i].id;
+                    if let Some(ref weapon) = players[i].weapon {
+                        let mut matrix = None;
+                        // TODO: for now, players can only attack NPCs
+                        for enemy in enemies.iter_mut() {
+                            enemy.check_intersection(
+                                id,
+                                weapon,
+                                &mut matrix,
+                                &font_14,
+                                &texture_creator,
+                            );
+                        }
+                    }
+                }
+            }
+            let len = enemies.len();
+            for i in 0..len {
+                let (x, y) = enemies[i].apply_move(&map, update_elapsed, &players, &enemies);
+                enemies[i].update(update_elapsed, x, y);
+                if enemies[i].is_attacking() {
+                    let id = enemies[i].id;
+                    if let Some(ref weapon) = enemies[i].weapon {
+                        let mut matrix = None;
+                        // TODO: for now, NPCs can only attack players
+                        for player in players.iter_mut() {
+                            player.check_intersection(
+                                id,
+                                weapon,
+                                &mut matrix,
+                                &font_14,
+                                &texture_creator,
+                            );
+                        }
+                    }
+                }
+            }
         }
 
         system.clear();
-
-        let len = players.len();
-        for i in 0..len {
-            let (x, y) = players[i].apply_move(&map, update_elapsed, &players, &enemies);
-            players[i].update(update_elapsed, x, y);
-            if players[i].is_attacking() {
-                let id = players[i].id;
-                if let Some(ref weapon) = players[i].weapon {
-                    let mut matrix = None;
-                    // TODO: for now, players can only attack NPCs
-                    for enemy in enemies.iter_mut() {
-                        enemy.check_intersection(
-                            id,
-                            weapon,
-                            &mut matrix,
-                            &font_14,
-                            &texture_creator,
-                        );
-                    }
-                }
-            }
-        }
-        let len = enemies.len();
-        for i in 0..len {
-            let (x, y) = enemies[i].apply_move(&map, update_elapsed, &players, &enemies);
-            enemies[i].update(update_elapsed, x, y);
-            if enemies[i].is_attacking() {
-                let id = enemies[i].id;
-                if let Some(ref weapon) = enemies[i].weapon {
-                    let mut matrix = None;
-                    // TODO: for now, NPCs can only attack players
-                    for player in players.iter_mut() {
-                        player.check_intersection(
-                            id,
-                            weapon,
-                            &mut matrix,
-                            &font_14,
-                            &texture_creator,
-                        );
-                    }
-                }
-            }
-        }
         // TODO: instead of having draw methods on each drawable objects, maybe create a Screen
         // type which will get position, size and texture and perform the checks itself? Might be
         // a bit complicated in case an object contains objects to draw though... It could be overcome
@@ -254,6 +272,10 @@ pub fn main() {
             enemy.draw(&mut system);
         }
         hud.draw(&players[0], &mut system);
+
+        if display_menu {
+            menu.draw(&mut system);
+        }
 
         let elapsed_time = loop_timer.elapsed();
 
