@@ -141,6 +141,8 @@ pub struct Menu<'a> {
     height: u32,
     button_resume: Button<'a>,
     button_quit: Button<'a>,
+    selected: Option<usize>,
+    selected_texture: Texture<'a>,
 }
 
 impl<'a> Menu<'a> {
@@ -155,6 +157,11 @@ impl<'a> Menu<'a> {
         background
             .fill_rect(None, Color::RGBA(0, 0, 0, 170))
             .expect("failed to fill background surface");
+        let mut selected_surface = Surface::new(20, 20, texture_creator.default_pixel_format())
+            .expect("failed to create selected surface");
+        selected_surface
+            .fill_rect(None, Color::RGB(74, 138, 221))
+            .expect("failed to fill selected surface");
 
         Menu {
             background: texture_creator
@@ -174,15 +181,34 @@ impl<'a> Menu<'a> {
             ),
             width,
             height,
+            selected_texture: texture_creator
+                .create_texture_from_surface(selected_surface)
+                .expect("failed to build texture from selected surface"),
+            selected: None,
         }
     }
 
     pub fn update(&mut self, mouse_x: i32, mouse_y: i32) {
         self.button_resume.update(mouse_x, mouse_y);
         self.button_quit.update(mouse_x, mouse_y);
+
+        if self.button_resume.is_hovered {
+            self.selected = Some(0);
+        } else if self.button_quit.is_hovered {
+            self.selected = Some(1);
+        }
+    }
+
+    fn get_button(&self, pos: usize) -> &Button {
+        if pos == 0 {
+            &self.button_resume
+        } else {
+            &self.button_quit
+        }
     }
 
     pub fn reset_buttons(&mut self) {
+        self.selected = None;
         self.button_resume.is_hovered = false;
         self.button_quit.is_hovered = false;
         self.unclick_buttons();
@@ -202,12 +228,46 @@ impl<'a> Menu<'a> {
             // TODO: would be nice to hover buttons with keys and not just mouse
             // TODO: actually, might be worth it to just give events to the menu directly...
             Event::KeyDown {
-                keycode: Some(Keycode::Escape),
-                ..
-            } => {
-                self.reset_buttons();
-                return MenuEvent::Resume;
-            }
+                keycode: Some(x), ..
+            } => match x {
+                Keycode::Escape => {
+                    self.reset_buttons();
+                    return MenuEvent::Resume;
+                }
+                Keycode::Up => {
+                    if let Some(ref mut selected) = self.selected {
+                        if *selected > 0 {
+                            *selected -= 1;
+                        } else {
+                            *selected = 1;
+                        }
+                    } else {
+                        self.selected = Some(0);
+                    }
+                }
+                Keycode::Down => {
+                    if let Some(ref mut selected) = self.selected {
+                        if *selected < 1 {
+                            *selected += 1;
+                        } else {
+                            *selected = 0;
+                        }
+                    } else {
+                        self.selected = Some(1);
+                    }
+                }
+                Keycode::Return => {
+                    if let Some(selected) = self.selected {
+                        if selected == 0 {
+                            self.reset_buttons();
+                            return MenuEvent::Resume;
+                        } else {
+                            return MenuEvent::Quit;
+                        }
+                    }
+                }
+                _ => {}
+            },
             Event::MouseMotion { x, y, .. } => {
                 self.update(x, y);
             }
@@ -247,5 +307,21 @@ impl<'a> Menu<'a> {
             .expect("copy menu failed");
         self.button_resume.draw(system);
         self.button_quit.draw(system);
+        if let Some(selected) = self.selected {
+            let rect = self.get_button(selected).rect;
+            system
+                .canvas
+                .copy(
+                    &self.selected_texture,
+                    None,
+                    Rect::new(
+                        rect.x - 30,
+                        rect.y + (rect.height() - 20) as i32 / 2,
+                        20,
+                        20,
+                    ),
+                )
+                .expect("copy menu failed");
+        }
     }
 }
