@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 use sdl2::render::TextureCreator;
@@ -7,7 +5,6 @@ use sdl2::ttf::Font;
 use sdl2::video::WindowContext;
 
 use crate::enemy::Enemy;
-use crate::health_bar::HealthBar;
 use crate::map::Map;
 use crate::player::Player;
 use crate::stat::Stat;

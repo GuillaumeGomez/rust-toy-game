@@ -50,13 +50,13 @@ impl<'a> Button<'a> {
             .expect("failed to fill button surface");
         let text_surface = font
             .render(text)
-            .solid(Color::RGB(255, 255, 255))
+            .blended(Color::RGB(255, 255, 255))
             .expect("failed to convert text to surface");
         let text_width = text_surface.width();
         let text_height = text_surface.height();
         let text_hover_surface = font
             .render(text)
-            .solid(Color::RGB(74, 138, 221))
+            .blended(Color::RGB(74, 138, 221))
             .expect("failed to convert text to surface");
 
         Button {
@@ -137,8 +137,6 @@ pub enum MenuEvent {
 
 pub struct Menu<'a> {
     background: Texture<'a>,
-    width: u32,
-    height: u32,
     button_resume: Button<'a>,
     button_quit: Button<'a>,
     selected: Option<usize>,
@@ -179,8 +177,6 @@ impl<'a> Menu<'a> {
                 "Quit",
                 Rect::new(width as i32 / 4, height as i32 / 3 * 2, width / 2, 50),
             ),
-            width,
-            height,
             selected_texture: texture_creator
                 .create_texture_from_surface(selected_surface)
                 .expect("failed to build texture from selected surface"),

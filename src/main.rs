@@ -2,9 +2,7 @@ extern crate sdl2;
 
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
-use sdl2::event::Event;
 use sdl2::image;
-use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 use sdl2::render::Canvas;
 use sdl2::ttf;
@@ -26,6 +24,7 @@ macro_rules! return_if_none {
 mod character;
 mod debug_display;
 mod enemy;
+mod env;
 mod health_bar;
 mod hud;
 mod map;
@@ -38,13 +37,11 @@ mod texture_handler;
 mod utils;
 mod weapon;
 
-use character::Direction;
-use debug_display::DebugDisplay;
 use enemy::Enemy;
+use env::Env;
 use health_bar::HealthBar;
 use hud::HUD;
 use map::Map;
-use menu::{Menu, MenuEvent};
 use player::Player;
 use system::System;
 
@@ -135,81 +132,18 @@ pub fn main() {
     let font_16 = load_font!(ttf_context, 16);
 
     let hud = HUD::new(&texture_creator);
-    let mut debug_display = DebugDisplay::new(&font_16, &texture_creator, 16);
-    let mut menu = Menu::new(&texture_creator, &font_16, WIDTH as u32, HEIGHT as u32);
-
-    let mut debug = None;
-    let mut fps_str = String::new();
-    let mut is_attack_pressed = false;
-    let mut display_menu = false;
+    let mut env = Env::new(&texture_creator, &font_16, WIDTH as u32, HEIGHT as u32);
 
     let mut update_elapsed = 0;
     let mut loop_timer = Instant::now();
-    'running: loop {
-        let mut mouse_state = event_pump.mouse_state();
-        for event in event_pump.poll_iter() {
-            if display_menu {
-                match menu.handle_event(event) {
-                    MenuEvent::Quit => break 'running,
-                    MenuEvent::Resume => display_menu = false,
-                    MenuEvent::None => {}
-                }
-            } else {
-                match event {
-                    Event::Quit { .. } => break 'running,
-                    Event::KeyDown {
-                        keycode: Some(x), ..
-                    } => match x {
-                        Keycode::Escape => {
-                            display_menu = true;
-                            // To hover button in case the mouse is hovering one.
-                            menu.update(mouse_state.x(), mouse_state.y());
-                        }
-                        Keycode::Left | Keycode::Q => players[0].handle_move(Direction::Left),
-                        Keycode::Right | Keycode::D => players[0].handle_move(Direction::Right),
-                        Keycode::Up | Keycode::Z => players[0].handle_move(Direction::Up),
-                        Keycode::Down | Keycode::S => players[0].handle_move(Direction::Down),
-                        Keycode::Space => {
-                            if !is_attack_pressed {
-                                players[0].attack();
-                                is_attack_pressed = true;
-                            }
-                        }
-                        Keycode::LShift => {
-                            players[0].is_run_pressed = true;
-                            players[0].is_running = players[0].action.movement.is_some();
-                        }
-                        Keycode::F3 => {
-                            if debug.is_some() {
-                                debug = None;
-                            } else {
-                                debug = Some(FPS_REFRESH - 1);
-                            }
-                        }
-                        Keycode::F5 => debug_display.switch_draw_grid(),
-                        _ => {}
-                    },
-                    Event::KeyUp {
-                        keycode: Some(x), ..
-                    } => match x {
-                        Keycode::Left | Keycode::Q => players[0].handle_release(Direction::Left),
-                        Keycode::Right | Keycode::D => players[0].handle_release(Direction::Right),
-                        Keycode::Up | Keycode::Z => players[0].handle_release(Direction::Up),
-                        Keycode::Down | Keycode::S => players[0].handle_release(Direction::Down),
-                        Keycode::LShift => {
-                            players[0].is_run_pressed = false;
-                            players[0].is_running = false;
-                        }
-                        Keycode::Space => is_attack_pressed = false,
-                        _ => {}
-                    },
-                    _ => {}
-                }
-            }
+
+    loop {
+        if !env.handle_events(&mut event_pump, &mut players) {
+            break;
         }
 
-        if !display_menu {
-            if is_attack_pressed && !players[0].is_attacking() {
+        if !env.display_menu {
+            if env.is_attack_pressed && !players[0].is_attacking() {
                 players[0].attack();
             }
             let len = players.len();
@@ -273,8 +207,8 @@ pub fn main() {
         }
         hud.draw(&players[0], &mut system);
 
-        if display_menu {
-            menu.draw(&mut system);
+        if env.display_menu {
+            env.menu.draw(&mut system);
         }
 
         let elapsed_time = loop_timer.elapsed();
@@ -287,28 +221,7 @@ pub fn main() {
         } else {
             micro_elapsed
         } as u64;
-        if let Some(ref mut debug) = debug {
-            *debug += 1;
-            if *debug >= FPS_REFRESH {
-                let elapsed_time = loop_timer.elapsed();
-                fps_str = format!(
-                    "FPS: {:.2}",
-                    ONE_SECOND as f64 / elapsed_time.as_micros() as f64
-                );
-                *debug = 0;
-            }
-            debug_display.draw(
-                &mut system,
-                &format!(
-                    "{}\nposition: ({}, {})",
-                    fps_str,
-                    players[0].x(),
-                    players[0].y()
-                ),
-            );
-        } else {
-            debug_display.draw(&mut system, "");
-        }
+        env.debug_draw(&mut system, &players[0], &loop_timer);
         loop_timer = Instant::now();
     }
 }
