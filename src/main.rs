@@ -22,6 +22,7 @@ macro_rules! return_if_none {
 }
 
 mod character;
+mod death_animation;
 mod debug_display;
 mod enemy;
 mod env;
@@ -30,6 +31,7 @@ mod hud;
 mod map;
 mod menu;
 mod player;
+mod reward;
 mod stat;
 mod status;
 mod system;
@@ -133,9 +135,12 @@ pub fn main() {
 
     let hud = HUD::new(&texture_creator);
     let mut env = Env::new(&texture_creator, &font_16, WIDTH as u32, HEIGHT as u32);
+    let mut rewards = Vec::new();
 
     let mut update_elapsed = 0;
     let mut loop_timer = Instant::now();
+
+    let mut dead_enemies: Vec<Enemy> = Vec::new();
 
     loop {
         if !env.handle_events(&mut event_pump, &mut players) {
@@ -143,6 +148,19 @@ pub fn main() {
         }
 
         if !env.display_menu {
+            for it in (0..dead_enemies.len()).rev() {
+                dead_enemies[it].update(update_elapsed, 0, 0);
+                if dead_enemies[it].should_be_removed() {
+                    // TODO: in here, give XP to the playerS depending on how much
+                    //       damage they did to the monster and with a bonus/malus based
+                    //       on the level difference.
+                    if let Some(reward) = dead_enemies[it].get_reward() {
+                        rewards.push(reward);
+                    }
+                    dead_enemies.remove(it);
+                }
+            }
+
             if env.is_attack_pressed && !players[0].is_attacking() {
                 players[0].attack();
             }
@@ -155,14 +173,17 @@ pub fn main() {
                     if let Some(ref weapon) = players[i].weapon {
                         let mut matrix = None;
                         // TODO: for now, players can only attack NPCs
-                        for enemy in enemies.iter_mut() {
-                            enemy.check_intersection(
+                        for it in (0..enemies.len()).rev() {
+                            enemies[it].check_intersection(
                                 id,
                                 weapon,
                                 &mut matrix,
                                 &font_14,
                                 &texture_creator,
                             );
+                            if enemies[it].is_dead() {
+                                dead_enemies.push(enemies.remove(it));
+                            }
                         }
                     }
                 }
@@ -199,11 +220,14 @@ pub fn main() {
         // For now, the screen follows the player.
         system.set_screen_position(&players[0]);
         map.draw(&mut system);
-        for player in players.iter_mut() {
-            player.draw(&mut system);
-        }
         for enemy in enemies.iter_mut() {
             enemy.draw(&mut system);
+        }
+        for dead_enemy in dead_enemies.iter_mut() {
+            dead_enemy.draw(&mut system);
+        }
+        for player in players.iter_mut() {
+            player.draw(&mut system);
         }
         hud.draw(&players[0], &mut system);
 

@@ -45,6 +45,10 @@ impl Stat {
         self.value >= self.max_value
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.value < 1_000
+    }
+
     pub fn pourcent(&self) -> u32 {
         (self.value * 100 / self.max_value) as u32
     }

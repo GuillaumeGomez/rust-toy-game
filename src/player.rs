@@ -121,6 +121,7 @@ impl<'a> Player<'a> {
                 // TODO: take care if there are multiple local players: depending on where we want
                 // to put the second player information, we might want to set this to "true".
                 show_health_bar: false,
+                death_animation: None,
             },
             is_run_pressed: false,
         }

@@ -8,6 +8,7 @@ use sdl2::surface::Surface;
 use sdl2::video::WindowContext;
 
 use crate::character::{Action, Character, Direction};
+use crate::death_animation::DeathAnimation;
 use crate::map::Map;
 use crate::player::Player;
 use crate::stat::Stat;
@@ -89,6 +90,7 @@ impl<'a> Enemy<'a> {
                 speed: ONE_SECOND / 60, // we want to move 60 times per second
                 move_delay: 0,
                 show_health_bar: true,
+                death_animation: Some(DeathAnimation::new(texture_creator, ONE_SECOND)),
             },
             action: EnemyAction::None,
             start_x: x,

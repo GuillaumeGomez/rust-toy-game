@@ -28,7 +28,8 @@ impl<'a> Status<'a> {
     ) -> Status<'a> {
         let text_surface = font
             .render(text)
-            .solid(color)
+            .solid(color) // TODO: using "blended" instead would print much better text, but
+            //       performance impact needs to be checked
             .expect("failed to convert text to surface");
         let width = text_surface.width() as i32;
         let height = text_surface.height() as i32;

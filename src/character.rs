@@ -4,9 +4,11 @@ use sdl2::render::TextureCreator;
 use sdl2::ttf::Font;
 use sdl2::video::WindowContext;
 
+use crate::death_animation::DeathAnimation;
 use crate::enemy::Enemy;
 use crate::map::Map;
 use crate::player::Player;
+use crate::reward::Reward;
 use crate::stat::Stat;
 use crate::status::Status;
 use crate::system::System;
@@ -85,6 +87,7 @@ pub struct Character<'a> {
     pub stamina: Stat,
     pub xp_to_next_level: u64,
     pub xp: u64,
+    // TODO: Instead of creating a new TextureHandler every time, might be better to use references!
     pub texture_handler: TextureHandler<'a>,
     pub weapon: Option<Weapon<'a>>,
     pub is_running: bool,
@@ -98,6 +101,7 @@ pub struct Character<'a> {
     pub invincible_against: Vec<InvincibleAgainst>,
     pub statuses: Vec<Status<'a>>,
     pub show_health_bar: bool,
+    pub death_animation: Option<DeathAnimation<'a>>,
 }
 
 impl<'a> Character<'a> {
@@ -225,23 +229,29 @@ impl<'a> Character<'a> {
         let (tile_x, tile_y, tile_width, tile_height) = self
             .action
             .compute_current(self.is_running, &self.texture_handler);
-        let x = self.x - system.x();
-        let y = self.y - system.y();
-        if x + tile_width >= 0
-            && x < system.width() as i64
-            && y + tile_height >= 0
-            && y < system.height() as i64
+        if self.is_dead() {
+            if let Some(ref death) = self.death_animation {
+                death.draw(system, self.x + tile_width / 4, self.y + tile_height / 2);
+                return;
+            }
+        }
+        let x = (self.x - system.x()) as i32;
+        let y = (self.y - system.y()) as i32;
+        if x + tile_width as i32 >= 0
+            && x < system.width()
+            && y + tile_height as i32 >= 0
+            && y < system.height()
         {
             system
                 .canvas
                 .copy(
                     &self.texture_handler.texture,
                     Rect::new(tile_x, tile_y, tile_width as u32, tile_height as u32),
-                    Rect::new(x as i32, y as i32, tile_width as u32, tile_height as u32),
+                    Rect::new(x, y, tile_width as u32, tile_height as u32),
                 )
                 .expect("copy character failed");
         }
-        if let Some(ref mut weapon) = self.weapon {
+        if let Some(ref weapon) = self.weapon {
             // if let Some(matrix) = weapon.compute_angle() {
             //     for (x, y) in matrix.iter() {
             //         canvas.fill_rect(Rect::new(x - screen.x, y - screen.y, 8, 8));
@@ -260,15 +270,11 @@ impl<'a> Character<'a> {
         }
 
         let x = self.x + self.width() as i64 / 2;
-        let mut it = 0;
-
-        while it < self.statuses.len() {
+        for it in (0..self.statuses.len()).rev() {
             self.statuses[it].draw(system, x, self.y);
             if self.statuses[it].should_be_removed() {
                 self.statuses.remove(it);
-                continue;
             }
-            it += 1;
         }
     }
 
@@ -300,6 +306,9 @@ impl<'a> Character<'a> {
         players: &[Player],
         npcs: &[Enemy],
     ) -> (i64, i64) {
+        if self.is_dead() {
+            return (0, 0);
+        }
         let mut tmp = self.move_delay + elapsed;
         let mut stamina = self.stamina.clone();
         let mut x = 0;
@@ -329,6 +338,12 @@ impl<'a> Character<'a> {
     }
 
     pub fn update(&mut self, elapsed: u64, x: i64, y: i64) {
+        if self.is_dead() {
+            if let Some(ref mut death) = self.death_animation {
+                death.update(elapsed);
+            }
+            return;
+        }
         self.x += x;
         self.y += y;
         if x != 0 || y != 0 {
@@ -405,7 +420,10 @@ impl<'a> Character<'a> {
         font: &'b Font<'b, 'static>,
         texture_creator: &'a TextureCreator<WindowContext>,
     ) {
-        if character_id == self.id || self.invincible_against.iter().any(|e| e.id == character_id) {
+        if self.is_dead()
+            || character_id == self.id
+            || self.invincible_against.iter().any(|e| e.id == character_id)
+        {
             return;
         }
         let (tile_x, tile_y, width, height) = self
@@ -444,17 +462,38 @@ impl<'a> Character<'a> {
                 (self.x, self.y),
             ) {
                 self.health.subtract(weapon.attack as u64);
-                self.invincible_against
-                    .push(InvincibleAgainst::new(character_id, weapon.total_time));
-                // TODO: add defense on characters and make computation here (also add dodge computation
-                // and the other stuff...)
-                self.statuses.push(Status::new(
-                    font,
-                    texture_creator,
-                    &weapon.attack.to_string(),
-                    Color::RGB(255, 0, 0),
-                ));
+                if !self.health.is_empty() {
+                    self.invincible_against
+                        .push(InvincibleAgainst::new(character_id, weapon.total_time));
+                    // TODO: add defense on characters and make computation here (also add dodge computation
+                    // and the other stuff...)
+                    self.statuses.push(Status::new(
+                        font,
+                        texture_creator,
+                        &weapon.attack.to_string(),
+                        Color::RGB(255, 0, 0),
+                    ));
+                }
             }
+        }
+    }
+
+    pub fn is_dead(&self) -> bool {
+        self.health.is_empty()
+    }
+
+    pub fn get_reward(&self) -> Option<Reward> {
+        // TODO: monsters don't always give rewards
+        None
+    }
+
+    pub fn should_be_removed(&self) -> bool {
+        if !self.is_dead() {
+            return false;
+        }
+        match self.death_animation {
+            Some(ref death) => death.is_done(),
+            None => true,
         }
     }
 }
