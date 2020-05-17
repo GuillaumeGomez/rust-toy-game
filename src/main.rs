@@ -177,11 +177,16 @@ pub fn main() {
                     //       damage they did to the monster and with a bonus/malus based
                     //       on the level difference.
                     if let Some(reward) = dead_enemies[it].get_reward() {
+                        let texture = &textures["reward"];
+                        let width = texture.width as i32;
+                        let height = texture.height as i32;
                         rewards.push(Reward::new(
-                            &textures["reward"],
+                            texture,
                             &textures["reward-text"],
-                            dead_enemies[it].x(),
-                            dead_enemies[it].y(),
+                            dead_enemies[it].x()
+                                + ((dead_enemies[it].width() as i32 / 2) - width / 2) as i64,
+                            dead_enemies[it].y()
+                                + ((dead_enemies[it].height() as i32 / 2) - height / 2) as i64,
                             reward,
                         ));
                     }

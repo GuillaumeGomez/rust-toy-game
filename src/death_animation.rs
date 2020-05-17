@@ -1,16 +1,17 @@
 use sdl2::image::LoadSurface;
 use sdl2::rect::Rect;
-use sdl2::render::{Texture, TextureCreator};
+use sdl2::render::TextureCreator;
 use sdl2::surface::Surface;
 use sdl2::video::WindowContext;
 
 use crate::system::System;
+use crate::texture_holder::TextureHolder;
 
 const DEATH_SPRITE_WIDTH: u32 = 30;
 const DEATH_SPRITE_HEIGHT: u32 = 22;
 
 pub struct DeathAnimation<'a> {
-    texture: Texture<'a>,
+    pub texture: TextureHolder<'a>,
     nb_animations: u32,
     duration: u64,
     max_duration: u64,
@@ -21,13 +22,11 @@ impl<'a> DeathAnimation<'a> {
         texture_creator: &'a TextureCreator<WindowContext>,
         duration: u64,
     ) -> DeathAnimation<'a> {
-        let mut surface = Surface::from_file("resources/death.png")
-            .expect("failed to load `resources/death.png`");
+        let texture = TextureHolder::from_image(texture_creator, "resources/death.png");
+        let nb_animations = texture.width / DEATH_SPRITE_WIDTH;
         DeathAnimation {
-            texture: texture_creator
-                .create_texture_from_surface(&surface)
-                .expect("failed to build texture from surface"),
-            nb_animations: surface.width() / DEATH_SPRITE_WIDTH,
+            texture,
+            nb_animations,
             duration: 0,
             max_duration: duration,
         }
@@ -41,8 +40,8 @@ impl<'a> DeathAnimation<'a> {
         if self.is_done() {
             return;
         }
-        let x = (x - system.x()) as i32 - DEATH_SPRITE_WIDTH as i32 / 2;
-        let y = (y - system.y()) as i32 - DEATH_SPRITE_HEIGHT as i32 / 2;
+        let x = (x - system.x()) as i32 - (DEATH_SPRITE_WIDTH / 2) as i32;
+        let y = (y - system.y()) as i32 - (DEATH_SPRITE_HEIGHT / 2) as i32;
 
         if DEATH_SPRITE_WIDTH as i32 + x < 0
             || x > system.width()
@@ -57,14 +56,9 @@ impl<'a> DeathAnimation<'a> {
         system
             .canvas
             .copy(
-                &self.texture,
+                &self.texture.texture,
                 Rect::new(tile_x as i32, 0, DEATH_SPRITE_WIDTH, DEATH_SPRITE_HEIGHT),
-                Rect::new(
-                    x + DEATH_SPRITE_WIDTH as i32 / 2,
-                    y + DEATH_SPRITE_HEIGHT as i32 / 2,
-                    DEATH_SPRITE_WIDTH,
-                    DEATH_SPRITE_HEIGHT,
-                ),
+                Rect::new(x, y, DEATH_SPRITE_WIDTH, DEATH_SPRITE_HEIGHT),
             )
             .expect("copy death failed");
     }

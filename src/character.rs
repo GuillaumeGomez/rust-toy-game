@@ -231,7 +231,7 @@ impl<'a> Character<'a> {
             .compute_current(self.is_running, &self.texture_handler);
         if self.is_dead() {
             if let Some(ref death) = self.death_animation {
-                death.draw(system, self.x + tile_width / 4, self.y + tile_height / 2);
+                death.draw(system, self.x + tile_width / 2, self.y + tile_height / 2);
                 return;
             }
         }
