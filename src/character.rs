@@ -8,7 +8,7 @@ use crate::death_animation::DeathAnimation;
 use crate::enemy::Enemy;
 use crate::map::Map;
 use crate::player::Player;
-use crate::reward::Reward;
+use crate::reward::{Reward, RewardInfo};
 use crate::stat::Stat;
 use crate::status::Status;
 use crate::system::System;
@@ -482,9 +482,8 @@ impl<'a> Character<'a> {
         self.health.is_empty()
     }
 
-    pub fn get_reward(&self) -> Option<Reward> {
-        // TODO: monsters don't always give rewards
-        None
+    pub fn get_reward(&self) -> Option<RewardInfo> {
+        Some(RewardInfo { gold: 1 })
     }
 
     pub fn should_be_removed(&self) -> bool {

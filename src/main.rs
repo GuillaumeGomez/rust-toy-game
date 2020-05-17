@@ -9,6 +9,7 @@ use sdl2::ttf;
 use sdl2::video::Window;
 
 use std::collections::hash_map::DefaultHasher;
+use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::time::{Duration, Instant};
 
@@ -36,6 +37,7 @@ mod stat;
 mod status;
 mod system;
 mod texture_handler;
+mod texture_holder;
 mod utils;
 mod weapon;
 
@@ -45,7 +47,9 @@ use health_bar::HealthBar;
 use hud::HUD;
 use map::Map;
 use player::Player;
+use reward::Reward;
 use system::System;
+use texture_holder::TextureHolder;
 
 pub const WIDTH: i32 = 800;
 pub const HEIGHT: i32 = 600;
@@ -130,8 +134,26 @@ pub fn main() {
     let mut players = vec![Player::new(&texture_creator, 0, 0, 1)];
     let mut enemies = vec![Enemy::new(&texture_creator, -40, -40, 2)];
 
+    let font_12 = load_font!(ttf_context, 12);
     let font_14 = load_font!(ttf_context, 14);
     let font_16 = load_font!(ttf_context, 16);
+
+    // TODO: maybe move that in `System`?
+    let mut textures = HashMap::new();
+    textures.insert(
+        "reward",
+        TextureHolder::from_image(&texture_creator, "resources/bag.png").with_max_size(24),
+    );
+    textures.insert(
+        "reward-text",
+        TextureHolder::from_text(
+            &texture_creator,
+            &font_12,
+            Color::RGB(0, 0, 0),
+            None,
+            "Press ENTER",
+        ),
+    );
 
     let hud = HUD::new(&texture_creator);
     let mut env = Env::new(&texture_creator, &font_16, WIDTH as u32, HEIGHT as u32);
@@ -155,7 +177,13 @@ pub fn main() {
                     //       damage they did to the monster and with a bonus/malus based
                     //       on the level difference.
                     if let Some(reward) = dead_enemies[it].get_reward() {
-                        rewards.push(reward);
+                        rewards.push(Reward::new(
+                            &textures["reward"],
+                            &textures["reward-text"],
+                            dead_enemies[it].x(),
+                            dead_enemies[it].y(),
+                            reward,
+                        ));
                     }
                     dead_enemies.remove(it);
                 }
@@ -220,6 +248,9 @@ pub fn main() {
         // For now, the screen follows the player.
         system.set_screen_position(&players[0]);
         map.draw(&mut system);
+        for reward in rewards.iter() {
+            reward.draw(&mut system);
+        }
         for enemy in enemies.iter_mut() {
             enemy.draw(&mut system);
         }

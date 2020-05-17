@@ -42,7 +42,7 @@ impl<'a> DeathAnimation<'a> {
             return;
         }
         let x = (x - system.x()) as i32 - DEATH_SPRITE_WIDTH as i32 / 2;
-        let y = (y - system.y()) as i32 - DEATH_SPRITE_HEIGHT as i32;
+        let y = (y - system.y()) as i32 - DEATH_SPRITE_HEIGHT as i32 / 2;
 
         if DEATH_SPRITE_WIDTH as i32 + x < 0
             || x > system.width()
