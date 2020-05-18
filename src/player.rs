@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::ops::{Deref, DerefMut};
 
 use sdl2::image::LoadSurface;
@@ -6,7 +7,8 @@ use sdl2::render::{Texture, TextureCreator};
 use sdl2::surface::Surface;
 use sdl2::video::WindowContext;
 
-use crate::character::{Action, Character, Direction};
+use crate::character::{Action, Character, CharacterKind, Direction};
+use crate::player_stats::PlayerStats;
 use crate::stat::Stat;
 use crate::texture_handler::{Dimension, TextureHandler};
 use crate::weapon::Sword;
@@ -55,6 +57,7 @@ fn create_right_actions<'a>(
 pub struct Player<'a> {
     pub character: Character<'a>,
     pub is_run_pressed: bool,
+    pub stats: Option<RefCell<PlayerStats>>,
 }
 
 impl<'a> Player<'a> {
@@ -63,6 +66,7 @@ impl<'a> Player<'a> {
         x: i64,
         y: i64,
         id: Id,
+        stats: Option<PlayerStats>,
     ) -> Player<'a> {
         let tile_width = 23;
         let tile_height = 23;
@@ -122,8 +126,10 @@ impl<'a> Player<'a> {
                 // to put the second player information, we might want to set this to "true".
                 show_health_bar: false,
                 death_animation: None,
+                kind: CharacterKind::Player,
             },
             is_run_pressed: false,
+            stats: stats.map(|s| RefCell::new(s)),
         }
     }
 

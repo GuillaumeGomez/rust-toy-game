@@ -7,7 +7,7 @@ use sdl2::render::TextureCreator;
 use sdl2::surface::Surface;
 use sdl2::video::WindowContext;
 
-use crate::character::{Action, Character, Direction};
+use crate::character::{Action, Character, CharacterKind, Direction};
 use crate::death_animation::DeathAnimation;
 use crate::map::Map;
 use crate::player::Player;
@@ -40,6 +40,7 @@ impl<'a> Enemy<'a> {
         x: i64,
         y: i64,
         id: Id,
+        kind: CharacterKind,
     ) -> Enemy<'a> {
         let mut actions_standing = Vec::with_capacity(4);
 
@@ -91,6 +92,7 @@ impl<'a> Enemy<'a> {
                 move_delay: 0,
                 show_health_bar: true,
                 death_animation: Some(DeathAnimation::new(texture_creator, ONE_SECOND)),
+                kind,
             },
             action: EnemyAction::None,
             start_x: x,

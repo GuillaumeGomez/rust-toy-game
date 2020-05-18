@@ -16,6 +16,12 @@ use crate::texture_handler::{Dimension, TextureHandler};
 use crate::weapon::Weapon;
 use crate::{GetDimension, Id, MAP_CASE_SIZE, MAP_SIZE};
 
+#[derive(Hash, PartialEq, Eq, Clone, Copy, Debug)]
+pub enum CharacterKind {
+    Player,
+    Enemy, // TODO: Enemy is just temporary, it'll be replaced by an id for each kind of monsters
+}
+
 #[derive(Copy, Clone, PartialEq, Hash, Debug)]
 #[repr(usize)]
 pub enum Direction {
@@ -82,6 +88,7 @@ pub struct Character<'a> {
     pub action: Action,
     pub x: i64,
     pub y: i64,
+    pub kind: CharacterKind,
     pub health: Stat,
     pub mana: Stat,
     pub stamina: Stat,
@@ -411,7 +418,6 @@ impl<'a> Character<'a> {
         }
     }
 
-    // TODO: instead of this, pass a "impl Iterator<Character>" argument and go through all of them
     pub fn check_intersection<'b>(
         &mut self,
         character_id: Id,
@@ -419,12 +425,12 @@ impl<'a> Character<'a> {
         matrix: &mut Option<Vec<(i64, i64)>>,
         font: &'b Font<'b, 'static>,
         texture_creator: &'a TextureCreator<WindowContext>,
-    ) {
+    ) -> i32 {
         if self.is_dead()
             || character_id == self.id
             || self.invincible_against.iter().any(|e| e.id == character_id)
         {
-            return;
+            return 0;
         }
         let (tile_x, tile_y, width, height) = self
             .action
@@ -448,7 +454,7 @@ impl<'a> Character<'a> {
             || weapon_y - w_biggest > self.y + height as i64
         {
             // The weapon is too far from this character, no need to check further!
-            return;
+            return 0;
         }
 
         if matrix.is_none() {
@@ -461,12 +467,16 @@ impl<'a> Character<'a> {
                 (width as i32, height as i32),
                 (self.x, self.y),
             ) {
-                self.health.subtract(weapon.attack as u64);
+                if weapon.attack >= 0 {
+                    self.health.subtract(weapon.attack as u64);
+                } else {
+                    self.health.add((weapon.attack * -1) as u64);
+                }
                 if !self.health.is_empty() {
                     self.invincible_against
                         .push(InvincibleAgainst::new(character_id, weapon.total_time));
-                    // TODO: add defense on characters and make computation here (also add dodge computation
-                    // and the other stuff...)
+                    // TODO: add defense on characters and make computation here (also add dodge
+                    // computation and the other stuff...)
                     self.statuses.push(Status::new(
                         font,
                         texture_creator,
@@ -474,8 +484,10 @@ impl<'a> Character<'a> {
                         Color::RGB(255, 0, 0),
                     ));
                 }
+                return weapon.attack;
             }
         }
+        0
     }
 
     pub fn is_dead(&self) -> bool {

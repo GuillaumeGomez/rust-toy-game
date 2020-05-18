@@ -32,6 +32,7 @@ mod hud;
 mod map;
 mod menu;
 mod player;
+mod player_stats;
 mod reward;
 mod stat;
 mod status;
@@ -41,6 +42,7 @@ mod texture_holder;
 mod utils;
 mod weapon;
 
+use character::CharacterKind;
 use enemy::Enemy;
 use env::Env;
 use health_bar::HealthBar;
@@ -131,8 +133,20 @@ pub fn main() {
         MAP_SIZE as i64 * MAP_CASE_SIZE / -2,
         MAP_SIZE as i64 * MAP_CASE_SIZE / -2,
     );
-    let mut players = vec![Player::new(&texture_creator, 0, 0, 1)];
-    let mut enemies = vec![Enemy::new(&texture_creator, -40, -40, 2)];
+    let mut players = vec![Player::new(
+        &texture_creator,
+        0,
+        0,
+        1,
+        Some(Default::default()),
+    )];
+    let mut enemies = vec![Enemy::new(
+        &texture_creator,
+        -40,
+        -40,
+        2,
+        CharacterKind::Enemy,
+    )];
 
     let font_10 = load_font!(ttf_context, 10);
     let font_14 = load_font!(ttf_context, 14);
@@ -203,6 +217,9 @@ pub fn main() {
                 if i == 0 && (x != 0 || y != 0) {
                     env.need_sort_rewards = true;
                 }
+                if let Some(ref stats) = players[i].stats {
+                    stats.borrow_mut().total_walked += ::std::cmp::max(x.abs(), y.abs()) as u64;
+                }
                 players[i].update(update_elapsed, x, y);
                 if players[i].is_attacking() {
                     let id = players[i].id;
@@ -210,15 +227,42 @@ pub fn main() {
                         let mut matrix = None;
                         // TODO: for now, players can only attack NPCs
                         for it in (0..enemies.len()).rev() {
-                            enemies[it].check_intersection(
+                            let attack = enemies[it].check_intersection(
                                 id,
                                 weapon,
                                 &mut matrix,
                                 &font_14,
                                 &texture_creator,
                             );
-                            if enemies[it].is_dead() {
-                                dead_enemies.push(enemies.remove(it));
+                            if attack > 0 {
+                                let is_dead = enemies[it].is_dead();
+                                if let Some(ref stats) = players[i].stats {
+                                    let mut stats = stats.borrow_mut();
+                                    if attack > 0 {
+                                        stats.total_damages.total_inflicted_damages +=
+                                            attack as u64;
+                                        if is_dead {
+                                            stats.total_damages.total_kills += 1;
+                                        }
+                                    } else {
+                                        stats.total_damages.total_healed += (attack * -1) as u64;
+                                    }
+                                    let enemy_stats = stats
+                                        .enemies
+                                        .entry(enemies[it].kind)
+                                        .or_insert_with(Default::default);
+                                    if attack > 0 {
+                                        enemy_stats.total_inflicted_damages += attack as u64;
+                                        if is_dead {
+                                            enemy_stats.total_kills += 1;
+                                        }
+                                    } else {
+                                        enemy_stats.total_healed += (attack * -1) as u64;
+                                    }
+                                }
+                                if is_dead {
+                                    dead_enemies.push(enemies.remove(it));
+                                }
                             }
                         }
                     }
