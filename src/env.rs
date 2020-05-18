@@ -48,7 +48,12 @@ impl<'a> Env<'a> {
         }
     }
 
-    pub fn handle_events(&mut self, event_pump: &mut EventPump, players: &mut [Player]) -> bool {
+    pub fn handle_events(
+        &mut self,
+        event_pump: &mut EventPump,
+        players: &mut [Player],
+        rewards: &mut Vec<Reward>,
+    ) -> bool {
         let mouse_state = event_pump.mouse_state();
         for event in event_pump.poll_iter() {
             if self.display_menu {
@@ -104,6 +109,13 @@ impl<'a> Env<'a> {
                             players[0].is_running = false;
                         }
                         Keycode::Space => self.is_attack_pressed = false,
+                        Keycode::Return => {
+                            if let Some((_, reward)) = self.closest_reward.take() {
+                                // TODO: actually give reward to the players[0].
+                                self.need_sort_rewards = true;
+                                rewards.remove(reward);
+                            }
+                        }
                         _ => {}
                     },
                     _ => {}
@@ -152,7 +164,7 @@ impl<'a> Env<'a> {
                 reward.draw(system);
                 match player.action.direction {
                     Direction::Up => {
-                        if player.y() + 4 >= reward.y() + reward.height() as i64 {
+                        if player.y() + 4 >= reward.y() + 4 {
                             let distance = compute_distance(player, reward);
                             if distance > 40 {
                                 continue;
@@ -171,7 +183,9 @@ impl<'a> Env<'a> {
                         }
                     }
                     Direction::Down => {
-                        if player.height() as i64 + player.y() - 10 < reward.y() {
+                        if player.height() as i64 + player.y() - 10
+                            < reward.y() + reward.height() as i64
+                        {
                             let distance = compute_distance(player, reward);
                             if distance > 50 {
                                 continue;
@@ -190,7 +204,9 @@ impl<'a> Env<'a> {
                         }
                     }
                     Direction::Right => {
-                        if player.width() as i64 + player.x() - 10 < reward.x() {
+                        if player.width() as i64 + player.x() - 10
+                            < reward.x() + reward.width() as i64
+                        {
                             let distance = compute_distance(player, reward);
                             if distance > 50 {
                                 continue;
@@ -209,7 +225,7 @@ impl<'a> Env<'a> {
                         }
                     }
                     Direction::Left => {
-                        if player.x() > reward.x() + reward.width() as i64 {
+                        if player.x() > reward.x() + 4 {
                             let distance = compute_distance(player, reward);
                             if distance > 50 {
                                 continue;
@@ -229,6 +245,7 @@ impl<'a> Env<'a> {
                     }
                 }
             }
+            self.need_sort_rewards = false;
         } else {
             for reward in rewards.iter() {
                 reward.draw(system);

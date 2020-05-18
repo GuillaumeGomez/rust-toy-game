@@ -41,7 +41,6 @@ mod texture_holder;
 mod utils;
 mod weapon;
 
-use character::Direction;
 use enemy::Enemy;
 use env::Env;
 use health_bar::HealthBar;
@@ -166,7 +165,7 @@ pub fn main() {
     let mut dead_enemies: Vec<Enemy> = Vec::new();
 
     loop {
-        if !env.handle_events(&mut event_pump, &mut players) {
+        if !env.handle_events(&mut event_pump, &mut players, &mut rewards) {
             break;
         }
 

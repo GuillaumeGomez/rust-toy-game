@@ -1,7 +1,4 @@
-use sdl2::image::LoadSurface;
 use sdl2::rect::Rect;
-use sdl2::surface::Surface;
-use sdl2::video::WindowContext;
 
 use crate::system::System;
 use crate::texture_holder::TextureHolder;
