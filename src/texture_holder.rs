@@ -6,6 +6,8 @@ use sdl2::surface::Surface;
 use sdl2::ttf::Font;
 use sdl2::video::WindowContext;
 
+use crate::system::System;
+
 pub struct TextureHolder<'a> {
     pub texture: Texture<'a>,
     pub width: u32,
@@ -138,5 +140,26 @@ impl<'a> TextureHolder<'a> {
             }
         }
         self
+    }
+
+    pub fn draw(&self, system: &mut System, x: i64, y: i64) {
+        let x = (x - system.x()) as i32;
+        let y = (y - system.y()) as i32;
+
+        if self.width as i32 + x < 0
+            || x > system.width()
+            || self.height as i32 + y < 0
+            || y > system.height()
+        {
+            return;
+        }
+        system
+            .canvas
+            .copy(
+                &self.texture,
+                None,
+                Rect::new(x, y, self.width, self.height),
+            )
+            .expect("failed to draw texture from texture holder");
     }
 }

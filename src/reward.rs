@@ -5,6 +5,7 @@ use sdl2::video::WindowContext;
 
 use crate::system::System;
 use crate::texture_holder::TextureHolder;
+use crate::{GetDimension, GetPos};
 
 pub struct RewardInfo {
     pub gold: u32,
@@ -12,23 +13,15 @@ pub struct RewardInfo {
 
 pub struct Reward<'a> {
     texture: &'a TextureHolder<'a>,
-    text: &'a TextureHolder<'a>,
     x: i64,
     y: i64,
     info: RewardInfo,
 }
 
 impl<'a> Reward<'a> {
-    pub fn new(
-        texture: &'a TextureHolder<'a>,
-        text: &'a TextureHolder<'a>,
-        x: i64,
-        y: i64,
-        info: RewardInfo,
-    ) -> Reward<'a> {
+    pub fn new(texture: &'a TextureHolder<'a>, x: i64, y: i64, info: RewardInfo) -> Reward<'a> {
         Reward {
             texture,
-            text,
             x,
             y,
             info,
@@ -54,19 +47,24 @@ impl<'a> Reward<'a> {
                 Rect::new(x, y, self.texture.width, self.texture.height),
             )
             .expect("copy reward failed");
-        // TODO: make it conditional only when the player is looking at it (so only one at a time!)
-        system
-            .canvas
-            .copy(
-                &self.text.texture,
-                None,
-                Rect::new(
-                    x + (self.texture.width as i32) / 2 - (self.text.width as i32) / 2,
-                    y - 2 - self.text.height as i32,
-                    self.text.width,
-                    self.text.height,
-                ),
-            )
-            .expect("copy reward failed");
+    }
+}
+
+impl<'a> GetPos for Reward<'a> {
+    fn x(&self) -> i64 {
+        self.x
+    }
+
+    fn y(&self) -> i64 {
+        self.y
+    }
+}
+
+impl<'a> GetDimension for Reward<'a> {
+    fn width(&self) -> u32 {
+        self.texture.width
+    }
+    fn height(&self) -> u32 {
+        self.texture.height
     }
 }

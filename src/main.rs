@@ -41,6 +41,7 @@ mod texture_holder;
 mod utils;
 mod weapon;
 
+use character::Direction;
 use enemy::Enemy;
 use env::Env;
 use health_bar::HealthBar;
@@ -50,6 +51,7 @@ use player::Player;
 use reward::Reward;
 use system::System;
 use texture_holder::TextureHolder;
+use utils::compute_distance;
 
 pub const WIDTH: i32 = 800;
 pub const HEIGHT: i32 = 600;
@@ -134,11 +136,11 @@ pub fn main() {
     let mut players = vec![Player::new(&texture_creator, 0, 0, 1)];
     let mut enemies = vec![Enemy::new(&texture_creator, -40, -40, 2)];
 
-    let font_12 = load_font!(ttf_context, 12);
+    let font_10 = load_font!(ttf_context, 10);
     let font_14 = load_font!(ttf_context, 14);
     let font_16 = load_font!(ttf_context, 16);
 
-    // TODO: maybe move that in `System`?
+    // TODO: maybe move that in `Env`?
     let mut textures = HashMap::new();
     textures.insert(
         "reward",
@@ -148,7 +150,7 @@ pub fn main() {
         "reward-text",
         TextureHolder::from_text(
             &texture_creator,
-            &font_12,
+            &font_10,
             Color::RGB(0, 0, 0),
             None,
             "Press ENTER",
@@ -163,6 +165,8 @@ pub fn main() {
     let mut loop_timer = Instant::now();
 
     let mut dead_enemies: Vec<Enemy> = Vec::new();
+    let mut need_sort_rewards = false;
+    let mut closest_reward = None;
 
     loop {
         if !env.handle_events(&mut event_pump, &mut players) {
@@ -182,13 +186,13 @@ pub fn main() {
                         let height = texture.height as i32;
                         rewards.push(Reward::new(
                             texture,
-                            &textures["reward-text"],
                             dead_enemies[it].x()
                                 + ((dead_enemies[it].width() as i32 / 2) - width / 2) as i64,
                             dead_enemies[it].y()
                                 + ((dead_enemies[it].height() as i32 / 2) - height / 2) as i64,
                             reward,
                         ));
+                        need_sort_rewards = true;
                     }
                     dead_enemies.remove(it);
                 }
@@ -200,6 +204,9 @@ pub fn main() {
             let len = players.len();
             for i in 0..len {
                 let (x, y) = players[i].apply_move(&map, update_elapsed, &players, &enemies);
+                if i == 0 && (x != 0 || y != 0) {
+                    need_sort_rewards = true;
+                }
                 players[i].update(update_elapsed, x, y);
                 if players[i].is_attacking() {
                     let id = players[i].id;
@@ -253,8 +260,104 @@ pub fn main() {
         // For now, the screen follows the player.
         system.set_screen_position(&players[0]);
         map.draw(&mut system);
-        for reward in rewards.iter() {
-            reward.draw(&mut system);
+        // TODO: put this whole thing somewhere else
+        if need_sort_rewards {
+            closest_reward = None;
+            for i in 0..rewards.len() {
+                let reward = &rewards[i];
+                reward.draw(&mut system);
+                match players[0].action.direction {
+                    Direction::Up => {
+                        if players[0].y() + 4 >= reward.y() + reward.height() as i64 {
+                            let distance = compute_distance(&players[0], reward);
+                            if distance > 40 {
+                                continue;
+                            }
+                            match closest_reward {
+                                Some((ref mut dist, ref mut reward_pos)) => {
+                                    if *dist > distance {
+                                        *dist = distance;
+                                        *reward_pos = i;
+                                    }
+                                }
+                                None => {
+                                    closest_reward = Some((distance, i));
+                                }
+                            }
+                        }
+                    }
+                    Direction::Down => {
+                        if players[0].height() as i64 + players[0].y() - 10 < reward.y() {
+                            let distance = compute_distance(&players[0], reward);
+                            if distance > 50 {
+                                continue;
+                            }
+                            match closest_reward {
+                                Some((ref mut dist, ref mut reward_pos)) => {
+                                    if *dist > distance {
+                                        *dist = distance;
+                                        *reward_pos = i;
+                                    }
+                                }
+                                None => {
+                                    closest_reward = Some((distance, i));
+                                }
+                            }
+                        }
+                    }
+                    Direction::Right => {
+                        if players[0].width() as i64 + players[0].x() - 10 < reward.x() {
+                            let distance = compute_distance(&players[0], reward);
+                            if distance > 50 {
+                                continue;
+                            }
+                            match closest_reward {
+                                Some((ref mut dist, ref mut reward_pos)) => {
+                                    if *dist > distance {
+                                        *dist = distance;
+                                        *reward_pos = i;
+                                    }
+                                }
+                                None => {
+                                    closest_reward = Some((distance, i));
+                                }
+                            }
+                        }
+                    }
+                    Direction::Left => {
+                        if players[0].x() > reward.x() + reward.width() as i64 {
+                            let distance = compute_distance(&players[0], reward);
+                            if distance > 50 {
+                                continue;
+                            }
+                            match closest_reward {
+                                Some((ref mut dist, ref mut reward_pos)) => {
+                                    if *dist > distance {
+                                        *dist = distance;
+                                        *reward_pos = i;
+                                    }
+                                }
+                                None => {
+                                    closest_reward = Some((distance, i));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            for reward in rewards.iter() {
+                reward.draw(&mut system);
+            }
+        }
+        if let Some((_, pos)) = closest_reward {
+            let reward = &rewards[pos];
+            let texture = &textures["reward-text"];
+            texture.draw(
+                &mut system,
+                reward.x() + (reward.width() as i64) / 2 - (texture.width as i64) / 2,
+                reward.y() - 2 - texture.height as i64,
+            );
         }
         for enemy in enemies.iter_mut() {
             enemy.draw(&mut system);
