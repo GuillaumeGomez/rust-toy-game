@@ -5,14 +5,18 @@ use sdl2::ttf::Font;
 use sdl2::video::WindowContext;
 use sdl2::EventPump;
 
+use std::collections::HashMap;
 use std::time::Instant;
 
 use crate::character::Direction;
 use crate::debug_display::DebugDisplay;
 use crate::menu::{Menu, MenuEvent};
 use crate::player::Player;
+use crate::reward::Reward;
 use crate::system::System;
-use crate::{GetPos, FPS_REFRESH, ONE_SECOND};
+use crate::texture_holder::TextureHolder;
+use crate::utils::compute_distance;
+use crate::{GetDimension, GetPos, FPS_REFRESH, ONE_SECOND};
 
 pub struct Env<'a> {
     pub display_menu: bool,
@@ -21,6 +25,8 @@ pub struct Env<'a> {
     pub fps_str: String,
     pub debug_display: DebugDisplay<'a, 'a>,
     pub menu: Menu<'a>,
+    pub need_sort_rewards: bool,
+    pub closest_reward: Option<(i32, usize)>,
 }
 
 impl<'a> Env<'a> {
@@ -37,6 +43,8 @@ impl<'a> Env<'a> {
             fps_str: String::new(),
             debug_display: DebugDisplay::new(font, texture_creator, 16),
             menu: Menu::new(texture_creator, font, width, height),
+            need_sort_rewards: false,
+            closest_reward: None,
         }
     }
 
@@ -127,6 +135,113 @@ impl<'a> Env<'a> {
             );
         } else {
             self.debug_display.draw(system, "");
+        }
+    }
+
+    pub fn draw_rewards(
+        &mut self,
+        system: &mut System,
+        rewards: &[Reward],
+        player: &Player,
+        textures: &HashMap<&str, TextureHolder>,
+    ) {
+        if self.need_sort_rewards {
+            self.closest_reward = None;
+            for i in 0..rewards.len() {
+                let reward = &rewards[i];
+                reward.draw(system);
+                match player.action.direction {
+                    Direction::Up => {
+                        if player.y() + 4 >= reward.y() + reward.height() as i64 {
+                            let distance = compute_distance(player, reward);
+                            if distance > 40 {
+                                continue;
+                            }
+                            match self.closest_reward {
+                                Some((ref mut dist, ref mut reward_pos)) => {
+                                    if *dist > distance {
+                                        *dist = distance;
+                                        *reward_pos = i;
+                                    }
+                                }
+                                None => {
+                                    self.closest_reward = Some((distance, i));
+                                }
+                            }
+                        }
+                    }
+                    Direction::Down => {
+                        if player.height() as i64 + player.y() - 10 < reward.y() {
+                            let distance = compute_distance(player, reward);
+                            if distance > 50 {
+                                continue;
+                            }
+                            match self.closest_reward {
+                                Some((ref mut dist, ref mut reward_pos)) => {
+                                    if *dist > distance {
+                                        *dist = distance;
+                                        *reward_pos = i;
+                                    }
+                                }
+                                None => {
+                                    self.closest_reward = Some((distance, i));
+                                }
+                            }
+                        }
+                    }
+                    Direction::Right => {
+                        if player.width() as i64 + player.x() - 10 < reward.x() {
+                            let distance = compute_distance(player, reward);
+                            if distance > 50 {
+                                continue;
+                            }
+                            match self.closest_reward {
+                                Some((ref mut dist, ref mut reward_pos)) => {
+                                    if *dist > distance {
+                                        *dist = distance;
+                                        *reward_pos = i;
+                                    }
+                                }
+                                None => {
+                                    self.closest_reward = Some((distance, i));
+                                }
+                            }
+                        }
+                    }
+                    Direction::Left => {
+                        if player.x() > reward.x() + reward.width() as i64 {
+                            let distance = compute_distance(player, reward);
+                            if distance > 50 {
+                                continue;
+                            }
+                            match self.closest_reward {
+                                Some((ref mut dist, ref mut reward_pos)) => {
+                                    if *dist > distance {
+                                        *dist = distance;
+                                        *reward_pos = i;
+                                    }
+                                }
+                                None => {
+                                    self.closest_reward = Some((distance, i));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            for reward in rewards.iter() {
+                reward.draw(system);
+            }
+        }
+        if let Some((_, pos)) = self.closest_reward {
+            let reward = &rewards[pos];
+            let texture = &textures["reward-text"];
+            texture.draw(
+                system,
+                reward.x() + (reward.width() as i64) / 2 - (texture.width as i64) / 2,
+                reward.y() - 2 - texture.height as i64,
+            );
         }
     }
 }
