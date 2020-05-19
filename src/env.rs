@@ -136,15 +136,20 @@ impl<'a> Env<'a> {
                 );
                 *debug = 0;
             }
-            self.debug_display.draw(
-                system,
-                &format!(
-                    "{}\nposition: ({}, {})",
-                    self.fps_str,
-                    player.x(),
-                    player.y()
-                ),
-            );
+            if let Some(ref stats) = player.stats {
+                let total_walked = stats.borrow().get_total_walked();
+                self.debug_display.draw(
+                    system,
+                    &format!(
+                        "{}\nposition: ({}, {})\ntotal walked: {}.{:01}",
+                        self.fps_str,
+                        player.x(),
+                        player.y(),
+                        total_walked / 100,
+                        total_walked % 100,
+                    ),
+                );
+            }
         } else {
             self.debug_display.draw(system, "");
         }
