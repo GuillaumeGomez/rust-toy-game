@@ -112,7 +112,7 @@ pub struct Character<'a> {
 }
 
 impl<'a> Character<'a> {
-    fn check_hitbox(
+    pub fn check_hitbox(
         &self,
         new_x: i64,
         new_y: i64,
@@ -186,7 +186,7 @@ impl<'a> Character<'a> {
             && players.iter().all(|p| self.check_character_move(x, y, &p))
     }
 
-    fn check_move(
+    pub fn check_move(
         &self,
         direction: Direction,
         map: &Map,
@@ -227,6 +227,24 @@ impl<'a> Character<'a> {
         }
     }
 
+    pub fn inner_check_move(
+        &self,
+        map: &Map,
+        players: &[Player],
+        npcs: &[Enemy],
+        x_add: i64,
+        y_add: i64,
+    ) -> (i64, i64) {
+        let (mut x, mut y) =
+            self.check_move(self.action.direction, map, players, npcs, x_add, y_add);
+        if let Some(second) = self.action.secondary {
+            let (x2, y2) = self.check_move(second, map, players, npcs, x + x_add, y + y_add);
+            x += x2;
+            y += y2;
+        }
+        (x, y)
+    }
+
     pub fn inner_apply_move(
         &self,
         map: &Map,
@@ -236,16 +254,10 @@ impl<'a> Character<'a> {
         y_add: i64,
     ) -> (i64, i64) {
         if self.action.movement.is_none() {
-            return (0, 0);
+            (0, 0)
+        } else {
+            self.inner_check_move(map, players, npcs, x_add, y_add)
         }
-        let (mut x, mut y) =
-            self.check_move(self.action.direction, map, players, npcs, x_add, y_add);
-        if let Some(second) = self.action.secondary {
-            let (x2, y2) = self.check_move(second, map, players, npcs, x + x_add, y + y_add);
-            x += x2;
-            y += y2;
-        }
-        (x, y)
     }
 
     pub fn draw(&mut self, system: &mut System) {

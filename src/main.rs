@@ -85,6 +85,15 @@ impl GetPos for (i64, i64) {
     }
 }
 
+impl GetPos for &(i64, i64) {
+    fn x(&self) -> i64 {
+        self.0
+    }
+    fn y(&self) -> i64 {
+        self.1
+    }
+}
+
 pub trait GetDimension {
     fn width(&self) -> u32;
     fn height(&self) -> u32;

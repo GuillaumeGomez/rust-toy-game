@@ -22,21 +22,55 @@ use crate::{
     ONE_SECOND,
 };
 
-#[derive(Clone)]
-struct MoveNode {
+#[derive(Eq, Debug)]
+struct Node {
     x: i64,
     y: i64,
-    direction: Direction,
+    cost: u32,
+    heuristic: u32,
+}
+impl Node {
+    fn new(x: i64, y: i64, cost: u32) -> Node {
+        Node {
+            x,
+            y,
+            cost,
+            heuristic: 0,
+        }
+    }
+    fn compute_heuristic(&mut self, destination: &(i64, i64)) {
+        self.heuristic = utils::compute_distance(&(self.x, self.y), destination) as u32 + self.cost;
+    }
+}
+impl PartialEq<Node> for Node {
+    fn eq(&self, other: &Node) -> bool {
+        self.x == other.x && self.y == other.y
+    }
+}
+impl PartialEq<Reverse<Node>> for Node {
+    fn eq(&self, other: &Reverse<Node>) -> bool {
+        self.x == other.0.x && self.y == other.0.y
+    }
+}
+impl PartialOrd for Node {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.heuristic.partial_cmp(&other.heuristic)
+    }
+}
+impl Ord for Node {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.partial_cmp(&other).expect("cmp failed")
+    }
 }
 
-// TODO: for moveto and movetoplayer, add "nodes" after a little path finding to go around obstacles
-#[derive(Clone)]
+// TODO: add a "LookAround" state where the NPC just look around.
+#[derive(Clone, Debug)]
 enum EnemyAction {
     // Not doing anything for the moment...
     None,
-    MoveTo(Vec<MoveNode>),
+    MoveTo(Vec<(i64, i64)>),
     // Targetted player (in case of multiplayer, might be nice to have IDs for players)
-    MoveToPlayer,
+    MoveToPlayer(Vec<(i64, i64)>),
 }
 
 pub struct Enemy<'a> {
@@ -108,7 +142,7 @@ impl<'a> Enemy<'a> {
         }
     }
 
-    fn compute_destination(&mut self, x: i64, y: i64) {
+    fn compute_direction(&mut self, x: i64, y: i64) {
         let mut dir_x = None;
         let mut dir_y = None;
         if x > self.x() {
@@ -147,6 +181,23 @@ impl<'a> Enemy<'a> {
         }
     }
 
+    fn compute_adds(&self, target_x: i64, target_y: i64) -> (i64, i64) {
+        println!("XXXX {} cmp {}", self.x(), target_x);
+        println!("YYYY {} cmp {}", self.y(), target_y);
+        (
+            match self.x().cmp(&target_x) {
+                Ordering::Less => 1,
+                Ordering::Equal => 0,
+                Ordering::Greater => -1,
+            },
+            match self.y().cmp(&target_y) {
+                Ordering::Less => 1,
+                Ordering::Equal => 0,
+                Ordering::Greater => -1,
+            },
+        )
+    }
+
     /// This method is used when we encountered an obstacle only!
     pub fn path_finder(
         &self,
@@ -157,53 +208,12 @@ impl<'a> Enemy<'a> {
         map: &Map,
         players: &[Player],
         npcs: &[Enemy],
-    ) -> Vec<(i64, i64)> {
+    ) -> Option<Vec<(i64, i64)>> {
         destination_x -= destination_x % MAP_CASE_SIZE;
         destination_y -= destination_y % MAP_CASE_SIZE;
 
         let destination = (destination_x, destination_y);
 
-        #[derive(Eq, Debug)]
-        struct Node {
-            x: i64,
-            y: i64,
-            cost: u32,
-            heuristic: u32,
-        }
-        impl Node {
-            fn new(x: i64, y: i64, cost: u32) -> Node {
-                Node {
-                    x,
-                    y,
-                    cost,
-                    heuristic: 0,
-                }
-            }
-            fn compute_heuristic(&mut self, destination: &(i64, i64)) {
-                self.heuristic =
-                    utils::compute_distance(&(self.x, self.y), destination) as u32 + self.cost;
-            }
-        }
-        impl PartialEq<Node> for Node {
-            fn eq(&self, other: &Node) -> bool {
-                self.x == other.x && self.y == other.y
-            }
-        }
-        impl PartialEq<Reverse<Node>> for Node {
-            fn eq(&self, other: &Reverse<Node>) -> bool {
-                self.x == other.0.x && self.y == other.0.y
-            }
-        }
-        impl PartialOrd for Node {
-            fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-                self.heuristic.partial_cmp(&other.heuristic)
-            }
-        }
-        impl Ord for Node {
-            fn cmp(&self, other: &Self) -> Ordering {
-                self.partial_cmp(&other).expect("cmp failed")
-            }
-        }
         let mut closed_list = Vec::new();
         let mut open_list = BinaryHeap::new();
         let mut start_node = Node::new(
@@ -215,20 +225,21 @@ impl<'a> Enemy<'a> {
         // Since we always want the node with the lowest heuristic at each turn,
         open_list.push(Reverse(start_node));
 
-        let mut x = 0;
-        println!("destination: ({}, {})", destination.0, destination.1);
-        println!("destination: ({}, {})", destination_x, destination_y);
+        let mut limit = 200;
         while let Some(node) = open_list.pop() {
-            x += 1;
-            if x >= 50 {
-                panic!("fuck");
+            limit -= 1;
+            if limit == 0 {
+                break;
             }
             let node = node.0;
-            println!("===> current node: {:?}", node);
+            if node.x != self.x() || node.y != self.y() {
+                closed_list.push((node.x, node.y));
+            }
             if node.x == destination_x && node.y == destination_y {
-                // done!
-                println!("===> {:#?}", closed_list);
-                panic!("yolo");
+                // We're done!
+                // We reverse the order so we go from the last node to the first one.
+                closed_list.reverse();
+                return Some(closed_list);
             } else {
                 let nodes = vec![
                     (
@@ -282,11 +293,15 @@ impl<'a> Enemy<'a> {
                 ]
                 .into_iter()
                 .filter_map(|(entry, dir)| {
-                    if self.check_pos(dir, map, players, npcs, entry.x, entry.y)
-                        && !open_list.iter().any(|entry2| entry == *entry2)
+                    if self
+                        .character
+                        .check_pos(dir, map, players, npcs, entry.x, entry.y)
                         && !closed_list
                             .iter()
-                            .any(|entry2: &Node| entry == *entry2 && entry.cost >= entry2.cost)
+                            .any(|entry2| entry.x == entry2.0 && entry.y == entry2.1)
+                        && !open_list.iter().any(|entry2: &Reverse<Node>| {
+                            entry == entry2.0 && entry.cost >= entry2.0.cost
+                        })
                     {
                         Some(entry)
                     } else {
@@ -299,100 +314,228 @@ impl<'a> Enemy<'a> {
                     open_list.push(Reverse(node));
                 }
             }
-            closed_list.push(node);
         }
-        vec![]
+        None
     }
 
-    // pub fn apply_move(
-    //     &self,
-    //     map: &Map,
-    //     elapsed: u64,
-    //     players: &[Player],
-    //     npcs: &[Enemy],
-    // ) -> (i64, i64) {
-    //     let mut distance = utils::compute_distance(&players[0], self);
-    //     for player in players.iter() {
-    //         let tmp = utils::compute_distance(player, self);
-    //         if tmp < distance {
-    //             distance = tmp;
-    //         }
-    //     }
-    //     loop {
-    //         match &*self.action.borrow() {
-    //             EnemyAction::None | EnemyAction::MoveTo(..)
-    //                 if distance < (::std::cmp::min(self.height(), self.width()) * 2) as i32 =>
-    //             {
-    //                 // println!("Enemy is gonna chase player!");
-    //                 *self.action.borrow_mut() = EnemyAction::MoveToPlayer;
-    //             }
-    //             EnemyAction::None => {
-    //                 let mut x = rand::thread_rng().gen::<i32>() % MAX_DISTANCE_WANDERING;
-    //                 let mut y = rand::thread_rng().gen::<i32>() % MAX_DISTANCE_WANDERING;
-    //                 if x > -20 && x < 20 && y > -20 && y < 20 {
-    //                     x = 20 * if x < 0 { -1 } else { 1 };
-    //                     y = 20 * if y < 0 { -1 } else { 1 };
-    //                 }
-    //                 *self.action.borrow_mut() = EnemyAction::MoveTo(vec![(
-    //                     x as i64 + self.start_x,
-    //                     y as i64 + self.start_y,
-    //                 )]);
-    //                 // println!(
-    //                 //     "Enemy is gonna move to ({} {})",
-    //                 //     x + self.start_x,
-    //                 //     y + self.start_y
-    //                 // );
-    //                 // self.character.borrow_mut().action.movement = Some(0);
-    //             }
-    //             EnemyAction::MoveTo(nodes) => {
-    //                 let node = &nodes[nodes.len() - 1];
-    //                 if node.0 == self.x() && node.1 == self.y() {
-    //                     // println!("Enemy reached destination!");
-    //                     // We reached the goal, let's find another one. :)
-    //                     // nodes.pop();
-    //                     if nodes.is_empty() {
-    //                         *self.action.borrow_mut() = EnemyAction::None;
-    //                     // self.character.borrow_mut().action.movement = None;
-    //                     } else {
-    //                         continue;
-    //                     }
-    //                 } else {
-    //                     // self.compute_destination(x, y);
-    //                     if self.inner_apply_move(map, players, npcs, 0, 0) == (0, 0) {
-    //                         // println!("Enemy cannot move there");
-    //                         *self.action.borrow_mut() = EnemyAction::None;
-    //                     // self.character.borrow_mut().action.movement = None;
-    //                     } else {
-    //                         // self.character.borrow_mut().action.movement = Some(0);
-    //                         // println!("Enemy is moving");
-    //                     }
-    //                 }
-    //             }
-    //             EnemyAction::MoveToPlayer => {
-    //                 if distance > MAX_DISTANCE_PURSUIT {
-    //                     // println!("Enemy stop chasing player (player too far)");
-    //                     // We come back to the initial position
-    //                     *self.action.borrow_mut() =
-    //                         EnemyAction::MoveTo(vec![(self.start_x, self.start_y)]);
-    //                 // self.character.borrow_mut().action.movement = None;
-    //                 } else if distance < players[0].width() as i32 + 6
-    //                     || distance < players[0].height() as i32 + 6
-    //                 {
-    //                     // println!("Enemy stop chasing player (reached player)");
-    //                     *self.action.borrow_mut() = EnemyAction::None;
-    //                 // self.character.borrow_mut().action.movement = None;
-    //                 } else {
-    //                     // println!("Enemy chasing player");
-    //                     // self.compute_destination(players[0].x(), players[0].y());
-    //                     // self.character.borrow_mut().action.movement = Some(0);
-    //                     // self.character.borrow_mut().inner_apply_move(map, players, npcs, 0, 0);
-    //                 }
-    //             }
-    //         }
-    //         break;
-    //     }
-    //     (0, 0)
-    // }
+    pub fn apply_move(
+        &self,
+        map: &Map,
+        elapsed: u64,
+        players: &[Player],
+        npcs: &[Enemy],
+    ) -> (i64, i64) {
+        let mut distance = utils::compute_distance(&players[0], self);
+        let mut index = 0;
+        // Would be nice to make two levels of detection:
+        //  1. If the NPC sees a player (so a distance of ~50 meters)
+        //  2. If the NPC hears a player (very close then)
+        for (pos, player) in players.iter().enumerate().skip(1) {
+            let tmp = utils::compute_distance(player, self);
+            if tmp < distance {
+                distance = tmp;
+                index = pos;
+            }
+        }
+
+        let min_target_dist = ::std::cmp::min(self.height(), self.width()) * 2;
+        let new_action = match &*self.action.borrow() {
+            EnemyAction::None | EnemyAction::MoveTo(..) if distance < min_target_dist as i32 => {
+                if distance < 20 {
+                    Some(EnemyAction::None)
+                } else {
+                    let player = &players[index];
+                    // println!("Enemy is gonna chase player!");
+                    if let Some(nodes) = self.path_finder(
+                        self.x(),
+                        self.y(),
+                        player.x(),
+                        player.y(),
+                        map,
+                        players,
+                        npcs,
+                    ) {
+                        Some(EnemyAction::MoveToPlayer(nodes))
+                    } else {
+                        // We stop the movement to "watch" the enemy in case we can't reach it for
+                        // whatever reason...
+                        Some(EnemyAction::None)
+                    }
+                }
+            }
+            EnemyAction::None => {
+                let mut x = rand::thread_rng().gen::<i32>() % MAX_DISTANCE_WANDERING;
+                let mut y = rand::thread_rng().gen::<i32>() % MAX_DISTANCE_WANDERING;
+                if x > -20 && x < 20 && y > -20 && y < 20 {
+                    x = 20 * if x < 0 { -1 } else { 1 };
+                    y = 20 * if y < 0 { -1 } else { 1 };
+                }
+                let mut x = x as i64 + self.start_x;
+                let mut y = y as i64 + self.start_y;
+                while !self.character.check_hitbox(
+                    x - map.x,
+                    y - map.y,
+                    &map.data,
+                    self.character.action.direction,
+                ) {
+                    x += 1;
+                    y += 1;
+                }
+                if let Some(nodes) = self.path_finder(self.x(), self.y(), x, y, map, players, npcs)
+                {
+                    Some(EnemyAction::MoveTo(nodes))
+                } else {
+                    // Weird that no paths can reach the place, but whatever...
+                    Some(EnemyAction::None)
+                }
+            }
+            EnemyAction::MoveToPlayer(nodes) => {
+                if distance > MAX_DISTANCE_PURSUIT {
+                    // We stop going after this player.
+                    if let Some(nodes) = self.path_finder(
+                        self.x(),
+                        self.y(),
+                        self.start_x,
+                        self.start_y,
+                        map,
+                        players,
+                        npcs,
+                    ) {
+                        Some(EnemyAction::MoveTo(nodes))
+                    } else {
+                        Some(EnemyAction::None)
+                    }
+                } else if let Some(ref node) = nodes.first() {
+                    if utils::compute_distance(node, &players[0]) > 30 {
+                        // Player moved too much, we need to recompute a new path!
+                        if let Some(nodes) = self.path_finder(
+                            self.x(),
+                            self.y(),
+                            players[0].x(),
+                            players[0].y(),
+                            map,
+                            players,
+                            npcs,
+                        ) {
+                            Some(EnemyAction::MoveToPlayer(nodes))
+                        } else {
+                            // Weird that no paths can reach the place, but whatever...
+                            None
+                        }
+                    } else {
+                        let (target_x, target_y) = nodes[nodes.len() - 1];
+                        let (x_add, y_add) = self.compute_adds(target_x, target_y);
+                        if self
+                            .character
+                            .inner_check_move(map, players, npcs, x_add, y_add)
+                            == (0, 0)
+                        {
+                            let (target_x, target_y) = nodes[0];
+                            // If we encountered an unexpected obstacles? Let's recompute a path!
+                            if let Some(nodes) = self.path_finder(
+                                self.x(),
+                                self.y(),
+                                target_x,
+                                target_y,
+                                map,
+                                players,
+                                npcs,
+                            ) {
+                                Some(EnemyAction::MoveToPlayer(nodes))
+                            } else {
+                                // Weird that no path can reach the place, but whatever...
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    }
+                } else {
+                    Some(EnemyAction::None)
+                }
+            }
+            EnemyAction::MoveTo(nodes) => {
+                if nodes.is_empty() {
+                    Some(EnemyAction::None)
+                } else {
+                    let (target_x, target_y) = nodes[nodes.len() - 1];
+                    let (x_add, y_add) = self.compute_adds(target_x, target_y);
+                    if self
+                        .character
+                        .inner_check_move(map, players, npcs, x_add, y_add)
+                        == (0, 0)
+                    {
+                        let (target_x, target_y) = nodes[0];
+                        // If we encountered an unexpected obstacles? Let's recompute a path!
+                        if let Some(nodes) = self.path_finder(
+                            self.x(),
+                            self.y(),
+                            target_x,
+                            target_y,
+                            map,
+                            players,
+                            npcs,
+                        ) {
+                            Some(EnemyAction::MoveTo(nodes))
+                        } else {
+                            // Weird that no path can reach the place, but whatever...
+                            None
+                        }
+                    } else {
+                        // Nothing to do here, just moving to the "target".
+                        None
+                    }
+                }
+            }
+        };
+
+        let mut action = self.action.borrow_mut();
+        if let Some(new_action) = new_action {
+            *action = new_action;
+        }
+        println!("next action: {:?}", action);
+        // Time to apply actions now!
+        match &mut *action {
+            EnemyAction::None => (0, 0),
+            EnemyAction::MoveTo(ref mut nodes) | EnemyAction::MoveToPlayer(ref mut nodes) => {
+                if !nodes.is_empty()
+                    && nodes[nodes.len() - 1].0 == self.x()
+                    && nodes[nodes.len() - 1].1 == self.y()
+                {
+                    println!("POOOOOOP");
+                    nodes.pop();
+                }
+                if let Some(ref node) = nodes.last() {
+                    let (x_add, y_add) = self.compute_adds(node.0, node.1);
+                    println!("---> ({}, {}) || ({}, {})", x_add, y_add, node.0, node.1);
+                    self.character
+                        .inner_check_move(map, players, npcs, x_add, y_add)
+                } else {
+                    (0, 0)
+                }
+            }
+        }
+    }
+
+    pub fn update(&mut self, elapsed: u64, x: i64, y: i64) {
+        if x > 0 {
+            self.character.action.direction = Direction::Right;
+        } else if x < 0 {
+            self.character.action.direction = Direction::Left;
+        }
+        if y > 0 {
+            self.character.action.direction = Direction::Down;
+        } else if y < 0 {
+            self.character.action.direction = Direction::Up;
+        }
+        if x != 0 || y != 0 {
+            self.character.action.movement = Some(0);
+        } else {
+            self.character.action.movement = None;
+        }
+        println!("POS: ({}, {})", self.x(), self.y());
+        self.character.update(elapsed, x, y)
+    }
 }
 
 impl<'a> GetPos for Enemy<'a> {
@@ -407,10 +550,10 @@ impl<'a> GetPos for Enemy<'a> {
 
 impl<'a> GetDimension for Enemy<'a> {
     fn width(&self) -> u32 {
-        self.width()
+        self.character.width()
     }
     fn height(&self) -> u32 {
-        self.height()
+        self.character.height()
     }
 }
 
