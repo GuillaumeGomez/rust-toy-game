@@ -27,8 +27,8 @@ impl Deref for Dimension {
 
 pub struct TextureHandler<'a> {
     /// We keep this surface for collisions check (it's way too slow to do it on a texture!).
-    surface: Surface<'a>,
-    pub texture: Texture<'a>,
+    surface: &'a Surface<'a>,
+    pub texture: &'a Texture<'a>,
     pub actions_standing: Vec<Dimension>,
     /// The second element is the number of "animations".
     pub actions_moving: Vec<(Dimension, i32)>,
@@ -36,16 +36,11 @@ pub struct TextureHandler<'a> {
 
 impl<'a> TextureHandler<'a> {
     pub fn new(
-        mut surface: Surface<'a>,
-        texture: Texture<'a>,
+        surface: &'a Surface<'a>,
+        texture: &'a Texture<'a>,
         actions_standing: Vec<Dimension>,
         actions_moving: Vec<(Dimension, i32)>,
     ) -> TextureHandler<'a> {
-        if surface.pixel_format_enum() != PixelFormatEnum::RGBA8888 {
-            surface = surface
-                .convert_format(PixelFormatEnum::RGBA8888)
-                .expect("failed to convert surface to RGBA8888");
-        }
         TextureHandler {
             surface,
             texture,

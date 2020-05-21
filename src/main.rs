@@ -2,9 +2,10 @@ extern crate sdl2;
 
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
-use sdl2::image;
+use sdl2::image::{self, LoadSurface};
 use sdl2::pixels::Color;
 use sdl2::render::Canvas;
+use sdl2::surface::Surface;
 use sdl2::ttf;
 use sdl2::video::Window;
 
@@ -133,24 +134,18 @@ pub fn main() {
         MAP_SIZE as i64 * MAP_CASE_SIZE / -2,
         MAP_SIZE as i64 * MAP_CASE_SIZE / -2,
     );
-    let mut players = vec![Player::new(
-        &texture_creator,
-        0,
-        0,
-        1,
-        Some(Default::default()),
-    )];
-    let mut enemies = vec![Enemy::new(
-        &texture_creator,
-        -40,
-        -40,
-        2,
-        CharacterKind::Enemy,
-    )];
 
     let font_10 = load_font!(ttf_context, 10);
     let font_14 = load_font!(ttf_context, 14);
     let font_16 = load_font!(ttf_context, 16);
+
+    let (player_texture, player_surface) =
+        player::create_right_actions(&texture_creator, &Player::get_actions_standing());
+    let enemy_surface =
+        Surface::from_file("resources/enemy1.png").expect("failed to load `resources/enemy1.png`");
+    let enemy_texture = texture_creator
+        .create_texture_from_surface(&enemy_surface)
+        .expect("failed to build texture from surface");
 
     // TODO: maybe move that in `Env`?
     let mut textures = HashMap::new();
@@ -168,6 +163,27 @@ pub fn main() {
             "Press ENTER",
         ),
     );
+
+    let mut players = vec![Player::new(
+        &texture_creator,
+        &player_texture,
+        &player_surface,
+        0,
+        0,
+        1,
+        Some(Default::default()),
+    )];
+    let mut enemies = vec![Enemy::new(
+        &texture_creator,
+        &enemy_texture,
+        &enemy_surface,
+        -40,
+        -40,
+        2,
+        CharacterKind::Enemy,
+    )];
+
+    // enemies[0].path_finder(-40, -40, 173, 158, &map, &players, &enemies);
 
     let hud = HUD::new(&texture_creator);
     let mut env = Env::new(&texture_creator, &font_16, WIDTH as u32, HEIGHT as u32);

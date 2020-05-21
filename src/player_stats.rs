@@ -18,13 +18,16 @@ pub struct PlayerStats {
     /// `total_walked / 8 / 4`
     ///
     /// Explanations: you need 8 pixels to have 1 "grid case" and you need 4 "grid cases" to have a
-    /// meter.
+    /// meter. In short, use the `get_total_walked` method.
     pub total_walked: u64,
     pub total_damages: DamageStats,
     pub max_inflicted_damage: u64,
     pub max_received_damage: u64,
     pub total_healed: u64,
     pub enemies: HashMap<CharacterKind, DamageStats>,
+    pub total_quests_done: u64,
+    pub total_quests_failed: u64,
+    pub total_quests_abandoned: u64,
 }
 
 impl PlayerStats {

@@ -14,10 +14,9 @@ use crate::texture_handler::{Dimension, TextureHandler};
 use crate::weapon::Sword;
 use crate::{GetDimension, GetPos, Id, ONE_SECOND};
 
-fn create_right_actions<'a>(
+pub fn create_right_actions<'a>(
     texture_creator: &'a TextureCreator<WindowContext>,
     actions_standing: &[Dimension],
-    _actions_moving: &[(Dimension, i32)],
 ) -> (Texture<'a>, Surface<'a>) {
     let mut surface =
         Surface::from_file("resources/zelda.png").expect("failed to load `resources/zelda.png`");
@@ -61,44 +60,50 @@ pub struct Player<'a> {
 }
 
 impl<'a> Player<'a> {
+    pub const tile_width: u32 = 23;
+    pub const tile_height: u32 = 23;
+
+    pub fn get_actions_standing() -> Vec<Dimension> {
+        vec![
+            Dimension::new(Rect::new(15, 9, Self::tile_width, Self::tile_height), 0),
+            Dimension::new(Rect::new(78, 9, Self::tile_width, Self::tile_height), 0),
+            Dimension::new(Rect::new(51, 9, Self::tile_width, Self::tile_height), 0),
+            Dimension::new(Rect::new(100, 9, Self::tile_width, Self::tile_height), 0),
+        ]
+    }
+
     pub fn new(
         texture_creator: &'a TextureCreator<WindowContext>,
+        texture: &'a Texture<'a>,
+        surface: &'a Surface<'a>,
         x: i64,
         y: i64,
         id: Id,
         stats: Option<PlayerStats>,
     ) -> Player<'a> {
-        let tile_width = 23;
-        let tile_height = 23;
-        let mut actions_standing = Vec::with_capacity(4);
-        actions_standing.push(Dimension::new(Rect::new(15, 9, tile_width, tile_height), 0));
-        actions_standing.push(Dimension::new(Rect::new(78, 9, tile_width, tile_height), 0));
-        actions_standing.push(Dimension::new(Rect::new(51, 9, tile_width, tile_height), 0));
-        actions_standing.push(Dimension::new(
-            Rect::new(100, 9, tile_width, tile_height),
-            0,
-        ));
         let mut actions_moving = Vec::with_capacity(4);
         actions_moving.push((
-            Dimension::new(Rect::new(15, 77, tile_width, tile_height), 32),
+            Dimension::new(Rect::new(15, 77, Self::tile_width, Self::tile_height), 32),
             10,
         ));
         actions_moving.push((
-            Dimension::new(Rect::new(683, 77, tile_width, tile_height), 32),
+            Dimension::new(Rect::new(683, 77, Self::tile_width, Self::tile_height), 32),
             10,
         ));
         actions_moving.push((
-            Dimension::new(Rect::new(350, 77, tile_width, tile_height), 32),
+            Dimension::new(Rect::new(350, 77, Self::tile_width, Self::tile_height), 32),
             10,
         ));
         actions_moving.push((
-            Dimension::new(Rect::new(346, 44, tile_width, tile_height), 32),
+            Dimension::new(Rect::new(346, 44, Self::tile_width, Self::tile_height), 32),
             10,
         ));
-        let (texture, surface) =
-            create_right_actions(&texture_creator, &actions_standing, &actions_moving);
-        let texture_handler =
-            TextureHandler::new(surface, texture, actions_standing, actions_moving);
+        let texture_handler = TextureHandler::new(
+            surface,
+            texture,
+            Self::get_actions_standing(),
+            actions_moving,
+        );
 
         Player {
             character: Character {

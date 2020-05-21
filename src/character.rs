@@ -14,7 +14,7 @@ use crate::status::Status;
 use crate::system::System;
 use crate::texture_handler::{Dimension, TextureHandler};
 use crate::weapon::Weapon;
-use crate::{GetDimension, Id, MAP_CASE_SIZE, MAP_SIZE};
+use crate::{GetDimension, GetPos, Id, MAP_CASE_SIZE, MAP_SIZE};
 
 #[derive(Hash, PartialEq, Eq, Clone, Copy, Debug)]
 pub enum CharacterKind {
@@ -172,6 +172,20 @@ impl<'a> Character<'a> {
                 && y <= character.y + character.height() as i64)
     }
 
+    pub fn check_pos(
+        &self,
+        direction: Direction,
+        map: &Map,
+        players: &[Player],
+        npcs: &[Enemy],
+        x: i64,
+        y: i64,
+    ) -> bool {
+        self.check_hitbox(x - map.x, y - map.y, &map.data, direction)
+            && npcs.iter().all(|n| self.check_character_move(x, y, &n))
+            && players.iter().all(|p| self.check_character_move(x, y, &p))
+    }
+
     fn check_move(
         &self,
         direction: Direction,
@@ -199,12 +213,14 @@ impl<'a> Character<'a> {
             }
             _ => return (0, 0),
         };
-        let x = self_x + x_add;
-        let y = self_y + y_add;
-        if self.check_hitbox(x - map.x, y - map.y, &map.data, direction)
-            && npcs.iter().all(|n| self.check_character_move(x, y, &n))
-            && players.iter().all(|p| self.check_character_move(x, y, &p))
-        {
+        if self.check_pos(
+            direction,
+            map,
+            players,
+            npcs,
+            self_x + x_add,
+            self_y + y_add,
+        ) {
             (x_add, y_add)
         } else {
             (0, 0)
@@ -528,5 +544,15 @@ impl<'a> GetDimension for Character<'a> {
                 .0
                 .height()
         }
+    }
+}
+
+impl<'a> GetPos for Character<'a> {
+    fn x(&self) -> i64 {
+        self.x
+    }
+
+    fn y(&self) -> i64 {
+        self.y
     }
 }
