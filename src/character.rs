@@ -31,6 +31,33 @@ pub enum Direction {
     Right = 3,
 }
 
+impl Direction {
+    pub fn is_right(&self) -> bool {
+        match *self {
+            Self::Right => true,
+            _ => false,
+        }
+    }
+    pub fn is_left(&self) -> bool {
+        match *self {
+            Self::Left => true,
+            _ => false,
+        }
+    }
+    pub fn is_up(&self) -> bool {
+        match *self {
+            Self::Up => true,
+            _ => false,
+        }
+    }
+    pub fn is_down(&self) -> bool {
+        match *self {
+            Self::Down => true,
+            _ => false,
+        }
+    }
+}
+
 #[derive(Copy, Clone, PartialEq, Hash, Debug)]
 pub struct Action {
     pub direction: Direction,
@@ -71,6 +98,14 @@ impl Action {
             &textures.actions_standing[self.direction as usize]
         }
     }
+
+    pub fn get_specific_dimension<'a>(
+        &self,
+        textures: &'a TextureHandler<'_>,
+        dir: Direction,
+    ) -> &'a Dimension {
+        &textures.actions_moving[dir as usize].0
+    }
 }
 
 pub struct InvincibleAgainst {
@@ -82,6 +117,13 @@ impl InvincibleAgainst {
     fn new(id: Id, remaining_time: u64) -> InvincibleAgainst {
         InvincibleAgainst { id, remaining_time }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Obstacle {
+    Map,
+    Character,
+    None,
 }
 
 pub struct Character<'a> {
@@ -119,15 +161,17 @@ impl<'a> Character<'a> {
         map_data: &[u8],
         dir_to_check: Direction,
     ) -> bool {
-        let initial_y = new_y / MAP_CASE_SIZE;
         let initial_x = new_x / MAP_CASE_SIZE;
-        let dimension = self.action.get_dimension(&self.texture_handler);
-        let height = dimension.height() as i64 / MAP_CASE_SIZE;
+        let initial_y = new_y / MAP_CASE_SIZE;
+        let dimension = self
+            .action
+            .get_specific_dimension(&self.texture_handler, dir_to_check);
         let width = dimension.width() as i64 / MAP_CASE_SIZE;
+        let height = dimension.height() as i64 / MAP_CASE_SIZE;
 
         match dir_to_check {
             Direction::Down => {
-                let y = (height + initial_y) * MAP_SIZE as i64;
+                let y = (height - 1 + initial_y) * MAP_SIZE as i64;
                 for ix in 0..width {
                     let map_pos = y + initial_x + ix;
                     if map_pos < 0 || map_data.get(map_pos as usize).unwrap_or(&1) != &0 {
@@ -136,7 +180,7 @@ impl<'a> Character<'a> {
                 }
             }
             Direction::Up => {
-                let y = (initial_y + 1) * MAP_SIZE as i64;
+                let y = initial_y * MAP_SIZE as i64;
                 for ix in 0..width {
                     let map_pos = y + initial_x + ix;
                     if map_pos < 0 || map_data.get(map_pos as usize).unwrap_or(&1) != &0 {
@@ -172,18 +216,45 @@ impl<'a> Character<'a> {
                 && y <= character.y + character.height() as i64)
     }
 
-    pub fn check_pos(
+    pub fn check_map_pos(
         &self,
         direction: Direction,
         map: &Map,
         players: &[Player],
         npcs: &[Enemy],
-        x: i64,
-        y: i64,
-    ) -> bool {
-        self.check_hitbox(x - map.x, y - map.y, &map.data, direction)
-            && npcs.iter().all(|n| self.check_character_move(x, y, &n))
-            && players.iter().all(|p| self.check_character_move(x, y, &p))
+        new_x: i64,
+        new_y: i64,
+        ignore_id: Option<Id>,
+    ) -> Obstacle {
+        let initial_x = (new_x - map.x) / MAP_CASE_SIZE;
+        let initial_y = (new_y - map.y) / MAP_CASE_SIZE;
+        let dimension = self
+            .action
+            .get_specific_dimension(&self.texture_handler, direction);
+        let width = dimension.width() as i64 / MAP_CASE_SIZE;
+        let height = dimension.height() as i64 / MAP_CASE_SIZE;
+
+        for y in 0..height {
+            let y = (y + initial_y) * MAP_SIZE as i64;
+            for x in 0..width {
+                let map_pos = y + initial_x + x;
+                if map_pos < 0 || map.data.get(map_pos as usize).unwrap_or(&1) != &0 {
+                    return Obstacle::Map;
+                }
+            }
+        }
+        let ignore_id = ignore_id.unwrap_or(self.id);
+        if npcs
+            .iter()
+            .all(|n| n.id == ignore_id || self.check_character_move(new_x, new_y, &n))
+            && players
+                .iter()
+                .all(|p| p.id == ignore_id || self.check_character_move(new_x, new_y, &p))
+        {
+            Obstacle::None
+        } else {
+            Obstacle::Character
+        }
     }
 
     pub fn check_move(
@@ -200,27 +271,51 @@ impl<'a> Character<'a> {
         let self_y = self.y + y_add;
         let (x_add, y_add) = match direction {
             Direction::Down
-                if self_y + info.height() as i64 + 1 < map.y + MAP_SIZE as i64 * MAP_CASE_SIZE =>
+                if info.height() as i64 + self_y < map.y + MAP_SIZE as i64 * MAP_CASE_SIZE =>
             {
                 (0, 1)
             }
-            Direction::Up if self_y - 1 >= map.y => (0, -1),
-            Direction::Left if self_x - 1 >= map.x => (-1, 0),
+            Direction::Up if self_y >= map.y => (0, -1),
+            Direction::Left if self_x >= map.x => (-1, 0),
             Direction::Right
-                if self_x + info.width() as i64 + 1 < map.x + MAP_SIZE as i64 * MAP_CASE_SIZE =>
+                if info.width() as i64 + self_x < map.x + MAP_SIZE as i64 * MAP_CASE_SIZE =>
             {
                 (1, 0)
             }
             _ => return (0, 0),
         };
-        if self.check_pos(
-            direction,
-            map,
-            players,
-            npcs,
-            self_x + x_add,
-            self_y + y_add,
-        ) {
+
+        // fn call<T: GetPos + GetDimension>(npc: &T, x: i64, y: i64) -> bool {
+        //     y < npc.y() || y > npc.y() + npc.height() as i64 || x < npc.x() || x > npc.x() + npc.width() as i64
+        // }
+        // for npc in npcs {
+        //     if npc.id == self.id {
+        //         continue;
+        //     }
+        //     if !call(npc, self_x, self_y) {
+        //         if self.id ==
+        //         println!("BORDEL DE CUL ({}, {}) == ({}, {})", self_x, self_y, npc.x(), npc.y());
+        //         return (0, 0);
+        //     }
+        // }
+        // for player in players {
+        //     if player.id == self.id {
+        //         continue;
+        //     }
+        //     if !call(player, self_x, self_y) {
+        //         println!("BORDEL DE CUL v2 ({}, {}) == ({}, {})", self_x, self_y, player.x(), player.y());
+        //         return (0, 0);
+        //     }
+        // }
+
+        if self.check_hitbox(self_x - map.x, self_y - map.y, &map.data, direction)
+            && npcs
+                .iter()
+                .all(|n| self.check_character_move(self_x, self_y, &n))
+            && players
+                .iter()
+                .all(|p| self.check_character_move(self_x, self_y, &p))
+        {
             (x_add, y_add)
         } else {
             (0, 0)
@@ -234,11 +329,42 @@ impl<'a> Character<'a> {
         npcs: &[Enemy],
         x_add: i64,
         y_add: i64,
+        primary_direction: Direction,
+        secondary_direction: Option<Direction>,
     ) -> (i64, i64) {
-        let (mut x, mut y) =
-            self.check_move(self.action.direction, map, players, npcs, x_add, y_add);
-        if let Some(second) = self.action.secondary {
-            let (x2, y2) = self.check_move(second, map, players, npcs, x + x_add, y + y_add);
+        let (mut x, mut y) = self.check_move(
+            primary_direction,
+            map,
+            players,
+            npcs,
+            if primary_direction.is_right() || primary_direction.is_left() {
+                x_add
+            } else {
+                0
+            },
+            if primary_direction.is_up() || primary_direction.is_down() {
+                y_add
+            } else {
+                0
+            },
+        );
+        if let Some(secondary_direction) = secondary_direction {
+            let (x2, y2) = self.check_move(
+                secondary_direction,
+                map,
+                players,
+                npcs,
+                x + if secondary_direction.is_right() || secondary_direction.is_left() {
+                    x_add
+                } else {
+                    0
+                },
+                y + if secondary_direction.is_up() || secondary_direction.is_down() {
+                    y_add
+                } else {
+                    0
+                },
+            );
             x += x2;
             y += y2;
         }
@@ -256,7 +382,15 @@ impl<'a> Character<'a> {
         if self.action.movement.is_none() {
             (0, 0)
         } else {
-            self.inner_check_move(map, players, npcs, x_add, y_add)
+            self.inner_check_move(
+                map,
+                players,
+                npcs,
+                x_add,
+                y_add,
+                self.action.direction,
+                self.action.secondary,
+            )
         }
     }
 

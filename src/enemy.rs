@@ -10,7 +10,7 @@ use sdl2::render::{Texture, TextureCreator};
 use sdl2::surface::Surface;
 use sdl2::video::WindowContext;
 
-use crate::character::{Action, Character, CharacterKind, Direction};
+use crate::character::{Action, Character, CharacterKind, Direction, Obstacle};
 use crate::death_animation::DeathAnimation;
 use crate::map::Map;
 use crate::player::Player;
@@ -198,6 +198,41 @@ impl<'a> Enemy<'a> {
         )
     }
 
+    fn get_directions(&self, x_add: i64, y_add: i64) -> (Direction, Option<Direction>) {
+        if x_add != 0 && y_add != 0 {
+            (
+                if x_add > 0 {
+                    Direction::Right
+                } else {
+                    Direction::Left
+                },
+                Some(if y_add > 0 {
+                    Direction::Down
+                } else {
+                    Direction::Up
+                }),
+            )
+        } else if x_add != 0 {
+            (
+                if x_add > 0 {
+                    Direction::Right
+                } else {
+                    Direction::Left
+                },
+                None,
+            )
+        } else {
+            (
+                if y_add > 0 {
+                    Direction::Down
+                } else {
+                    Direction::Up
+                },
+                None,
+            )
+        }
+    }
+
     /// This method is used when we encountered an obstacle only!
     pub fn path_finder(
         &self,
@@ -208,19 +243,17 @@ impl<'a> Enemy<'a> {
         map: &Map,
         players: &[Player],
         npcs: &[Enemy],
+        step: i64,
+        target_id: Option<Id>,
     ) -> Option<Vec<(i64, i64)>> {
-        destination_x -= destination_x % MAP_CASE_SIZE;
-        destination_y -= destination_y % MAP_CASE_SIZE;
+        destination_x -= destination_x % step;
+        destination_y -= destination_y % step;
 
         let destination = (destination_x, destination_y);
 
         let mut closed_list = Vec::new();
         let mut open_list = BinaryHeap::new();
-        let mut start_node = Node::new(
-            start_x - start_x % MAP_CASE_SIZE,
-            start_y - start_y % MAP_CASE_SIZE,
-            0,
-        );
+        let mut start_node = Node::new(start_x - start_x % step, start_y - start_y % step, 0);
         start_node.compute_heuristic(&destination);
         // Since we always want the node with the lowest heuristic at each turn,
         open_list.push(Reverse(start_node));
@@ -243,62 +276,47 @@ impl<'a> Enemy<'a> {
             } else {
                 let nodes = vec![
                     (
-                        Node::new(node.x + MAP_CASE_SIZE, node.y, node.cost + 1),
-                        Direction::Right,
+                        Node::new(node.x + step, node.y, node.cost + 1),
+                        [Direction::Right].into_iter(),
                     ),
                     (
-                        Node::new(
-                            node.x + MAP_CASE_SIZE,
-                            node.y + MAP_CASE_SIZE,
-                            node.cost + 1,
-                        ),
-                        Direction::Right,
+                        Node::new(node.x + step, node.y + step, node.cost + 1),
+                        [Direction::Right, Direction::Down].into_iter(),
                     ),
                     (
-                        Node::new(node.x, node.y + MAP_CASE_SIZE, node.cost + 1),
-                        Direction::Down,
+                        Node::new(node.x, node.y + step, node.cost + 1),
+                        [Direction::Down].into_iter(),
                     ),
                     (
-                        Node::new(
-                            node.x - MAP_CASE_SIZE,
-                            node.y + MAP_CASE_SIZE,
-                            node.cost + 1,
-                        ),
-                        Direction::Left,
+                        Node::new(node.x - step, node.y + step, node.cost + 1),
+                        [Direction::Left, Direction::Down].into_iter(),
                     ),
                     (
-                        Node::new(node.x - MAP_CASE_SIZE, node.y, node.cost + 1),
-                        Direction::Left,
+                        Node::new(node.x - step, node.y, node.cost + 1),
+                        [Direction::Left].into_iter(),
                     ),
                     (
-                        Node::new(
-                            node.x - MAP_CASE_SIZE,
-                            node.y - MAP_CASE_SIZE,
-                            node.cost + 1,
-                        ),
-                        Direction::Left,
+                        Node::new(node.x - step, node.y - step, node.cost + 1),
+                        [Direction::Left, Direction::Up].into_iter(),
                     ),
                     (
-                        Node::new(node.x, node.y - MAP_CASE_SIZE, node.cost + 1),
-                        Direction::Up,
+                        Node::new(node.x, node.y - step, node.cost + 1),
+                        [Direction::Up].into_iter(),
                     ),
                     (
-                        Node::new(
-                            node.x + MAP_CASE_SIZE,
-                            node.y - MAP_CASE_SIZE,
-                            node.cost + 1,
-                        ),
-                        Direction::Right,
+                        Node::new(node.x + step, node.y - step, node.cost + 1),
+                        [Direction::Right, Direction::Up].into_iter(),
                     ),
                 ]
                 .into_iter()
-                .filter_map(|(entry, dir)| {
-                    if self
-                        .character
-                        .check_pos(dir, map, players, npcs, entry.x, entry.y)
-                        && !closed_list
-                            .iter()
-                            .any(|entry2| entry.x == entry2.0 && entry.y == entry2.1)
+                .filter_map(|(entry, mut directions)| {
+                    if directions.all(|dir| {
+                        self.character
+                            .check_map_pos(*dir, map, players, npcs, entry.x, entry.y, target_id)
+                            == Obstacle::None
+                    }) && !closed_list
+                        .iter()
+                        .any(|entry2| entry.x == entry2.0 && entry.y == entry2.1)
                         && !open_list.iter().any(|entry2: &Reverse<Node>| {
                             entry == entry2.0 && entry.cost >= entry2.0.cost
                         })
@@ -340,7 +358,9 @@ impl<'a> Enemy<'a> {
 
         let min_target_dist = ::std::cmp::min(self.height(), self.width()) * 2;
         let new_action = match &*self.action.borrow() {
-            EnemyAction::None | EnemyAction::MoveTo(..) if distance < min_target_dist as i32 => {
+            EnemyAction::None | EnemyAction::MoveTo(..)
+                if distance < crate::ONE_METER as i32 * 8 =>
+            {
                 if distance < 20 {
                     Some(EnemyAction::None)
                 } else {
@@ -352,8 +372,11 @@ impl<'a> Enemy<'a> {
                         player.x(),
                         player.y(),
                         map,
-                        players,
+                        &players,
                         npcs,
+                        MAP_CASE_SIZE,
+                        // We exclude the "target" to allow the path finder to not be able to finish
+                        Some(player.id),
                     ) {
                         Some(EnemyAction::MoveToPlayer(nodes))
                     } else {
@@ -381,8 +404,17 @@ impl<'a> Enemy<'a> {
                     x += 1;
                     y += 1;
                 }
-                if let Some(nodes) = self.path_finder(self.x(), self.y(), x, y, map, players, npcs)
-                {
+                if let Some(nodes) = self.path_finder(
+                    self.x(),
+                    self.y(),
+                    x,
+                    y,
+                    map,
+                    players,
+                    npcs,
+                    MAP_CASE_SIZE,
+                    None,
+                ) {
                     Some(EnemyAction::MoveTo(nodes))
                 } else {
                     // Weird that no paths can reach the place, but whatever...
@@ -400,22 +432,28 @@ impl<'a> Enemy<'a> {
                         map,
                         players,
                         npcs,
+                        MAP_CASE_SIZE,
+                        None,
                     ) {
                         Some(EnemyAction::MoveTo(nodes))
                     } else {
                         Some(EnemyAction::None)
                     }
                 } else if let Some(ref node) = nodes.first() {
-                    if utils::compute_distance(node, &players[0]) > 30 {
+                    if utils::compute_distance(node, &players[0]) > crate::ONE_METER as i32 * 2 {
+                        let player = &players[0];
                         // Player moved too much, we need to recompute a new path!
                         if let Some(nodes) = self.path_finder(
                             self.x(),
                             self.y(),
-                            players[0].x(),
-                            players[0].y(),
+                            player.x(),
+                            player.y(),
                             map,
-                            players,
+                            // We exclude the "target" to allow the path finder to not be able to finish
+                            &players,
                             npcs,
+                            MAP_CASE_SIZE,
+                            Some(player.id),
                         ) {
                             Some(EnemyAction::MoveToPlayer(nodes))
                         } else {
@@ -423,32 +461,37 @@ impl<'a> Enemy<'a> {
                             None
                         }
                     } else {
-                        let (target_x, target_y) = nodes[nodes.len() - 1];
-                        let (x_add, y_add) = self.compute_adds(target_x, target_y);
-                        if self
-                            .character
-                            .inner_check_move(map, players, npcs, x_add, y_add)
-                            == (0, 0)
-                        {
-                            let (target_x, target_y) = nodes[0];
-                            // If we encountered an unexpected obstacles? Let's recompute a path!
-                            if let Some(nodes) = self.path_finder(
-                                self.x(),
-                                self.y(),
-                                target_x,
-                                target_y,
-                                map,
-                                players,
-                                npcs,
-                            ) {
-                                Some(EnemyAction::MoveToPlayer(nodes))
-                            } else {
-                                // Weird that no path can reach the place, but whatever...
-                                None
-                            }
-                        } else {
-                            None
-                        }
+                        // let (target_x, target_y) = nodes[nodes.len() - 1];
+                        // let (x_add, y_add) = self.compute_adds(target_x, target_y);
+                        // let (dir, dir2) = self.get_directions(x_add, y_add);
+                        // if self
+                        //     .character
+                        //     .inner_check_move(map, players, npcs, x_add, y_add, dir, dir2)
+                        //     == (0, 0)
+                        // {
+                        // panic!("map obstacle 1");
+                        // If we encountered an unexpected obstacles? Let's recompute a path!
+                        // if let Some(extra_nodes) = self.path_finder(
+                        //     self.x(),
+                        //     self.y(),
+                        //     target_x,
+                        //     target_y,
+                        //     map,
+                        //     players,
+                        //     npcs,
+                        //     1,
+                        // ) {
+                        //     let mut nodes = nodes.clone();
+                        //     nodes.pop(); // we remove the unneeded last node
+                        //     nodes.extend(extra_nodes.into_iter());
+                        //     Some(EnemyAction::MoveToPlayer(nodes))
+                        // } else {
+                        // Weird that no path can reach the place, but whatever...
+                        None
+                        // }
+                        // } else {
+                        //     None
+                        // }
                     }
                 } else {
                     Some(EnemyAction::None)
@@ -460,30 +503,63 @@ impl<'a> Enemy<'a> {
                 } else {
                     let (target_x, target_y) = nodes[nodes.len() - 1];
                     let (x_add, y_add) = self.compute_adds(target_x, target_y);
-                    if self
-                        .character
-                        .inner_check_move(map, players, npcs, x_add, y_add)
-                        == (0, 0)
-                    {
-                        let (target_x, target_y) = nodes[0];
-                        // If we encountered an unexpected obstacles? Let's recompute a path!
-                        if let Some(nodes) = self.path_finder(
-                            self.x(),
-                            self.y(),
-                            target_x,
-                            target_y,
-                            map,
-                            players,
-                            npcs,
-                        ) {
-                            Some(EnemyAction::MoveTo(nodes))
-                        } else {
+                    let (dir, dir2) = self.get_directions(x_add, y_add);
+                    match self.character.check_map_pos(
+                        dir,
+                        map,
+                        players,
+                        npcs,
+                        self.x() + x_add,
+                        self.y() + y_add,
+                        None,
+                    ) {
+                        Obstacle::Map => {
+                            // panic!("map obstacle 2");
+                            // If we encountered an unexpected obstacles? Let's recompute a path!
+                            // println!("NEED TO GO: ({}, {}) => ({}, {})", self.x(), self.y(), target_x, target_y);
+                            // if let Some(extra_nodes) = self.path_finder(
+                            //     self.x(),
+                            //     self.y(),
+                            //     target_x,
+                            //     target_y,
+                            //     map,
+                            //     players,
+                            //     npcs,
+                            //     1,
+                            // ) {
+                            //     let mut nodes = nodes.clone();
+                            //     nodes.pop(); // we remove the unneeded last node
+                            //     nodes.extend(extra_nodes.into_iter());
+                            //     Some(EnemyAction::MoveTo(nodes))
+                            // } else {
                             // Weird that no path can reach the place, but whatever...
                             None
+                            // }
                         }
-                    } else {
-                        // Nothing to do here, just moving to the "target".
-                        None
+                        Obstacle::Character => {
+                            println!("character in the path");
+                            // We need to recompute the path
+                            if let Some(nodes) = self.path_finder(
+                                self.x(),
+                                self.y(),
+                                nodes[0].0,
+                                nodes[0].1,
+                                map,
+                                players,
+                                npcs,
+                                MAP_CASE_SIZE,
+                                None,
+                            ) {
+                                Some(EnemyAction::MoveTo(nodes))
+                            } else {
+                                // Weird that no path can reach the place, but whatever...
+                                None
+                            }
+                        }
+                        _ => {
+                            println!("no problem with the path apparently!");
+                            None
+                        }
                     }
                 }
             }
@@ -495,26 +571,38 @@ impl<'a> Enemy<'a> {
         }
         println!("next action: {:?}", action);
         // Time to apply actions now!
-        match &mut *action {
+        let x = match &mut *action {
             EnemyAction::None => (0, 0),
             EnemyAction::MoveTo(ref mut nodes) | EnemyAction::MoveToPlayer(ref mut nodes) => {
                 if !nodes.is_empty()
                     && nodes[nodes.len() - 1].0 == self.x()
                     && nodes[nodes.len() - 1].1 == self.y()
                 {
-                    println!("POOOOOOP");
                     nodes.pop();
                 }
-                if let Some(ref node) = nodes.last() {
+                if !nodes.is_empty() {
+                    let node = &nodes[nodes.len() - 1];
                     let (x_add, y_add) = self.compute_adds(node.0, node.1);
-                    println!("---> ({}, {}) || ({}, {})", x_add, y_add, node.0, node.1);
+                    let (dir, dir2) = self.get_directions(x_add, y_add);
+                    println!(
+                        "---> [{:?}] ({}, {}) || ({}, {}) => ({}, {})",
+                        dir,
+                        x_add,
+                        y_add,
+                        self.x(),
+                        self.y(),
+                        node.0,
+                        node.1
+                    );
                     self.character
-                        .inner_check_move(map, players, npcs, x_add, y_add)
+                        .inner_check_move(map, players, npcs, x_add, y_add, dir, dir2)
                 } else {
                     (0, 0)
                 }
             }
-        }
+        };
+        println!("|||||||> {:?}", x);
+        x
     }
 
     pub fn update(&mut self, elapsed: u64, x: i64, y: i64) {
@@ -535,6 +623,48 @@ impl<'a> Enemy<'a> {
         }
         println!("POS: ({}, {})", self.x(), self.y());
         self.character.update(elapsed, x, y)
+    }
+
+    pub fn draw(&mut self, system: &mut crate::system::System) {
+        use sdl2::rect::Point;
+        match &*self.action.borrow() {
+            EnemyAction::MoveTo(ref nodes) | EnemyAction::MoveToPlayer(ref nodes) => {
+                let mut iter = nodes.iter().peekable();
+                while let Some(node) = iter.next() {
+                    if let Some(next) = iter.peek() {
+                        system
+                            .canvas
+                            .draw_line(
+                                Point::new(
+                                    (next.0 - system.x()) as i32,
+                                    (next.1 - system.y()) as i32,
+                                ),
+                                Point::new(
+                                    (node.0 - system.x()) as i32,
+                                    (node.1 - system.y()) as i32,
+                                ),
+                            )
+                            .unwrap();
+                    } else {
+                        system
+                            .canvas
+                            .draw_line(
+                                Point::new(
+                                    (self.x() - system.x()) as i32,
+                                    (self.y() - system.y()) as i32,
+                                ),
+                                Point::new(
+                                    (node.0 - system.x()) as i32,
+                                    (node.1 - system.y()) as i32,
+                                ),
+                            )
+                            .unwrap();
+                    }
+                }
+            }
+            _ => {}
+        }
+        self.character.draw(system);
     }
 }
 

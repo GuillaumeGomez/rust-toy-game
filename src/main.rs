@@ -65,6 +65,10 @@ pub const MAX_DISTANCE_DETECTION: i32 = 200;
 pub const MAX_DISTANCE_PURSUIT: i32 = 300;
 pub const MAX_DISTANCE_WANDERING: i32 = 300;
 pub const MAP_CASE_SIZE: i64 = 8;
+/// You need 8 pixels to have 1 "grid case" and you need 4 "grid cases" to have a meter.
+pub const PIXELS_TO_METERS: i64 = 8 * 4;
+/// Just an alias to `PIXELS_TO_METERS`, to make usage more clear in the code.
+pub const ONE_METER: i64 = PIXELS_TO_METERS;
 
 const FPS_REFRESH: u32 = 5;
 
@@ -110,6 +114,7 @@ macro_rules! load_font {
 pub fn main() {
     // This is the seed used to generate the same world based on its name.
     let mut hasher = DefaultHasher::new();
+    // TODO: take this hash from the world name/save file.
     "hello!".hash(&mut hasher);
     let mut rng = ChaCha8Rng::seed_from_u64(hasher.finish());
 
@@ -186,13 +191,11 @@ pub fn main() {
         &texture_creator,
         &enemy_texture,
         &enemy_surface,
-        -40,
-        -40,
+        232,
+        -16,
         2,
         CharacterKind::Enemy,
     )];
-
-    // enemies[0].path_finder(-40, -40, 173, 158, &map, &players, &enemies);
 
     let hud = HUD::new(&texture_creator);
     let mut env = Env::new(&texture_creator, &font_16, WIDTH as u32, HEIGHT as u32);
@@ -319,8 +322,8 @@ pub fn main() {
         system.clear();
         // TODO: instead of having draw methods on each drawable objects, maybe create a Screen
         // type which will get position, size and texture and perform the checks itself? Might be
-        // a bit complicated in case an object contains objects to draw though... It could be overcome
-        // by adding a methods "get_drawable_children" though.
+        // a bit complicated in case an object contains objects to draw though... It could be
+        // overcome by adding a methods "get_drawable_children" though.
         //
         // For now, the screen follows the player.
         system.set_screen_position(&players[0]);
@@ -333,6 +336,12 @@ pub fn main() {
         for dead_enemy in dead_enemies.iter_mut() {
             dead_enemy.draw(&mut system);
         }
+        // TODO: make two layers for the map: one for the map and one for the vegetation/decor
+        // Like that, if the player is "behind" a tree or a bush, you print the character first (so
+        // the decor element is "on" the player).
+        //
+        // Actually, doing the opposite seems better: first draw the character, then the vegetation
+        // unless the character is just under the vegetation.
         for player in players.iter_mut() {
             player.draw(&mut system);
         }
@@ -352,6 +361,7 @@ pub fn main() {
         } else {
             micro_elapsed
         } as u64;
+        // TODO: use `update_elapsed` instead of `loop_timer` for the FPS count!
         env.debug_draw(&mut system, &players[0], &loop_timer);
         loop_timer = Instant::now();
     }
