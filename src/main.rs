@@ -155,8 +155,8 @@ pub fn main() {
 
     let (player_texture, player_surface) =
         player::create_right_actions(&texture_creator, &Player::get_actions_standing());
-    let enemy_surface =
-        Surface::from_file("resources/enemy1.png").expect("failed to load `resources/enemy1.png`");
+    let enemy_surface = Surface::from_file("resources/skeleton.png")
+        .expect("failed to load `resources/skeleton.png`");
     let enemy_texture = texture_creator
         .create_texture_from_surface(&enemy_surface)
         .expect("failed to build texture from surface");

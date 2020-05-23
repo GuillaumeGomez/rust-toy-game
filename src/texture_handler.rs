@@ -3,7 +3,7 @@ use sdl2::rect::Rect;
 use sdl2::render::Texture;
 use sdl2::surface::Surface;
 
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Dimension {
@@ -25,6 +25,12 @@ impl Deref for Dimension {
     }
 }
 
+impl DerefMut for Dimension {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.rect
+    }
+}
+
 pub struct TextureHandler<'a> {
     /// We keep this surface for collisions check (it's way too slow to do it on a texture!).
     surface: &'a Surface<'a>,
@@ -32,6 +38,7 @@ pub struct TextureHandler<'a> {
     pub actions_standing: Vec<Dimension>,
     /// The second element is the number of "animations".
     pub actions_moving: Vec<(Dimension, i32)>,
+    pub forced_size: Option<(u32, u32)>,
 }
 
 impl<'a> TextureHandler<'a> {
@@ -40,12 +47,14 @@ impl<'a> TextureHandler<'a> {
         texture: &'a Texture<'a>,
         actions_standing: Vec<Dimension>,
         actions_moving: Vec<(Dimension, i32)>,
+        forced_size: Option<(u32, u32)>,
     ) -> TextureHandler<'a> {
         TextureHandler {
             surface,
             texture,
             actions_standing,
             actions_moving,
+            forced_size,
         }
     }
 

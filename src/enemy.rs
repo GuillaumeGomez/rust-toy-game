@@ -90,25 +90,110 @@ impl<'a> Enemy<'a> {
         id: Id,
         kind: CharacterKind,
     ) -> Enemy<'a> {
-        let mut actions_standing = Vec::with_capacity(4);
+        // // up
+        // actions_standing.push(Dimension::new(Rect::new(0, 73, 28, 36), 0));
+        // // down
+        // actions_standing.push(Dimension::new(Rect::new(0, 3, 29, 37), 0));
+        // // left
+        // actions_standing.push(Dimension::new(Rect::new(0, 42, 37, 31), 0));
+        // // right
+        // actions_standing.push(Dimension::new(Rect::new(0, 115, 37, 31), 0));
+        // let mut actions_moving = Vec::with_capacity(4);
+        // actions_moving.push((Dimension::new(Rect::new(0, 73, 28, 36), 32), 1));
+        // actions_moving.push((Dimension::new(Rect::new(0, 3, 29, 37), 32), 1));
+        // actions_moving.push((Dimension::new(Rect::new(0, 42, 37, 31), 32), 1));
+        // actions_moving.push((Dimension::new(Rect::new(0, 115, 37, 31), 32), 1));
 
-        // up
-        actions_standing.push(Dimension::new(Rect::new(0, 73, 28, 36), 0));
-        // down
-        actions_standing.push(Dimension::new(Rect::new(0, 3, 29, 37), 0));
-        // left
-        actions_standing.push(Dimension::new(Rect::new(0, 42, 37, 31), 0));
-        // right
-        actions_standing.push(Dimension::new(Rect::new(0, 115, 37, 31), 0));
-        let mut actions_moving = Vec::with_capacity(4);
-        actions_moving.push((Dimension::new(Rect::new(0, 73, 28, 36), 32), 1));
-        actions_moving.push((Dimension::new(Rect::new(0, 3, 29, 37), 32), 1));
-        actions_moving.push((Dimension::new(Rect::new(0, 42, 37, 31), 32), 1));
-        actions_moving.push((Dimension::new(Rect::new(0, 115, 37, 31), 32), 1));
+        let tile_width = surface.width() / 3;
+        let tile_height = surface.height() / 4;
+        let actions_standing = vec![
+            // up
+            Dimension::new(Rect::new(tile_width as i32, 0, tile_width, tile_height), 0),
+            // down
+            Dimension::new(
+                Rect::new(
+                    tile_width as i32,
+                    tile_height as i32 * 3,
+                    tile_width,
+                    tile_height,
+                ),
+                0,
+            ),
+            // left
+            Dimension::new(
+                Rect::new(
+                    tile_width as i32,
+                    tile_height as i32,
+                    tile_width,
+                    tile_height,
+                ),
+                0,
+            ),
+            // right
+            Dimension::new(
+                Rect::new(
+                    tile_width as i32,
+                    tile_height as i32 * 2,
+                    tile_width,
+                    tile_height,
+                ),
+                0,
+            ),
+        ];
+        let mut actions_moving = vec![
+            (
+                Dimension::new(
+                    Rect::new(tile_width as i32, 0, tile_width, tile_height),
+                    tile_width as i32,
+                ),
+                3,
+            ),
+            (
+                Dimension::new(
+                    Rect::new(
+                        tile_width as i32,
+                        tile_height as i32 * 3,
+                        tile_width,
+                        tile_height,
+                    ),
+                    tile_width as i32,
+                ),
+                3,
+            ),
+            (
+                Dimension::new(
+                    Rect::new(
+                        tile_width as i32,
+                        tile_height as i32,
+                        tile_width,
+                        tile_height,
+                    ),
+                    tile_width as i32,
+                ),
+                3,
+            ),
+            (
+                Dimension::new(
+                    Rect::new(
+                        tile_width as i32,
+                        tile_height as i32 * 2,
+                        tile_width,
+                        tile_height,
+                    ),
+                    tile_width as i32,
+                ),
+                3,
+            ),
+        ];
 
         // let texture = create_right_actions(&texture_creator, &actions_standing, &actions_moving);
-        let texture_handler =
-            TextureHandler::new(surface, texture, actions_standing, actions_moving);
+        let texture_handler = TextureHandler::new(
+            surface,
+            texture,
+            actions_standing,
+            actions_moving,
+            Some((24, 24)),
+        );
 
         Enemy {
             character: Character {

@@ -103,6 +103,7 @@ impl<'a> Player<'a> {
             texture,
             Self::get_actions_standing(),
             actions_moving,
+            None,
         );
 
         Player {

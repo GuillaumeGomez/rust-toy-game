@@ -72,12 +72,12 @@ pub struct Action {
 }
 
 impl Action {
-    /// Returns `(x, y, width, height)`.
+    /// Returns `(x, y, width, height, draw_width, draw_height)`.
     pub fn compute_current(
         &self,
         is_running: bool,
         textures: &TextureHandler<'_>,
-    ) -> (i32, i32, i64, i64) {
+    ) -> (i32, i32, u32, u32, u32, u32) {
         if let Some(ref pos) = self.movement {
             let (info, nb_animations) = &textures.actions_moving[self.direction as usize];
             let pos = if is_running {
@@ -85,32 +85,78 @@ impl Action {
             } else {
                 (pos % 60) as i32 / (60 / nb_animations)
             };
-            (
-                pos * info.incr_to_next + info.x,
-                info.y,
-                info.width() as i64,
-                info.height() as i64,
-            )
+            if let Some((tile_width, tile_height)) = textures.forced_size {
+                (
+                    pos * info.incr_to_next + info.x,
+                    info.y,
+                    info.width(),
+                    info.height(),
+                    tile_width,
+                    tile_height,
+                )
+            } else {
+                (
+                    pos * info.incr_to_next + info.x,
+                    info.y,
+                    info.width(),
+                    info.height(),
+                    info.width(),
+                    info.height(),
+                )
+            }
         } else {
             let info = &textures.actions_standing[self.direction as usize];
-            (info.x, info.y, info.width() as i64, info.height() as i64)
+            if let Some((tile_width, tile_height)) = textures.forced_size {
+                (
+                    info.x,
+                    info.y,
+                    info.width(),
+                    info.height(),
+                    tile_width,
+                    tile_height,
+                )
+            } else {
+                (
+                    info.x,
+                    info.y,
+                    info.width(),
+                    info.height(),
+                    info.width(),
+                    info.height(),
+                )
+            }
         }
     }
 
-    pub fn get_dimension<'a>(&self, textures: &'a TextureHandler<'_>) -> &'a Dimension {
+    pub fn get_dimension<'a>(&self, textures: &'a TextureHandler<'_>) -> Dimension {
+        let mut dim;
         if let Some(_) = self.movement {
-            &textures.actions_moving[self.direction as usize].0
+            dim = textures.actions_moving[self.direction as usize].0.clone();
+            if let Some((tile_width, tile_height)) = textures.forced_size {
+                dim.set_width(tile_width);
+                dim.set_height(tile_height);
+            }
         } else {
-            &textures.actions_standing[self.direction as usize]
+            dim = textures.actions_standing[self.direction as usize].clone();
+            if let Some((tile_width, tile_height)) = textures.forced_size {
+                dim.set_width(tile_width);
+                dim.set_height(tile_height);
+            }
         }
+        dim
     }
 
     pub fn get_specific_dimension<'a>(
         &self,
         textures: &'a TextureHandler<'_>,
         dir: Direction,
-    ) -> &'a Dimension {
-        &textures.actions_moving[dir as usize].0
+    ) -> Dimension {
+        let mut dim = textures.actions_moving[dir as usize].0.clone();
+        if let Some((tile_width, tile_height)) = textures.forced_size {
+            dim.set_width(tile_width);
+            dim.set_height(tile_height);
+        }
+        dim
     }
 }
 
@@ -273,7 +319,9 @@ impl<'a> Character<'a> {
         x_add: i64,
         y_add: i64,
     ) -> (i64, i64) {
-        let (info, _) = &self.texture_handler.actions_moving[direction as usize];
+        let info = self
+            .action
+            .get_specific_dimension(&self.texture_handler, direction);
         let x = self.x() + x_add;
         let y = self.y() + y_add;
         let (x_add, y_add) = match direction {
@@ -390,35 +438,39 @@ impl<'a> Character<'a> {
     }
 
     pub fn draw(&mut self, system: &mut System, debug: bool) {
-        let (tile_x, tile_y, tile_width, tile_height) = self
+        let (tile_x, tile_y, tile_width, tile_height, draw_width, draw_height) = self
             .action
             .compute_current(self.is_running, &self.texture_handler);
         if self.is_dead() {
             if let Some(ref death) = self.death_animation {
-                death.draw(system, self.x + tile_width / 2, self.y + tile_height / 2);
+                death.draw(
+                    system,
+                    self.x + draw_width as i64 / 2,
+                    self.y + draw_height as i64 / 2,
+                );
                 return;
             }
         }
         let x = (self.x - system.x()) as i32;
         let y = (self.y - system.y()) as i32;
-        if x + tile_width as i32 >= 0
+        if x + draw_width as i32 >= 0
             && x < system.width()
-            && y + tile_height as i32 >= 0
+            && y + draw_height as i32 >= 0
             && y < system.height()
         {
             system
                 .canvas
                 .copy(
                     &self.texture_handler.texture,
-                    Rect::new(tile_x, tile_y, tile_width as u32, tile_height as u32),
-                    Rect::new(x, y, tile_width as u32, tile_height as u32),
+                    Rect::new(tile_x, tile_y, tile_width, tile_height),
+                    Rect::new(x, y, draw_width, draw_height),
                 )
                 .expect("copy character failed");
         }
         if debug {
             system
                 .canvas
-                .draw_rect(Rect::new(x, y, tile_width as u32, tile_height as u32))
+                .draw_rect(Rect::new(x, y, draw_width, draw_height))
                 .unwrap();
         }
         if let Some(ref weapon) = self.weapon {
@@ -432,7 +484,7 @@ impl<'a> Character<'a> {
 
         if self.show_health_bar && !self.health.is_full() {
             system.health_bar.draw(
-                self.x + (tile_width as i32 - system.health_bar.width as i32) as i64 / 2,
+                self.x + (draw_width as i32 - system.health_bar.width as i32) as i64 / 2,
                 self.y - (system.health_bar.height + 2) as i64,
                 self.health.pourcent(),
                 system,
@@ -563,18 +615,20 @@ impl<'a> Character<'a> {
 
     fn set_weapon_pos(&mut self) {
         if let Some(ref mut weapon) = self.weapon {
-            let (_, _, tile_width, tile_height) = self
+            let (_, _, _, _, draw_width, draw_height) = self
                 .action
                 .compute_current(self.is_running, &self.texture_handler);
+            let draw_width = draw_width as i64;
+            let draw_height = draw_height as i64;
             let width = weapon.width() as i64;
             let height = weapon.height() as i64;
             let (x, y) = match self.action.direction {
-                Direction::Up => (self.x + tile_width / 2 - 3, self.y - height),
-                Direction::Down => (self.x + tile_width / 2 - 4, self.y + tile_height - height),
-                Direction::Left => (self.x - 2, self.y + tile_height / 2 - height + 2),
+                Direction::Up => (self.x + draw_width / 2 - 3, self.y - height),
+                Direction::Down => (self.x + draw_width / 2 - 4, self.y + draw_height - height),
+                Direction::Left => (self.x - 2, self.y + draw_height / 2 - height + 2),
                 Direction::Right => (
-                    self.x + tile_width - width + 2,
-                    self.y + tile_height / 2 - height,
+                    self.x + draw_width - width + 2,
+                    self.y + draw_height / 2 - height,
                 ),
             };
             weapon.set_pos(x, y);
@@ -595,7 +649,7 @@ impl<'a> Character<'a> {
         {
             return 0;
         }
-        let (tile_x, tile_y, width, height) = self
+        let (tile_x, tile_y, _, _, width, height) = self
             .action
             .compute_current(self.is_running, &self.texture_handler);
         let w_height = weapon.height() as i64;
@@ -674,23 +728,11 @@ impl<'a> Character<'a> {
 
 impl<'a> GetDimension for Character<'a> {
     fn width(&self) -> u32 {
-        if self.action.movement.is_none() {
-            self.texture_handler.actions_standing[self.action.direction as usize].width()
-        } else {
-            self.texture_handler.actions_moving[self.action.direction as usize]
-                .0
-                .width()
-        }
+        self.action.get_dimension(&self.texture_handler).width()
     }
 
     fn height(&self) -> u32 {
-        if self.action.movement.is_none() {
-            self.texture_handler.actions_standing[self.action.direction as usize].height()
-        } else {
-            self.texture_handler.actions_moving[self.action.direction as usize]
-                .0
-                .height()
-        }
+        self.action.get_dimension(&self.texture_handler).height()
     }
 }
 
