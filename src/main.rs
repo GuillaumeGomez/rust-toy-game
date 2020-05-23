@@ -40,6 +40,7 @@ mod status;
 mod system;
 mod texture_handler;
 mod texture_holder;
+mod traits;
 mod utils;
 mod weapon;
 
@@ -53,6 +54,8 @@ use player::Player;
 use reward::Reward;
 use system::System;
 use texture_holder::TextureHolder;
+
+pub use traits::*;
 
 pub const WIDTH: i32 = 800;
 pub const HEIGHT: i32 = 600;
@@ -74,34 +77,6 @@ const FPS_REFRESH: u32 = 5;
 
 /// Just for code clarity.
 pub type Id = usize;
-
-pub trait GetPos {
-    fn x(&self) -> i64;
-    fn y(&self) -> i64;
-}
-
-impl GetPos for (i64, i64) {
-    fn x(&self) -> i64 {
-        self.0
-    }
-    fn y(&self) -> i64 {
-        self.1
-    }
-}
-
-impl GetPos for &(i64, i64) {
-    fn x(&self) -> i64 {
-        self.0
-    }
-    fn y(&self) -> i64 {
-        self.1
-    }
-}
-
-pub trait GetDimension {
-    fn width(&self) -> u32;
-    fn height(&self) -> u32;
-}
 
 macro_rules! load_font {
     ($ttf_context:expr, $size:expr) => {{
