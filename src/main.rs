@@ -362,7 +362,7 @@ pub fn main() {
             micro_elapsed
         } as u64;
         // TODO: use `update_elapsed` instead of `loop_timer` for the FPS count!
-        env.debug_draw(&mut system, &players[0], &loop_timer);
+        env.debug_draw(&mut system, &players[0], micro_elapsed);
         loop_timer = Instant::now();
     }
 }
