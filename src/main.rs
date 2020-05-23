@@ -331,10 +331,10 @@ pub fn main() {
         // TODO: put this whole thing somewhere else
         env.draw_rewards(&mut system, &rewards, &players[0], &textures);
         for enemy in enemies.iter_mut() {
-            enemy.draw(&mut system);
+            enemy.draw(&mut system, env.debug.is_some());
         }
         for dead_enemy in dead_enemies.iter_mut() {
-            dead_enemy.draw(&mut system);
+            dead_enemy.draw(&mut system, false);
         }
         // TODO: make two layers for the map: one for the map and one for the vegetation/decor
         // Like that, if the player is "behind" a tree or a bush, you print the character first (so

@@ -625,44 +625,46 @@ impl<'a> Enemy<'a> {
         self.character.update(elapsed, x, y)
     }
 
-    pub fn draw(&mut self, system: &mut crate::system::System) {
+    pub fn draw(&mut self, system: &mut crate::system::System, debug: bool) {
         use sdl2::rect::Point;
-        match &*self.action.borrow() {
-            EnemyAction::MoveTo(ref nodes) | EnemyAction::MoveToPlayer(ref nodes) => {
-                let mut iter = nodes.iter().peekable();
-                while let Some(node) = iter.next() {
-                    if let Some(next) = iter.peek() {
-                        system
-                            .canvas
-                            .draw_line(
-                                Point::new(
-                                    (next.0 - system.x()) as i32,
-                                    (next.1 - system.y()) as i32,
-                                ),
-                                Point::new(
-                                    (node.0 - system.x()) as i32,
-                                    (node.1 - system.y()) as i32,
-                                ),
-                            )
-                            .unwrap();
-                    } else {
-                        system
-                            .canvas
-                            .draw_line(
-                                Point::new(
-                                    (self.x() - system.x()) as i32,
-                                    (self.y() - system.y()) as i32,
-                                ),
-                                Point::new(
-                                    (node.0 - system.x()) as i32,
-                                    (node.1 - system.y()) as i32,
-                                ),
-                            )
-                            .unwrap();
+        if debug {
+            match &*self.action.borrow() {
+                EnemyAction::MoveTo(ref nodes) | EnemyAction::MoveToPlayer(ref nodes) => {
+                    let mut iter = nodes.iter().peekable();
+                    while let Some(node) = iter.next() {
+                        if let Some(next) = iter.peek() {
+                            system
+                                .canvas
+                                .draw_line(
+                                    Point::new(
+                                        (next.0 - system.x()) as i32,
+                                        (next.1 - system.y()) as i32,
+                                    ),
+                                    Point::new(
+                                        (node.0 - system.x()) as i32,
+                                        (node.1 - system.y()) as i32,
+                                    ),
+                                )
+                                .unwrap();
+                        } else {
+                            system
+                                .canvas
+                                .draw_line(
+                                    Point::new(
+                                        (self.x() - system.x()) as i32,
+                                        (self.y() - system.y()) as i32,
+                                    ),
+                                    Point::new(
+                                        (node.0 - system.x()) as i32,
+                                        (node.1 - system.y()) as i32,
+                                    ),
+                                )
+                                .unwrap();
+                        }
                     }
                 }
+                _ => {}
             }
-            _ => {}
         }
         self.character.draw(system);
     }
