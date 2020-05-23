@@ -17,6 +17,7 @@ use crate::player::Player;
 use crate::stat::Stat;
 use crate::texture_handler::{Dimension, TextureHandler};
 use crate::utils;
+use crate::weapon::Sword;
 use crate::{
     GetDimension, GetPos, Id, MAP_CASE_SIZE, MAX_DISTANCE_PURSUIT, MAX_DISTANCE_WANDERING,
     ONE_SECOND,
@@ -68,9 +69,26 @@ impl Ord for Node {
 enum EnemyAction {
     // Not doing anything for the moment...
     None,
+    Attack,
     MoveTo(Vec<(i64, i64)>),
     // Targetted player (in case of multiplayer, might be nice to have IDs for players)
     MoveToPlayer(Vec<(i64, i64)>),
+}
+
+impl EnemyAction {
+    fn is_move_to_player(&self) -> bool {
+        match *self {
+            Self::MoveToPlayer(_) => true,
+            _ => false,
+        }
+    }
+
+    fn is_attack(&self) -> bool {
+        match *self {
+            Self::Attack => true,
+            _ => false,
+        }
+    }
 }
 
 pub struct Enemy<'a> {
@@ -210,7 +228,7 @@ impl<'a> Enemy<'a> {
                 xp_to_next_level: 1000,
                 xp: 100,
                 texture_handler,
-                weapon: None,
+                weapon: Some(Sword::new(texture_creator)),
                 is_running: false,
                 id,
                 invincible_against: Vec::new(),
@@ -404,10 +422,26 @@ impl<'a> Enemy<'a> {
 
         let min_target_dist = ::std::cmp::min(self.height(), self.width()) * 2;
         let new_action = match &mut *self.action.borrow_mut() {
-            EnemyAction::None | EnemyAction::MoveTo(..)
+            EnemyAction::None
+            | EnemyAction::MoveTo(..)
+            | EnemyAction::MoveToPlayer(..)
+            | EnemyAction::Attack
                 if distance < crate::ONE_METER as i32 * 8 =>
             {
-                if distance < 20 {
+                println!(
+                    "ATTACK? {:?} {}",
+                    self.character.weapon.as_ref().map(|w| w.height()),
+                    distance
+                );
+                if self
+                    .character
+                    .weapon
+                    .as_ref()
+                    .map(|w| distance < w.height() as i32)
+                    .unwrap_or(false)
+                {
+                    Some(EnemyAction::Attack)
+                } else if distance < 20 {
                     Some(EnemyAction::None)
                 } else {
                     let player = &players[index];
@@ -432,7 +466,7 @@ impl<'a> Enemy<'a> {
                     }
                 }
             }
-            EnemyAction::None => {
+            EnemyAction::None | EnemyAction::Attack => {
                 let mut x = rand::thread_rng().gen::<i32>() % MAX_DISTANCE_WANDERING;
                 let mut y = rand::thread_rng().gen::<i32>() % MAX_DISTANCE_WANDERING;
                 if x > -20 && x < 20 && y > -20 && y < 20 {
@@ -674,7 +708,7 @@ impl<'a> Enemy<'a> {
         println!("next action: {:?}", action);
         // Time to apply actions now!
         match &mut *action {
-            EnemyAction::None => (0, 0),
+            EnemyAction::None | EnemyAction::Attack => (0, 0),
             EnemyAction::MoveTo(ref mut nodes) | EnemyAction::MoveToPlayer(ref mut nodes) => {
                 if !nodes.is_empty()
                     && nodes[nodes.len() - 1].0 == self.x()
@@ -716,9 +750,14 @@ impl<'a> Enemy<'a> {
             self.character.action.direction = Direction::Up;
         }
         if x != 0 || y != 0 {
-            self.character.action.movement = Some(0);
+            if self.character.action.movement.is_none() {
+                self.character.action.movement = Some(0);
+            }
         } else {
             self.character.action.movement = None;
+        }
+        if self.action.borrow().is_attack() {
+            self.character.attack();
         }
         self.character.update(elapsed, x, y)
     }

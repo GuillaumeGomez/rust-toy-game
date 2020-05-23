@@ -132,10 +132,7 @@ impl<'a> Env<'a> {
                 self.fps_str = if elapsed < crate::FRAME_DELAY {
                     "FPS: 60.0".to_owned()
                 } else {
-                    format!(
-                        "FPS: {:.2}",
-                        ONE_SECOND as f64 / elapsed as f64
-                    )
+                    format!("FPS: {:.2}", ONE_SECOND as f64 / elapsed as f64)
                 };
                 *debug = 0;
             }

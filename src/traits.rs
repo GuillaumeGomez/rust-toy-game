@@ -1,4 +1,3 @@
-
 pub trait GetPos {
     fn x(&self) -> i64;
     fn y(&self) -> i64;
@@ -28,11 +27,19 @@ pub trait GetDimension {
 }
 
 impl GetDimension for (i64, i64) {
-    fn width(&self) -> u32 { 0 }
-    fn height(&self) -> u32 { 0 }
+    fn width(&self) -> u32 {
+        0
+    }
+    fn height(&self) -> u32 {
+        0
+    }
 }
 
 impl GetDimension for &(i64, i64) {
-    fn width(&self) -> u32 { 0 }
-    fn height(&self) -> u32 { 0 }
+    fn width(&self) -> u32 {
+        0
+    }
+    fn height(&self) -> u32 {
+        0
+    }
 }
