@@ -263,58 +263,76 @@ impl<'a> Character<'a> {
         map: &Map,
         players: &[Player],
         npcs: &[Enemy],
-        x_add: i64,
-        y_add: i64,
     ) -> (i64, i64) {
         let (info, _) = &self.texture_handler.actions_moving[direction as usize];
-        let self_x = self.x + x_add;
-        let self_y = self.y + y_add;
         let (x_add, y_add) = match direction {
             Direction::Down
-                if info.height() as i64 + self_y < map.y + MAP_SIZE as i64 * MAP_CASE_SIZE =>
+                if info.height() as i64 + self.y() + 1
+                    < map.y + MAP_SIZE as i64 * MAP_CASE_SIZE =>
             {
                 (0, 1)
             }
-            Direction::Up if self_y >= map.y => (0, -1),
-            Direction::Left if self_x >= map.x => (-1, 0),
+            Direction::Up if self.y() - 1 >= map.y => (0, -1),
+            Direction::Left if self.x() - 1 >= map.x => (-1, 0),
             Direction::Right
-                if info.width() as i64 + self_x < map.x + MAP_SIZE as i64 * MAP_CASE_SIZE =>
+                if info.width() as i64 + self.x() + 1 < map.x + MAP_SIZE as i64 * MAP_CASE_SIZE =>
             {
                 (1, 0)
             }
             _ => return (0, 0),
         };
 
-        // fn call<T: GetPos + GetDimension>(npc: &T, x: i64, y: i64) -> bool {
-        //     y < npc.y() || y > npc.y() + npc.height() as i64 || x < npc.x() || x > npc.x() + npc.width() as i64
-        // }
-        // for npc in npcs {
-        //     if npc.id == self.id {
-        //         continue;
-        //     }
-        //     if !call(npc, self_x, self_y) {
-        //         if self.id ==
-        //         println!("BORDEL DE CUL ({}, {}) == ({}, {})", self_x, self_y, npc.x(), npc.y());
-        //         return (0, 0);
-        //     }
-        // }
-        // for player in players {
-        //     if player.id == self.id {
-        //         continue;
-        //     }
-        //     if !call(player, self_x, self_y) {
-        //         println!("BORDEL DE CUL v2 ({}, {}) == ({}, {})", self_x, self_y, player.x(), player.y());
-        //         return (0, 0);
-        //     }
+        // fn call(
+        //     self_id: Id,
+        //     c: &Character,
+        //     x: i64,
+        //     y: i64,
+        //     width: i64,
+        //     height: i64,
+        //     direction: Direction,
+        // ) -> bool {
+        //     self_id == c.id
+        //         || !match direction {
+        //             Direction::Down => {
+        //                 width + x >= c.x
+        //                     && x <= c.x + c.width() as i64
+        //                     && y + 1 >= c.y
+        //                     && y + 1 <= c.y + c.height() as i64
+        //             }
+        //             Direction::Up => {
+        //                 width + x >= c.x
+        //                     && x <= c.x + c.width() as i64
+        //                     && y - 1 >= c.y
+        //                     && y - 1 <= c.y + c.height() as i64
+        //             }
+        //             Direction::Left => {
+        //                 x - 1 >= c.x
+        //                     && x - 1 <= c.x + c.width() as i64
+        //                     && y + height >= c.y
+        //                     && y <= c.y + c.height() as i64
+        //             }
+        //             Direction::Right => {
+        //                 x + 1 >= c.x
+        //                     && x + 1 <= c.x + c.width() as i64
+        //                     && y + height >= c.y
+        //                     && y <= c.y + c.height() as i64
+        //             }
+        //         }
         // }
 
-        if self.check_hitbox(self_x - map.x, self_y - map.y, &map.data, direction)
+        let self_x = self.x + x_add;
+        let self_y = self.y + y_add;
+        let width = self.width() as i64;
+        let height = self.height() as i64;
+        if self.check_hitbox(self_x - map.x, self.y() - map.y, &map.data, direction)
             && npcs
                 .iter()
                 .all(|n| self.check_character_move(self_x, self_y, &n))
+                // .all(|n| call(self.id, &n, self_x, self_y, width, height, direction))
             && players
                 .iter()
-                .all(|p| self.check_character_move(self_x, self_y, &p))
+                .all(|n| self.check_character_move(self_x, self_y, &n))
+        // .all(|p| call(self.id, &p, self_x, self_y, width, height, direction))
         {
             (x_add, y_add)
         } else {
@@ -327,58 +345,19 @@ impl<'a> Character<'a> {
         map: &Map,
         players: &[Player],
         npcs: &[Enemy],
-        x_add: i64,
-        y_add: i64,
         primary_direction: Direction,
         secondary_direction: Option<Direction>,
     ) -> (i64, i64) {
-        let (mut x, mut y) = self.check_move(
-            primary_direction,
-            map,
-            players,
-            npcs,
-            if primary_direction.is_right() || primary_direction.is_left() {
-                x_add
-            } else {
-                0
-            },
-            if primary_direction.is_up() || primary_direction.is_down() {
-                y_add
-            } else {
-                0
-            },
-        );
+        let (mut x, mut y) = self.check_move(primary_direction, map, players, npcs);
         if let Some(secondary_direction) = secondary_direction {
-            let (x2, y2) = self.check_move(
-                secondary_direction,
-                map,
-                players,
-                npcs,
-                x + if secondary_direction.is_right() || secondary_direction.is_left() {
-                    x_add
-                } else {
-                    0
-                },
-                y + if secondary_direction.is_up() || secondary_direction.is_down() {
-                    y_add
-                } else {
-                    0
-                },
-            );
+            let (x2, y2) = self.check_move(secondary_direction, map, players, npcs);
             x += x2;
             y += y2;
         }
         (x, y)
     }
 
-    pub fn inner_apply_move(
-        &self,
-        map: &Map,
-        players: &[Player],
-        npcs: &[Enemy],
-        x_add: i64,
-        y_add: i64,
-    ) -> (i64, i64) {
+    pub fn inner_apply_move(&self, map: &Map, players: &[Player], npcs: &[Enemy]) -> (i64, i64) {
         if self.action.movement.is_none() {
             (0, 0)
         } else {
@@ -386,8 +365,6 @@ impl<'a> Character<'a> {
                 map,
                 players,
                 npcs,
-                x_add,
-                y_add,
                 self.action.direction,
                 self.action.secondary,
             )
@@ -484,13 +461,13 @@ impl<'a> Character<'a> {
         let mut y = 0;
 
         while tmp > self.speed {
-            let (x1, y1) = self.inner_apply_move(map, players, npcs, x, y);
+            let (x1, y1) = self.inner_apply_move(map, players, npcs);
             x += x1;
             y += y1;
             if x1 != 0 || y1 != 0 {
                 if self.is_running {
                     if stamina.value() > 0 {
-                        let (x2, y2) = self.inner_apply_move(map, players, npcs, x, y);
+                        let (x2, y2) = self.inner_apply_move(map, players, npcs);
                         x += x2;
                         y += y2;
                         stamina.subtract(1);

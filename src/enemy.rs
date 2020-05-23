@@ -595,7 +595,7 @@ impl<'a> Enemy<'a> {
                         node.1
                     );
                     self.character
-                        .inner_check_move(map, players, npcs, x_add, y_add, dir, dir2)
+                        .inner_check_move(map, players, npcs, dir, dir2)
                 } else {
                     (0, 0)
                 }
