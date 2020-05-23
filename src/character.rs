@@ -22,6 +22,12 @@ pub enum CharacterKind {
     Enemy, // TODO: Enemy is just temporary, it'll be replaced by an id for each kind of monsters
 }
 
+impl CharacterKind {
+    fn is_player(self) -> bool {
+        self == Self::Player
+    }
+}
+
 #[derive(Copy, Clone, PartialEq, Hash, Debug)]
 #[repr(usize)]
 pub enum Direction {
@@ -190,7 +196,7 @@ impl<'a> Character<'a> {
             }
             Direction::Right => {
                 for iy in 1..height {
-                    let map_pos = (initial_y + iy) * MAP_SIZE as i64 + initial_x + width;
+                    let map_pos = (initial_y + iy) * MAP_SIZE as i64 + initial_x + width - 1;
                     if map_pos < 0 || map_data.get(map_pos as usize).unwrap_or(&1) != &0 {
                         return false;
                     }
@@ -263,77 +269,89 @@ impl<'a> Character<'a> {
         map: &Map,
         players: &[Player],
         npcs: &[Enemy],
+        // In case of a move on two axes, we have to provide the result of the first move too!
+        x_add: i64,
+        y_add: i64,
     ) -> (i64, i64) {
         let (info, _) = &self.texture_handler.actions_moving[direction as usize];
+        let x = self.x() + x_add;
+        let y = self.y() + y_add;
         let (x_add, y_add) = match direction {
             Direction::Down
-                if info.height() as i64 + self.y() + 1
-                    < map.y + MAP_SIZE as i64 * MAP_CASE_SIZE =>
+                if info.height() as i64 + y + 1 < map.y + MAP_SIZE as i64 * MAP_CASE_SIZE =>
             {
                 (0, 1)
             }
-            Direction::Up if self.y() - 1 >= map.y => (0, -1),
-            Direction::Left if self.x() - 1 >= map.x => (-1, 0),
+            Direction::Up if y - 1 >= map.y => (0, -1),
+            Direction::Left if x - 1 >= map.x => (-1, 0),
             Direction::Right
-                if info.width() as i64 + self.x() + 1 < map.x + MAP_SIZE as i64 * MAP_CASE_SIZE =>
+                if info.width() as i64 + x + 1 < map.x + MAP_SIZE as i64 * MAP_CASE_SIZE =>
             {
                 (1, 0)
             }
             _ => return (0, 0),
         };
 
-        // fn call(
-        //     self_id: Id,
-        //     c: &Character,
-        //     x: i64,
-        //     y: i64,
-        //     width: i64,
-        //     height: i64,
-        //     direction: Direction,
-        // ) -> bool {
-        //     self_id == c.id
-        //         || !match direction {
-        //             Direction::Down => {
-        //                 width + x >= c.x
-        //                     && x <= c.x + c.width() as i64
-        //                     && y + 1 >= c.y
-        //                     && y + 1 <= c.y + c.height() as i64
-        //             }
-        //             Direction::Up => {
-        //                 width + x >= c.x
-        //                     && x <= c.x + c.width() as i64
-        //                     && y - 1 >= c.y
-        //                     && y - 1 <= c.y + c.height() as i64
-        //             }
-        //             Direction::Left => {
-        //                 x - 1 >= c.x
-        //                     && x - 1 <= c.x + c.width() as i64
-        //                     && y + height >= c.y
-        //                     && y <= c.y + c.height() as i64
-        //             }
-        //             Direction::Right => {
-        //                 x + 1 >= c.x
-        //                     && x + 1 <= c.x + c.width() as i64
-        //                     && y + height >= c.y
-        //                     && y <= c.y + c.height() as i64
-        //             }
-        //         }
-        // }
+        fn call(
+            self_id: Id,
+            c: &Character,
+            x: i64,
+            y: i64,
+            width: i64,
+            height: i64,
+            direction: Direction,
+        ) -> bool {
+            self_id == c.id
+                || !match direction {
+                    Direction::Down => {
+                        width + x >= c.x
+                            && x <= c.x + c.width() as i64
+                            && y + height - 1 >= c.y
+                            && y + height <= c.y + c.height() as i64
+                    }
+                    Direction::Up => {
+                        width + x >= c.x
+                            && x <= c.x + c.width() as i64
+                            && y >= c.y
+                            && y + 1 <= c.y + c.height() as i64
+                    }
+                    Direction::Right => {
+                        x + width - 1 >= c.x
+                            && x + width <= c.x + c.width() as i64
+                            && y + height >= c.y
+                            && y <= c.y + c.height() as i64
+                    }
+                    Direction::Left => {
+                        x >= c.x
+                            && x + 1 <= c.x + c.width() as i64
+                            && y + height >= c.y
+                            && y <= c.y + c.height() as i64
+                    }
+                }
+        }
 
-        let self_x = self.x + x_add;
-        let self_y = self.y + y_add;
+        let self_x = x + x_add;
+        let self_y = y + y_add;
         let width = self.width() as i64;
         let height = self.height() as i64;
-        if self.check_hitbox(self_x - map.x, self.y() - map.y, &map.data, direction)
-            && npcs
-                .iter()
-                .all(|n| self.check_character_move(self_x, self_y, &n))
-                // .all(|n| call(self.id, &n, self_x, self_y, width, height, direction))
-            && players
-                .iter()
-                .all(|n| self.check_character_move(self_x, self_y, &n))
-        // .all(|p| call(self.id, &p, self_x, self_y, width, height, direction))
-        {
+        // NPC moves are a bit more restricted than players'.
+        if if self.kind.is_player() {
+            self.check_hitbox(self_x - map.x, self_y - map.y, &map.data, direction)
+                && npcs
+                    .iter()
+                    .all(|n| call(self.id, &n, self_x, self_y, width, height, direction))
+                && players
+                    .iter()
+                    .all(|p| call(self.id, &p, self_x, self_y, width, height, direction))
+        } else {
+            self.check_hitbox(self_x - map.x, self_y - map.y, &map.data, direction)
+                && npcs
+                    .iter()
+                    .all(|n| self.check_character_move(self_x, self_y, &n))
+                && players
+                    .iter()
+                    .all(|n| self.check_character_move(self_x, self_y, &n))
+        } {
             (x_add, y_add)
         } else {
             (0, 0)
@@ -348,9 +366,9 @@ impl<'a> Character<'a> {
         primary_direction: Direction,
         secondary_direction: Option<Direction>,
     ) -> (i64, i64) {
-        let (mut x, mut y) = self.check_move(primary_direction, map, players, npcs);
+        let (mut x, mut y) = self.check_move(primary_direction, map, players, npcs, 0, 0);
         if let Some(secondary_direction) = secondary_direction {
-            let (x2, y2) = self.check_move(secondary_direction, map, players, npcs);
+            let (x2, y2) = self.check_move(secondary_direction, map, players, npcs, x, y);
             x += x2;
             y += y2;
         }
@@ -371,7 +389,7 @@ impl<'a> Character<'a> {
         }
     }
 
-    pub fn draw(&mut self, system: &mut System) {
+    pub fn draw(&mut self, system: &mut System, debug: bool) {
         let (tile_x, tile_y, tile_width, tile_height) = self
             .action
             .compute_current(self.is_running, &self.texture_handler);
@@ -396,6 +414,12 @@ impl<'a> Character<'a> {
                     Rect::new(x, y, tile_width as u32, tile_height as u32),
                 )
                 .expect("copy character failed");
+        }
+        if debug {
+            system
+                .canvas
+                .draw_rect(Rect::new(x, y, tile_width as u32, tile_height as u32))
+                .unwrap();
         }
         if let Some(ref weapon) = self.weapon {
             // if let Some(matrix) = weapon.compute_angle() {

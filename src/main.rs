@@ -191,8 +191,8 @@ pub fn main() {
         &texture_creator,
         &enemy_texture,
         &enemy_surface,
-        232,
-        -16,
+        47,
+        88,
         2,
         CharacterKind::Enemy,
     )];
@@ -343,7 +343,7 @@ pub fn main() {
         // Actually, doing the opposite seems better: first draw the character, then the vegetation
         // unless the character is just under the vegetation.
         for player in players.iter_mut() {
-            player.draw(&mut system);
+            player.draw(&mut system, env.debug.is_some());
         }
         hud.draw(&players[0], &mut system);
 

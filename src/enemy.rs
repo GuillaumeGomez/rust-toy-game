@@ -142,45 +142,6 @@ impl<'a> Enemy<'a> {
         }
     }
 
-    fn compute_direction(&mut self, x: i64, y: i64) {
-        let mut dir_x = None;
-        let mut dir_y = None;
-        if x > self.x() {
-            dir_x = Some((Direction::Right, x - self.x()));
-        } else if x < self.x() {
-            dir_x = Some((Direction::Left, self.x() - x));
-        }
-        if y > self.y() {
-            dir_y = Some((Direction::Down, y - self.y()));
-        } else if y < self.y() {
-            dir_y = Some((Direction::Up, self.y() - y));
-        }
-        match (dir_x, dir_y) {
-            (Some((dir_x, distance_x)), Some((dir_y, distance_y))) => {
-                if distance_x > distance_y {
-                    self.character.action.direction = dir_x;
-                    self.character.action.secondary = Some(dir_y);
-                } else {
-                    self.character.action.direction = dir_y;
-                    self.character.action.secondary = Some(dir_x);
-                }
-            }
-            (Some((dir_x, _)), None) => {
-                self.character.action.direction = dir_x;
-                self.character.action.secondary = None;
-            }
-            (None, Some((dir_y, _))) => {
-                self.character.action.direction = dir_y;
-                self.character.action.secondary = None;
-            }
-            (None, None) => {
-                // We're "on" the player, which shouldn't be possible!
-                self.character.action.secondary = None;
-                *self.action.borrow_mut() = EnemyAction::None;
-            }
-        }
-    }
-
     fn compute_adds(&self, target_x: i64, target_y: i64) -> (i64, i64) {
         println!("XXXX {} cmp {}", self.x(), target_x);
         println!("YYYY {} cmp {}", self.y(), target_y);
@@ -357,7 +318,7 @@ impl<'a> Enemy<'a> {
         }
 
         let min_target_dist = ::std::cmp::min(self.height(), self.width()) * 2;
-        let new_action = match &*self.action.borrow() {
+        let new_action = match &mut *self.action.borrow_mut() {
             EnemyAction::None | EnemyAction::MoveTo(..)
                 if distance < crate::ONE_METER as i32 * 8 =>
             {
@@ -461,6 +422,42 @@ impl<'a> Enemy<'a> {
                             None
                         }
                     } else {
+                        let (target_x, target_y) = nodes[nodes.len() - 1];
+                        let (x_add, y_add) = self.compute_adds(target_x, target_y);
+                        let (dir, dir2) = self.get_directions(x_add, y_add);
+                        match self.character.check_map_pos(
+                            dir,
+                            map,
+                            players,
+                            npcs,
+                            self.x() + x_add,
+                            self.y() + y_add,
+                            None,
+                        ) {
+                            Obstacle::Map => {
+                                if nodes.len() > 1 && !(x_add != 0 && y_add != 0) {
+                                    let (next_x, next_y) = nodes[nodes.len() - 2];
+                                    let pos = nodes.len() - 1;
+                                    if x_add != 0 {
+                                        if next_y > self.y() {
+                                            nodes[pos].1 = self.y() + MAP_CASE_SIZE;
+                                        } else {
+                                            nodes[pos].1 = self.y() - MAP_CASE_SIZE;
+                                        }
+                                    } else {
+                                        if next_x > self.x() {
+                                            nodes[pos].0 = self.x() + MAP_CASE_SIZE;
+                                        } else {
+                                            nodes[pos].0 = self.x() - MAP_CASE_SIZE;
+                                        }
+                                    }
+                                    None
+                                } else {
+                                    Some(EnemyAction::None)
+                                }
+                            }
+                            _ => None,
+                        }
                         // let (target_x, target_y) = nodes[nodes.len() - 1];
                         // let (x_add, y_add) = self.compute_adds(target_x, target_y);
                         // let (dir, dir2) = self.get_directions(x_add, y_add);
@@ -487,7 +484,7 @@ impl<'a> Enemy<'a> {
                         //     Some(EnemyAction::MoveToPlayer(nodes))
                         // } else {
                         // Weird that no path can reach the place, but whatever...
-                        None
+                        // None
                         // }
                         // } else {
                         //     None
@@ -514,6 +511,26 @@ impl<'a> Enemy<'a> {
                         None,
                     ) {
                         Obstacle::Map => {
+                            if nodes.len() > 1 && !(x_add != 0 && y_add != 0) {
+                                let (next_x, next_y) = nodes[nodes.len() - 2];
+                                let pos = nodes.len() - 1;
+                                if x_add != 0 {
+                                    if next_y > self.y() {
+                                        nodes[pos].1 = self.y() + MAP_CASE_SIZE;
+                                    } else {
+                                        nodes[pos].1 = self.y() - MAP_CASE_SIZE;
+                                    }
+                                } else {
+                                    if next_x > self.x() {
+                                        nodes[pos].0 = self.x() + MAP_CASE_SIZE;
+                                    } else {
+                                        nodes[pos].0 = self.x() - MAP_CASE_SIZE;
+                                    }
+                                }
+                                None
+                            } else {
+                                Some(EnemyAction::None)
+                            }
                             // panic!("map obstacle 2");
                             // If we encountered an unexpected obstacles? Let's recompute a path!
                             // println!("NEED TO GO: ({}, {}) => ({}, {})", self.x(), self.y(), target_x, target_y);
@@ -533,7 +550,7 @@ impl<'a> Enemy<'a> {
                             //     Some(EnemyAction::MoveTo(nodes))
                             // } else {
                             // Weird that no path can reach the place, but whatever...
-                            None
+                            // None
                             // }
                         }
                         Obstacle::Character => {
@@ -571,7 +588,7 @@ impl<'a> Enemy<'a> {
         }
         println!("next action: {:?}", action);
         // Time to apply actions now!
-        let x = match &mut *action {
+        match &mut *action {
             EnemyAction::None => (0, 0),
             EnemyAction::MoveTo(ref mut nodes) | EnemyAction::MoveToPlayer(ref mut nodes) => {
                 if !nodes.is_empty()
@@ -600,9 +617,7 @@ impl<'a> Enemy<'a> {
                     (0, 0)
                 }
             }
-        };
-        println!("|||||||> {:?}", x);
-        x
+        }
     }
 
     pub fn update(&mut self, elapsed: u64, x: i64, y: i64) {
@@ -610,8 +625,7 @@ impl<'a> Enemy<'a> {
             self.character.action.direction = Direction::Right;
         } else if x < 0 {
             self.character.action.direction = Direction::Left;
-        }
-        if y > 0 {
+        } else if y > 0 {
             self.character.action.direction = Direction::Down;
         } else if y < 0 {
             self.character.action.direction = Direction::Up;
@@ -621,7 +635,6 @@ impl<'a> Enemy<'a> {
         } else {
             self.character.action.movement = None;
         }
-        println!("POS: ({}, {})", self.x(), self.y());
         self.character.update(elapsed, x, y)
     }
 
@@ -666,7 +679,7 @@ impl<'a> Enemy<'a> {
                 _ => {}
             }
         }
-        self.character.draw(system);
+        self.character.draw(system, debug);
     }
 }
 
