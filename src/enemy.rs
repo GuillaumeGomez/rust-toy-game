@@ -69,7 +69,7 @@ impl Ord for Node {
 enum EnemyAction {
     // Not doing anything for the moment...
     None,
-    Attack,
+    Attack(Direction),
     MoveTo(Vec<(i64, i64)>),
     // Targetted player (in case of multiplayer, might be nice to have IDs for players)
     MoveToPlayer(Vec<(i64, i64)>),
@@ -85,7 +85,7 @@ impl EnemyAction {
 
     fn is_attack(&self) -> bool {
         match *self {
-            Self::Attack => true,
+            Self::Attack(_) => true,
             _ => false,
         }
     }
@@ -232,8 +232,6 @@ impl<'a> Enemy<'a> {
     }
 
     fn compute_adds(&self, target_x: i64, target_y: i64) -> (i64, i64) {
-        println!("XXXX {} cmp {}", self.x(), target_x);
-        println!("YYYY {} cmp {}", self.y(), target_y);
         (
             match self.x().cmp(&target_x) {
                 Ordering::Less => 1,
@@ -386,6 +384,18 @@ impl<'a> Enemy<'a> {
         None
     }
 
+    fn get_attack_direction<T: GetPos + GetDimension>(&self, target: &T) -> Direction {
+        if target.y() > self.y() + self.height() as i64 {
+            Direction::Down
+        } else if target.height() as i64 + target.y() < self.y() {
+            Direction::Up
+        } else if target.x() > self.x() + self.width() as i64 {
+            Direction::Right
+        } else {
+            Direction::Left
+        }
+    }
+
     pub fn apply_move(
         &self,
         map: &Map,
@@ -407,20 +417,81 @@ impl<'a> Enemy<'a> {
         }
 
         let min_target_dist = ::std::cmp::min(self.height(), self.width()) * 2;
+        let weapon_height = self
+            .character
+            .weapon
+            .as_ref()
+            .map(|w| w.height() * 3 / 4)
+            .unwrap_or_else(|| distance as u32 + 1);
         let new_action = match &mut *self.action.borrow_mut() {
             EnemyAction::None
             | EnemyAction::MoveTo(..)
             | EnemyAction::MoveToPlayer(..)
-            | EnemyAction::Attack
-                if (distance as u32)
-                    < self
-                        .character
-                        .weapon
-                        .as_ref()
-                        .map(|w| w.height() * 3 / 4)
-                        .unwrap_or_else(|| distance as u32 + 1) =>
+            | EnemyAction::Attack(_)
+                if (distance as u32) < weapon_height =>
             {
-                Some(EnemyAction::Attack)
+                // We're in attack range, however we need to check if we're not in a corner (which
+                // would prevent the attack to work!).
+                let target = &players[0];
+                let dist_x = (self.x() - target.x()).abs() as u32;
+                let dist_y = (self.y() - target.y()).abs() as u32;
+
+                // Little explanations here: we first try to get on the same axis than the user to
+                // be able to attack him. If we can't, then we find a way to the target by creating
+                // a path.
+                if dist_x > weapon_height / 3 && dist_y > weapon_height / 2 {
+                    println!("Re-adjusting position!");
+                    if self.character.check_map_pos(
+                        if target.x() > self.x() {
+                            Direction::Right
+                        } else {
+                            Direction::Left
+                        },
+                        map,
+                        players,
+                        npcs,
+                        target.x(),
+                        self.y(),
+                        None,
+                    ) == Obstacle::None
+                    {
+                        Some(EnemyAction::MoveToPlayer(vec![(target.x(), self.y())]))
+                    } else if self.character.check_map_pos(
+                        if target.y() > self.y() {
+                            Direction::Down
+                        } else {
+                            Direction::Up
+                        },
+                        map,
+                        players,
+                        npcs,
+                        self.x(),
+                        target.y(),
+                        None,
+                    ) == Obstacle::None
+                    {
+                        Some(EnemyAction::MoveToPlayer(vec![(self.x(), target.y())]))
+                    } else if let Some(nodes) = self.path_finder(
+                        self.x(),
+                        self.y(),
+                        target.x(),
+                        target.y(),
+                        map,
+                        &players,
+                        npcs,
+                        MAP_CASE_SIZE,
+                        // We exclude the "target" to allow the path finder to not be able to finish
+                        Some(target.id),
+                    ) {
+                        Some(EnemyAction::MoveToPlayer(nodes))
+                    } else {
+                        // We stop the movement to "watch" the enemy in case we can't reach it for
+                        // whatever reason...
+                        Some(EnemyAction::None)
+                    }
+                } else {
+                    Some(EnemyAction::Attack(self.get_attack_direction(&players[0])))
+                }
             }
             EnemyAction::None | EnemyAction::MoveTo(..)
                 if distance < crate::ONE_METER as i32 * 8 =>
@@ -446,7 +517,7 @@ impl<'a> Enemy<'a> {
                     Some(EnemyAction::None)
                 }
             }
-            EnemyAction::None | EnemyAction::Attack => {
+            EnemyAction::None | EnemyAction::Attack(_) => {
                 let mut x = rand::thread_rng().gen::<i32>() % MAX_DISTANCE_WANDERING;
                 let mut y = rand::thread_rng().gen::<i32>() % MAX_DISTANCE_WANDERING;
                 if x > -20 && x < 20 && y > -20 && y < 20 {
@@ -501,7 +572,6 @@ impl<'a> Enemy<'a> {
                     }
                 } else if let Some(ref node) = nodes.first() {
                     if utils::compute_distance(node, &players[0]) > crate::ONE_METER as i32 * 2 {
-                        println!("PLAYER MOVED TOO MUCH!!");
                         let player = &players[0];
                         // Player moved too much, we need to recompute a new path!
                         if let Some(nodes) = self.path_finder(
@@ -522,7 +592,6 @@ impl<'a> Enemy<'a> {
                             None
                         }
                     } else {
-                        println!("PLAYER DIDN'T MOVE ENOUGH");
                         let (target_x, target_y) = nodes[nodes.len() - 1];
                         let (x_add, y_add) = self.compute_adds(target_x, target_y);
                         let (dir, dir2) = self.get_directions(x_add, y_add);
@@ -536,7 +605,6 @@ impl<'a> Enemy<'a> {
                             None,
                         ) {
                             Obstacle::Map => {
-                                println!("MAP obstacle!!!");
                                 if nodes.len() > 1 && !(x_add != 0 && y_add != 0) {
                                     let (next_x, next_y) = nodes[nodes.len() - 2];
                                     let pos = nodes.len() - 1;
@@ -639,7 +707,7 @@ impl<'a> Enemy<'a> {
         println!("next action: {:?}", action);
         // Time to apply actions now!
         match &mut *action {
-            EnemyAction::None | EnemyAction::Attack => (0, 0),
+            EnemyAction::None | EnemyAction::Attack(_) => (0, 0),
             EnemyAction::MoveTo(ref mut nodes) | EnemyAction::MoveToPlayer(ref mut nodes) => {
                 if !nodes.is_empty()
                     && nodes[nodes.len() - 1].0 == self.x()
@@ -689,6 +757,12 @@ impl<'a> Enemy<'a> {
         }
         if !self.character.is_attacking() && self.action.borrow().is_attack() {
             self.character.attack();
+            if x == 0 && y == 0 {
+                match &*self.action.borrow() {
+                    EnemyAction::Attack(ref dir) => self.character.action.direction = *dir,
+                    _ => {}
+                }
+            }
         }
         self.character.update(elapsed, x, y)
     }
