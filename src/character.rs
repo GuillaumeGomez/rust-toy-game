@@ -283,8 +283,8 @@ impl<'a> Character<'a> {
         let dimension = self
             .action
             .get_specific_dimension(&self.texture_handler, direction);
-        let width = dimension.width() as i64 / MAP_CASE_SIZE;
-        let height = dimension.height() as i64 / MAP_CASE_SIZE;
+        let width = (dimension.width() / MAP_CASE_SIZE as u32) as i64;
+        let height = (dimension.height() / MAP_CASE_SIZE as u32) as i64;
 
         for y in 0..height {
             let y = (y + initial_y) * MAP_SIZE as i64;
@@ -680,8 +680,8 @@ impl<'a> Character<'a> {
         if let Some(ref matrix) = matrix {
             if self.texture_handler.check_intersection(
                 &matrix,
-                (tile_x, tile_y),
-                (width as i32, height as i32),
+                self.action.direction,
+                self.action.movement.is_some(),
                 (self.x, self.y),
             ) {
                 if weapon.attack >= 0 {

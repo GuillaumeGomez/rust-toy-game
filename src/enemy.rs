@@ -107,6 +107,8 @@ impl<'a> Enemy<'a> {
         y: i64,
         id: Id,
         kind: CharacterKind,
+        tile_width: u32,
+        tile_height: u32,
     ) -> Enemy<'a> {
         // // up
         // actions_standing.push(Dimension::new(Rect::new(0, 73, 28, 36), 0));
@@ -122,8 +124,6 @@ impl<'a> Enemy<'a> {
         // actions_moving.push((Dimension::new(Rect::new(0, 42, 37, 31), 32), 1));
         // actions_moving.push((Dimension::new(Rect::new(0, 115, 37, 31), 32), 1));
 
-        let tile_width = surface.width() / 3;
-        let tile_height = surface.height() / 4;
         let actions_standing = vec![
             // up
             Dimension::new(Rect::new(tile_width as i32, 0, tile_width, tile_height), 0),
@@ -159,45 +159,31 @@ impl<'a> Enemy<'a> {
             ),
         ];
         let mut actions_moving = vec![
+            // up
+            (
+                Dimension::new(Rect::new(0, 0, tile_width, tile_height), tile_width as i32),
+                3,
+            ),
+            // down
             (
                 Dimension::new(
-                    Rect::new(tile_width as i32, 0, tile_width, tile_height),
+                    Rect::new(0, tile_height as i32 * 3, tile_width, tile_height),
                     tile_width as i32,
                 ),
                 3,
             ),
+            // left
             (
                 Dimension::new(
-                    Rect::new(
-                        tile_width as i32,
-                        tile_height as i32 * 3,
-                        tile_width,
-                        tile_height,
-                    ),
+                    Rect::new(0, tile_height as i32, tile_width, tile_height),
                     tile_width as i32,
                 ),
                 3,
             ),
+            // right
             (
                 Dimension::new(
-                    Rect::new(
-                        tile_width as i32,
-                        tile_height as i32,
-                        tile_width,
-                        tile_height,
-                    ),
-                    tile_width as i32,
-                ),
-                3,
-            ),
-            (
-                Dimension::new(
-                    Rect::new(
-                        tile_width as i32,
-                        tile_height as i32 * 2,
-                        tile_width,
-                        tile_height,
-                    ),
+                    Rect::new(0, tile_height as i32 * 2, tile_width, tile_height),
                     tile_width as i32,
                 ),
                 3,
@@ -233,7 +219,7 @@ impl<'a> Enemy<'a> {
                 id,
                 invincible_against: Vec::new(),
                 statuses: Vec::new(),
-                speed: ONE_SECOND / 60, // we want to move 60 times per second
+                speed: ONE_SECOND / 45, // we want to move 45 times per second
                 move_delay: 0,
                 show_health_bar: true,
                 death_animation: Some(DeathAnimation::new(texture_creator, ONE_SECOND)),
@@ -426,44 +412,38 @@ impl<'a> Enemy<'a> {
             | EnemyAction::MoveTo(..)
             | EnemyAction::MoveToPlayer(..)
             | EnemyAction::Attack
+                if (distance as u32)
+                    < self
+                        .character
+                        .weapon
+                        .as_ref()
+                        .map(|w| w.height() * 3 / 4)
+                        .unwrap_or_else(|| distance as u32 + 1) =>
+            {
+                Some(EnemyAction::Attack)
+            }
+            EnemyAction::None | EnemyAction::MoveTo(..)
                 if distance < crate::ONE_METER as i32 * 8 =>
             {
-                println!(
-                    "ATTACK? {:?} {}",
-                    self.character.weapon.as_ref().map(|w| w.height()),
-                    distance
-                );
-                if self
-                    .character
-                    .weapon
-                    .as_ref()
-                    .map(|w| distance < w.height() as i32)
-                    .unwrap_or(false)
-                {
-                    Some(EnemyAction::Attack)
-                } else if distance < 20 {
-                    Some(EnemyAction::None)
+                let player = &players[index];
+                // println!("Enemy is gonna chase player!");
+                if let Some(nodes) = self.path_finder(
+                    self.x(),
+                    self.y(),
+                    player.x(),
+                    player.y(),
+                    map,
+                    &players,
+                    npcs,
+                    MAP_CASE_SIZE,
+                    // We exclude the "target" to allow the path finder to not be able to finish
+                    Some(player.id),
+                ) {
+                    Some(EnemyAction::MoveToPlayer(nodes))
                 } else {
-                    let player = &players[index];
-                    // println!("Enemy is gonna chase player!");
-                    if let Some(nodes) = self.path_finder(
-                        self.x(),
-                        self.y(),
-                        player.x(),
-                        player.y(),
-                        map,
-                        &players,
-                        npcs,
-                        MAP_CASE_SIZE,
-                        // We exclude the "target" to allow the path finder to not be able to finish
-                        Some(player.id),
-                    ) {
-                        Some(EnemyAction::MoveToPlayer(nodes))
-                    } else {
-                        // We stop the movement to "watch" the enemy in case we can't reach it for
-                        // whatever reason...
-                        Some(EnemyAction::None)
-                    }
+                    // We stop the movement to "watch" the enemy in case we can't reach it for
+                    // whatever reason...
+                    Some(EnemyAction::None)
                 }
             }
             EnemyAction::None | EnemyAction::Attack => {
@@ -521,6 +501,7 @@ impl<'a> Enemy<'a> {
                     }
                 } else if let Some(ref node) = nodes.first() {
                     if utils::compute_distance(node, &players[0]) > crate::ONE_METER as i32 * 2 {
+                        println!("PLAYER MOVED TOO MUCH!!");
                         let player = &players[0];
                         // Player moved too much, we need to recompute a new path!
                         if let Some(nodes) = self.path_finder(
@@ -541,6 +522,7 @@ impl<'a> Enemy<'a> {
                             None
                         }
                     } else {
+                        println!("PLAYER DIDN'T MOVE ENOUGH");
                         let (target_x, target_y) = nodes[nodes.len() - 1];
                         let (x_add, y_add) = self.compute_adds(target_x, target_y);
                         let (dir, dir2) = self.get_directions(x_add, y_add);
@@ -554,6 +536,7 @@ impl<'a> Enemy<'a> {
                             None,
                         ) {
                             Obstacle::Map => {
+                                println!("MAP obstacle!!!");
                                 if nodes.len() > 1 && !(x_add != 0 && y_add != 0) {
                                     let (next_x, next_y) = nodes[nodes.len() - 2];
                                     let pos = nodes.len() - 1;
@@ -577,37 +560,6 @@ impl<'a> Enemy<'a> {
                             }
                             _ => None,
                         }
-                        // let (target_x, target_y) = nodes[nodes.len() - 1];
-                        // let (x_add, y_add) = self.compute_adds(target_x, target_y);
-                        // let (dir, dir2) = self.get_directions(x_add, y_add);
-                        // if self
-                        //     .character
-                        //     .inner_check_move(map, players, npcs, x_add, y_add, dir, dir2)
-                        //     == (0, 0)
-                        // {
-                        // panic!("map obstacle 1");
-                        // If we encountered an unexpected obstacles? Let's recompute a path!
-                        // if let Some(extra_nodes) = self.path_finder(
-                        //     self.x(),
-                        //     self.y(),
-                        //     target_x,
-                        //     target_y,
-                        //     map,
-                        //     players,
-                        //     npcs,
-                        //     1,
-                        // ) {
-                        //     let mut nodes = nodes.clone();
-                        //     nodes.pop(); // we remove the unneeded last node
-                        //     nodes.extend(extra_nodes.into_iter());
-                        //     Some(EnemyAction::MoveToPlayer(nodes))
-                        // } else {
-                        // Weird that no path can reach the place, but whatever...
-                        // None
-                        // }
-                        // } else {
-                        //     None
-                        // }
                     }
                 } else {
                     Some(EnemyAction::None)
@@ -650,27 +602,6 @@ impl<'a> Enemy<'a> {
                             } else {
                                 Some(EnemyAction::None)
                             }
-                            // panic!("map obstacle 2");
-                            // If we encountered an unexpected obstacles? Let's recompute a path!
-                            // println!("NEED TO GO: ({}, {}) => ({}, {})", self.x(), self.y(), target_x, target_y);
-                            // if let Some(extra_nodes) = self.path_finder(
-                            //     self.x(),
-                            //     self.y(),
-                            //     target_x,
-                            //     target_y,
-                            //     map,
-                            //     players,
-                            //     npcs,
-                            //     1,
-                            // ) {
-                            //     let mut nodes = nodes.clone();
-                            //     nodes.pop(); // we remove the unneeded last node
-                            //     nodes.extend(extra_nodes.into_iter());
-                            //     Some(EnemyAction::MoveTo(nodes))
-                            // } else {
-                            // Weird that no path can reach the place, but whatever...
-                            // None
-                            // }
                         }
                         Obstacle::Character => {
                             println!("character in the path");
@@ -756,7 +687,7 @@ impl<'a> Enemy<'a> {
         } else {
             self.character.action.movement = None;
         }
-        if self.action.borrow().is_attack() {
+        if !self.character.is_attacking() && self.action.borrow().is_attack() {
             self.character.attack();
         }
         self.character.update(elapsed, x, y)

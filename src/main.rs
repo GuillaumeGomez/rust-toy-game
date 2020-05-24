@@ -135,6 +135,13 @@ pub fn main() {
     let enemy_texture = texture_creator
         .create_texture_from_surface(&enemy_surface)
         .expect("failed to build texture from surface");
+    use sdl2::rect::Rect;
+    let mut forced_enemy_surface = Surface::new(24 * 3, 24 * 4, enemy_surface.pixel_format_enum())
+        .expect("failed to create new surface for resize");
+    let rect = forced_enemy_surface.rect();
+    enemy_surface
+        .blit(None, &mut forced_enemy_surface, rect)
+        .expect("failed to resize surface...");
 
     // TODO: maybe move that in `Env`?
     let mut textures = HashMap::new();
@@ -165,11 +172,13 @@ pub fn main() {
     let mut enemies = vec![Enemy::new(
         &texture_creator,
         &enemy_texture,
-        &enemy_surface,
-        47,
-        88,
+        &forced_enemy_surface,
+        0,
+        40,
         2,
         CharacterKind::Enemy,
+        enemy_surface.width() / 3,
+        enemy_surface.height() / 4,
     )];
 
     let hud = HUD::new(&texture_creator);
