@@ -80,41 +80,40 @@ impl<'a> TextureHandler<'a> {
         dir: Direction,
         is_moving: bool,
         character_pos: (i64, i64),
+        debug: bool,
     ) -> bool {
-        // let (surface, tile_pos) = match self.forced_surface {
-        //     Some(ref s) => {
-        //         let (width, height) = self.forced_size.as_ref().unwrap();
-        //         (s, (tile_pos.0 / (self.surface.size().0 / width) as i32, tile_pos.1 / (self.surface.size().1 / height) as i32))
-        //     }
-        //     None => (self.surface, tile_pos),
-        // };
-        let (mut tile_pos_width, mut tile_pos_height) = if is_moving {
+        let (mut tile_x, mut tile_y, mut tile_width, mut tile_height) = if is_moving {
             let tmp = &self.actions_moving[dir as usize].0;
-            (tmp.width() as i32, tmp.height() as i32)
+            (tmp.x(), tmp.y(), tmp.width() as i32, tmp.height() as i32)
         } else {
             let tmp = &self.actions_standing[dir as usize];
-            (tmp.width() as i32, tmp.height() as i32)
+            (tmp.x(), tmp.y(), tmp.width() as i32, tmp.height() as i32)
         };
-        let tile_size = match self.forced_size {
-            Some(s) => {
-                tile_pos_width /= self.surface.size().0 as i32 / s.0 as i32;
-                tile_pos_height /= self.surface.size().1 as i32 / s.1 as i32;
-                s
-            }
-            None => self.surface.size(),
-        };
+        if let Some(s) = self.forced_size {
+            tile_width = s.0 as i32;
+            tile_height = s.1 as i32;
+            tile_x /= self.surface.size().0 as i32 / s.0 as i32;
+            tile_y = self.surface.size().1 as i32 / s.1 as i32;
+        }
         let pitch = self.surface.pitch() as i32;
         let max_len = (self.surface.height() * self.surface.pitch()) as i32;
         let surface = self.surface.raw();
         let pixels = unsafe { (*surface).pixels as *const u8 };
+        // if debug {
+        //     println!("CHARACTEEEER ({}, {}) ({}, {})", tile_width, tile_height, tile_x, tile_y);
+        //     for y in 0..tile_height {
+        //         let y = (y + tile_y) * pitch;
+        //         for x in 0..tile_width {
+        //             let pos = y + tile_x + x * 4;
+        //             print!("{:03} ", unsafe { *(pixels.add(pos as usize) as *const u32) } & 255);
+        //         }
+        //         println!("");
+        //     }
+        // }
         for (x, y) in matrix.iter() {
-            let x = (x - character_pos.0) as i32 + tile_pos_width;
-            let y = (y - character_pos.1) as i32 + tile_pos_height;
-            if y < tile_pos_height
-                || y > tile_pos_height + tile_size.1 as i32
-                || x < tile_pos_width
-                || x > tile_pos_width + tile_size.0 as i32
-            {
+            let x = (x - character_pos.0) as i32 + tile_x;
+            let y = (y - character_pos.1) as i32 + tile_y;
+            if y < tile_y || y > tile_y + tile_height || x < tile_x || x > tile_x + tile_width {
                 // We are outside of the tile we're looking for!
                 continue;
             }

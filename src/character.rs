@@ -643,6 +643,7 @@ impl<'a> Character<'a> {
         font: &'b Font<'b, 'static>,
         texture_creator: &'a TextureCreator<WindowContext>,
     ) -> i32 {
+        let debug = self.id == 1 && character_id != self.id;
         if self.is_dead()
             || character_id == self.id
             || self.invincible_against.iter().any(|e| e.id == character_id)
@@ -683,6 +684,7 @@ impl<'a> Character<'a> {
                 self.action.direction,
                 self.action.movement.is_some(),
                 (self.x, self.y),
+                self.id == 1,
             ) {
                 if weapon.attack >= 0 {
                     self.health.subtract(weapon.attack as u64);
