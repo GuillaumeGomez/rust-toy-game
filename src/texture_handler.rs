@@ -80,7 +80,6 @@ impl<'a> TextureHandler<'a> {
         dir: Direction,
         is_moving: bool,
         character_pos: (i64, i64),
-        debug: bool,
     ) -> bool {
         let (mut tile_x, mut tile_y, mut tile_width, mut tile_height) = if is_moving {
             let tmp = &self.actions_moving[dir as usize].0;
@@ -99,17 +98,6 @@ impl<'a> TextureHandler<'a> {
         let max_len = (self.surface.height() * self.surface.pitch()) as i32;
         let surface = self.surface.raw();
         let pixels = unsafe { (*surface).pixels as *const u8 };
-        // if debug {
-        //     println!("CHARACTEEEER ({}, {}) ({}, {})", tile_width, tile_height, tile_x, tile_y);
-        //     for y in 0..tile_height {
-        //         let y = (y + tile_y) * pitch;
-        //         for x in 0..tile_width {
-        //             let pos = y + tile_x + x * 4;
-        //             print!("{:03} ", unsafe { *(pixels.add(pos as usize) as *const u32) } & 255);
-        //         }
-        //         println!("");
-        //     }
-        // }
         for (x, y) in matrix.iter() {
             let x = (x - character_pos.0) as i32 + tile_x;
             let y = (y - character_pos.1) as i32 + tile_y;

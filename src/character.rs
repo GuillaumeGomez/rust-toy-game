@@ -684,7 +684,6 @@ impl<'a> Character<'a> {
                 self.action.direction,
                 self.action.movement.is_some(),
                 (self.x, self.y),
-                self.id == 1,
             ) {
                 if weapon.attack >= 0 {
                     self.health.subtract(weapon.attack as u64);

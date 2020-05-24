@@ -3,7 +3,7 @@ extern crate sdl2;
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 use sdl2::image::{self, LoadSurface};
-use sdl2::pixels::Color;
+use sdl2::pixels::{Color, PixelFormatEnum};
 use sdl2::render::Canvas;
 use sdl2::surface::Surface;
 use sdl2::ttf;
@@ -130,8 +130,13 @@ pub fn main() {
 
     let (player_texture, player_surface) =
         player::create_right_actions(&texture_creator, &Player::get_actions_standing());
-    let enemy_surface = Surface::from_file("resources/skeleton.png")
+    let mut enemy_surface = Surface::from_file("resources/skeleton.png")
         .expect("failed to load `resources/skeleton.png`");
+    if enemy_surface.pixel_format_enum() != PixelFormatEnum::RGBA8888 {
+        enemy_surface = enemy_surface
+            .convert_format(PixelFormatEnum::RGBA8888)
+            .expect("failed to convert surface to RGBA8888");
+    }
     let enemy_texture = texture_creator
         .create_texture_from_surface(&enemy_surface)
         .expect("failed to build texture from surface");

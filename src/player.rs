@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::ops::{Deref, DerefMut};
 
 use sdl2::image::LoadSurface;
+use sdl2::pixels::PixelFormatEnum;
 use sdl2::rect::Rect;
 use sdl2::render::{Texture, TextureCreator};
 use sdl2::surface::Surface;
@@ -20,6 +21,12 @@ pub fn create_right_actions<'a>(
 ) -> (Texture<'a>, Surface<'a>) {
     let mut surface =
         Surface::from_file("resources/zelda.png").expect("failed to load `resources/zelda.png`");
+
+    if surface.pixel_format_enum() != PixelFormatEnum::RGBA8888 {
+        surface = surface
+            .convert_format(PixelFormatEnum::RGBA8888)
+            .expect("failed to convert surface to RGBA8888");
+    }
 
     let width = surface.width();
     let block_size = surface.pitch() / width;
