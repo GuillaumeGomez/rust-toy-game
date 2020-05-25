@@ -4,6 +4,8 @@ use sdl2::render::TextureCreator;
 use sdl2::ttf::Font;
 use sdl2::video::WindowContext;
 
+use std::cell::RefCell;
+
 use crate::death_animation::DeathAnimation;
 use crate::enemy::Enemy;
 use crate::map::Map;
@@ -14,7 +16,7 @@ use crate::status::Status;
 use crate::system::System;
 use crate::texture_handler::{Dimension, TextureHandler};
 use crate::weapon::Weapon;
-use crate::{GetDimension, GetPos, Id, MAP_CASE_SIZE, MAP_SIZE};
+use crate::{GetDimension, GetPos, Id, MAP_CASE_SIZE, MAP_SIZE, ONE_SECOND};
 
 #[derive(Hash, PartialEq, Eq, Clone, Copy, Debug)]
 pub enum CharacterKind {
@@ -60,6 +62,23 @@ impl Direction {
         match *self {
             Self::Down => true,
             _ => false,
+        }
+    }
+    pub fn get_opposite(&self) -> Direction {
+        match *self {
+            Self::Up => Self::Down,
+            Self::Down => Self::Up,
+            Self::Right => Self::Left,
+            Self::Left => Self::Right,
+        }
+    }
+    pub fn is_opposite(&self, other: Direction) -> bool {
+        self.get_opposite() == other
+    }
+    pub fn is_adjacent(&self, other: Direction) -> bool {
+        match *self {
+            Self::Up | Self::Down => other.is_left() || other.is_right(),
+            Self::Right | Self::Left => other.is_up() || other.is_down(),
         }
     }
 }
@@ -194,7 +213,7 @@ pub struct Character<'a> {
     pub is_running: bool,
     /// How much time you need to move of 1.
     pub speed: u64,
-    /// When "delay" is superior than "speed", we trigger the movement.
+    /// When "move_delay" is superior than "speed", we trigger the movement.
     pub move_delay: u64,
     /// This ID is used when this character is attacking someone else. This "someone else" will
     /// invincible to any other attack from your ID until the total attack time is over.
@@ -203,6 +222,8 @@ pub struct Character<'a> {
     pub statuses: Vec<Status<'a>>,
     pub show_health_bar: bool,
     pub death_animation: Option<DeathAnimation<'a>>,
+    /// (x, y, delay)
+    pub effect: RefCell<Option<(i64, i64, u64)>>,
 }
 
 impl<'a> Character<'a> {
@@ -413,17 +434,33 @@ impl<'a> Character<'a> {
         npcs: &[Enemy],
         primary_direction: Direction,
         secondary_direction: Option<Direction>,
+        x_add: i64,
+        y_add: i64,
     ) -> (i64, i64) {
-        let (mut x, mut y) = self.check_move(primary_direction, map, players, npcs, 0, 0);
+        let (mut x, mut y) = self.check_move(primary_direction, map, players, npcs, x_add, y_add);
         if let Some(secondary_direction) = secondary_direction {
-            let (x2, y2) = self.check_move(secondary_direction, map, players, npcs, x, y);
+            let (x2, y2) = self.check_move(
+                secondary_direction,
+                map,
+                players,
+                npcs,
+                x_add + x,
+                y_add + y,
+            );
             x += x2;
             y += y2;
         }
         (x, y)
     }
 
-    pub fn inner_apply_move(&self, map: &Map, players: &[Player], npcs: &[Enemy]) -> (i64, i64) {
+    pub fn inner_apply_move(
+        &self,
+        map: &Map,
+        players: &[Player],
+        npcs: &[Enemy],
+        x_add: i64,
+        y_add: i64,
+    ) -> (i64, i64) {
         if self.action.movement.is_none() {
             (0, 0)
         } else {
@@ -433,6 +470,8 @@ impl<'a> Character<'a> {
                 npcs,
                 self.action.direction,
                 self.action.secondary,
+                x_add,
+                y_add,
             )
         }
     }
@@ -536,25 +575,75 @@ impl<'a> Character<'a> {
         let mut x = 0;
         let mut y = 0;
 
-        while tmp > self.speed {
-            let (x1, y1) = self.inner_apply_move(map, players, npcs);
-            x += x1;
-            y += y1;
-            if x1 != 0 || y1 != 0 {
-                if self.is_running {
-                    if stamina.value() > 0 {
-                        let (x2, y2) = self.inner_apply_move(map, players, npcs);
-                        x += x2;
-                        y += y2;
-                        stamina.subtract(1);
+        if let Some(ref mut effect) = &mut *self.effect.borrow_mut() {
+            while tmp > effect.2 && (effect.0 != 0 || effect.1 != 0) {
+                if effect.0 != 0 {
+                    let (x1, _) = self.check_move(
+                        if effect.0 < 0 {
+                            Direction::Left
+                        } else {
+                            Direction::Right
+                        },
+                        map,
+                        players,
+                        npcs,
+                        x,
+                        y,
+                    );
+                    if x1 != 0 {
+                        x += x1;
+                        effect.0 += x1 * -1;
+                    } else {
+                        effect.0 = 0;
+                        effect.1 = 0;
+                        break;
                     }
                 }
-            } else {
-                // It means the character couldn't move in any of the direction it wanted so no
-                // need to continue this loop.
-                break;
+                if effect.1 != 0 {
+                    let (_, y1) = self.check_move(
+                        if effect.1 < 0 {
+                            Direction::Up
+                        } else {
+                            Direction::Down
+                        },
+                        map,
+                        players,
+                        npcs,
+                        x,
+                        y,
+                    );
+                    if y1 != 0 {
+                        y += y1;
+                        effect.1 += y1 * -1;
+                    } else {
+                        effect.0 = 0;
+                        effect.1 = 0;
+                        break;
+                    }
+                }
+                tmp -= effect.2;
             }
-            tmp -= self.speed;
+        } else {
+            while tmp > self.speed {
+                let (x1, y1) = self.inner_apply_move(map, players, npcs, x, y);
+                x += x1;
+                y += y1;
+                if x1 != 0 || y1 != 0 {
+                    if self.is_running {
+                        if stamina.value() > 0 {
+                            let (x2, y2) = self.inner_apply_move(map, players, npcs, x, y);
+                            x += x2;
+                            y += y2;
+                            stamina.subtract(1);
+                        }
+                    }
+                } else {
+                    // It means the character couldn't move in any of the direction it wanted so no
+                    // need to continue this loop.
+                    break;
+                }
+                tmp -= self.speed;
+            }
         }
         (x, y)
     }
@@ -576,21 +665,28 @@ impl<'a> Character<'a> {
         self.health.refresh(elapsed);
         self.mana.refresh(elapsed);
         self.move_delay += elapsed;
-        while self.move_delay > self.speed {
-            // We now update the animation!
-            if let Some(ref mut pos) = self.action.movement {
-                *pos += 1;
+        let effect = self.effect.borrow_mut().take();
+        if let Some(mut effect) = effect {
+            if effect.0 != 0 || effect.1 != 0 {
+                *self.effect.borrow_mut() = Some(effect);
             }
-            let stamina_value = self.stamina.value();
-            if self.is_running && stamina_value > 0 {
-                self.stamina.subtract(1);
-                self.is_running = stamina_value - 1 > 0;
+        } else {
+            while self.move_delay > self.speed {
+                // We now update the animation!
+                if let Some(ref mut pos) = self.action.movement {
+                    *pos += 1;
+                }
+                let stamina_value = self.stamina.value();
+                if self.is_running && stamina_value > 0 {
+                    self.stamina.subtract(1);
+                    self.is_running = stamina_value - 1 > 0;
+                }
+                self.move_delay -= self.speed;
             }
-            self.move_delay -= self.speed;
-        }
 
-        if let Some(ref mut weapon) = self.weapon {
-            weapon.update(elapsed);
+            if let Some(ref mut weapon) = self.weapon {
+                weapon.update(elapsed);
+            }
         }
 
         // We update the statuses display
@@ -615,38 +711,58 @@ impl<'a> Character<'a> {
 
     fn set_weapon_pos(&mut self) {
         if let Some(ref mut weapon) = self.weapon {
-            let (_, _, _, _, draw_width, draw_height) = self
-                .action
-                .compute_current(self.is_running, &self.texture_handler);
-            let draw_width = draw_width as i64;
-            let draw_height = draw_height as i64;
-            let width = weapon.width() as i64;
-            let height = weapon.height() as i64;
-            let (x, y) = match self.action.direction {
-                Direction::Up => (self.x + draw_width / 2 - 3, self.y - height),
-                Direction::Down => (self.x + draw_width / 2 - 4, self.y + draw_height - height),
-                Direction::Left => (self.x - 2, self.y + draw_height / 2 - height + 2),
-                Direction::Right => (
-                    self.x + draw_width - width + 2,
-                    self.y + draw_height / 2 - height,
-                ),
-            };
-            weapon.set_pos(x, y);
+            if weapon.is_attacking() {
+                let (_, _, _, _, draw_width, draw_height) = self
+                    .action
+                    .compute_current(self.is_running, &self.texture_handler);
+                let draw_width = draw_width as i64;
+                let draw_height = draw_height as i64;
+                let width = weapon.width() as i64;
+                let height = weapon.height() as i64;
+                let (x, y) = match self.action.direction {
+                    Direction::Up => (self.x + draw_width / 2 - 3, self.y - height),
+                    Direction::Down => (self.x + draw_width / 2 - 4, self.y + draw_height - height),
+                    Direction::Left => (self.x - 2, self.y + draw_height / 2 - height + 2),
+                    Direction::Right => (
+                        self.x + draw_width - width + 2,
+                        self.y + draw_height / 2 - height,
+                    ),
+                };
+                weapon.set_pos(x, y);
+            } else if weapon.is_blocking() {
+                // To set the direction of the blocking.
+                weapon.block(self.action.direction);
+
+                let (_, _, _, _, draw_width, draw_height) = self
+                    .action
+                    .compute_current(self.is_running, &self.texture_handler);
+                let draw_width = draw_width as i64;
+                let draw_height = draw_height as i64;
+                let width = weapon.width() as i64;
+                let height = weapon.height() as i64;
+                let (x, y) = match self.action.direction {
+                    Direction::Up => (self.x + width + 2, self.y - height + 3),
+                    Direction::Down => (self.x + width / 2, self.y + draw_height - 2),
+                    Direction::Left => (self.x - width - 4, self.y),
+                    Direction::Right => (self.x + draw_width, self.y),
+                };
+                weapon.set_pos(x, y);
+            }
         }
     }
 
     pub fn check_intersection<'b>(
         &mut self,
-        character_id: Id,
+        attacker_id: Id,
+        attacker_direction: Direction,
         weapon: &Weapon<'a>,
         matrix: &mut Option<Vec<(i64, i64)>>,
         font: &'b Font<'b, 'static>,
         texture_creator: &'a TextureCreator<WindowContext>,
     ) -> i32 {
-        let debug = self.id == 1 && character_id != self.id;
         if self.is_dead()
-            || character_id == self.id
-            || self.invincible_against.iter().any(|e| e.id == character_id)
+            || attacker_id == self.id
+            || self.invincible_against.iter().any(|e| e.id == attacker_id)
         {
             return 0;
         }
@@ -685,20 +801,56 @@ impl<'a> Character<'a> {
                 self.action.movement.is_some(),
                 (self.x, self.y),
             ) {
-                if weapon.attack >= 0 {
-                    self.health.subtract(weapon.attack as u64);
+                // TODO: add element effects on attacks.
+                // TODO2: if you attack with fire effect on a fire monster, it heals it!
+                let attack = if weapon.attack >= 0 {
+                    let attack = if self.is_blocking() {
+                        let dir = self.get_direction();
+                        {
+                            let mut effect = self.effect.borrow_mut();
+                            if effect.is_none() {
+                                // We want the character to be moved by 6 cases.
+                                let distance = MAP_CASE_SIZE * 6;
+                                // We want the "animation" to last for half a second.
+                                let dur = ONE_SECOND / 2 / distance as u64;
+                                *effect = Some(match dir {
+                                    Direction::Up => (0, distance, dur),
+                                    Direction::Down => (0, distance * -1, dur),
+                                    Direction::Right => (distance * -1, 0, dur),
+                                    Direction::Left => (distance, 0, dur),
+                                });
+                            }
+                        }
+                        if dir.is_opposite(attacker_direction) {
+                            // They're facing each other, full block on the attack!
+                            weapon.attack / 2
+                        } else if dir.is_adjacent(attacker_direction) {
+                            // Partially blocked, only 25% of the attack is removed
+                            weapon.attack * 3 / 4
+                        } else {
+                            // The attack is on the back, full damage!
+                            weapon.attack
+                        }
+                    } else {
+                        weapon.attack
+                    };
+                    let attack = if attack == 0 { 1 } else { attack };
+                    self.health.subtract(attack as u64);
+                    attack
                 } else {
                     self.health.add((weapon.attack * -1) as u64);
-                }
+                    weapon.attack
+                };
+                // TODO: not the same display if attack is negative (meaning you gain back health!).
                 if !self.health.is_empty() {
                     self.invincible_against
-                        .push(InvincibleAgainst::new(character_id, weapon.total_time));
+                        .push(InvincibleAgainst::new(attacker_id, weapon.total_time));
                     // TODO: add defense on characters and make computation here (also add dodge
                     // computation and the other stuff...)
                     self.statuses.push(Status::new(
                         font,
                         texture_creator,
-                        &weapon.attack.to_string(),
+                        &attack.to_string(),
                         Color::RGB(255, 0, 0),
                     ));
                 }
@@ -724,6 +876,33 @@ impl<'a> Character<'a> {
             Some(ref death) => death.is_done(),
             None => true,
         }
+    }
+
+    pub fn is_blocking(&self) -> bool {
+        self.weapon
+            .as_ref()
+            .map(|w| w.is_blocking())
+            .unwrap_or(false)
+    }
+    pub fn block(&mut self) {
+        let dir = self.get_direction();
+        if if let Some(ref mut weapon) = self.weapon {
+            weapon.block(dir);
+            true
+        } else {
+            false
+        } {
+            self.set_weapon_pos();
+        }
+    }
+    pub fn stop_block(&mut self) {
+        if let Some(ref mut weapon) = self.weapon {
+            weapon.stop_block();
+        }
+    }
+
+    pub fn get_direction(&self) -> Direction {
+        self.action.direction
     }
 }
 

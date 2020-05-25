@@ -214,7 +214,7 @@ impl<'a> Enemy<'a> {
                 xp_to_next_level: 1000,
                 xp: 100,
                 texture_handler,
-                weapon: Some(Sword::new(texture_creator)),
+                weapon: Some(Sword::new(texture_creator, 10)),
                 is_running: false,
                 id,
                 invincible_against: Vec::new(),
@@ -224,6 +224,7 @@ impl<'a> Enemy<'a> {
                 show_health_bar: true,
                 death_animation: Some(DeathAnimation::new(texture_creator, ONE_SECOND)),
                 kind,
+                effect: RefCell::new(None),
             },
             action: RefCell::new(EnemyAction::None),
             start_x: x,
@@ -730,7 +731,7 @@ impl<'a> Enemy<'a> {
                         node.1
                     );
                     self.character
-                        .inner_check_move(map, players, npcs, dir, dir2)
+                        .inner_check_move(map, players, npcs, dir, dir2, 0, 0)
                 } else {
                     (0, 0)
                 }

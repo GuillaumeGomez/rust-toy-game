@@ -28,6 +28,7 @@ pub struct Weapon<'a> {
     pub x: i64,
     pub y: i64,
     action: Option<WeaponAction>,
+    blocking_direction: Option<Direction>,
     pub kind: WeaponKind<'a>,
     // TODO: optimize memory usage by putting 8 pixels into one
     data: Vec<u8>,
@@ -71,6 +72,9 @@ impl<'a> Weapon<'a> {
         self.y = y;
     }
     pub fn update(&mut self, elapsed: u64) {
+        if self.blocking_direction.is_some() {
+            return;
+        }
         if let Some(mut action) = self.action.take() {
             if action.duration > elapsed {
                 action.duration -= elapsed;
@@ -83,30 +87,57 @@ impl<'a> Weapon<'a> {
         }
     }
     pub fn draw(&self, system: &mut System) {
-        if let Some(ref action) = self.action {
+        if let Some(direction) = self.blocking_direction {
             if let Some(texture) = self.get_texture() {
                 let x = self.x - system.x();
                 let y = self.y - system.y();
-                if x + self.width() as i64 >= 0
-                    && x < system.width() as i64
-                    && y + self.height() as i64 >= 0
-                    && y < system.height() as i64
-                {
-                    system
-                        .canvas
-                        .copy_ex(
-                            texture,
-                            None,
-                            Rect::new(x as i32, y as i32, self.width(), self.height()),
-                            action.angle as f64,
-                            Some((action.x_add, action.y_add).into()),
-                            false,
-                            false,
-                        )
-                        .expect("failed to copy sword");
-                }
+                let (angle, x_add, y_add) = match direction {
+                    Direction::Up => (90, 0, self.height() as i32),
+                    Direction::Right => (180, self.width() as i32, 0),
+                    Direction::Down => (270, self.width() as i32, self.height() as i32),
+                    Direction::Left => (0, 0, 0),
+                };
+                system
+                    .canvas
+                    .copy_ex(
+                        texture,
+                        None,
+                        Rect::new(x as i32, y as i32, self.width(), self.height()),
+                        angle as f64,
+                        None,
+                        false,
+                        false,
+                    )
+                    .expect("failed to copy blocking sword");
+            }
+        } else if let Some(ref action) = self.action {
+            if let Some(texture) = self.get_texture() {
+                let x = self.x - system.x();
+                let y = self.y - system.y();
+                system
+                    .canvas
+                    .copy_ex(
+                        texture,
+                        None,
+                        Rect::new(x as i32, y as i32, self.width(), self.height()),
+                        action.angle as f64,
+                        Some((action.x_add, action.y_add).into()),
+                        false,
+                        false,
+                    )
+                    .expect("failed to copy sword");
             }
         }
+    }
+    pub fn is_blocking(&self) -> bool {
+        self.blocking_direction.is_some()
+    }
+    pub fn block(&mut self, direction: Direction) {
+        self.blocking_direction = Some(direction);
+        self.action = None;
+    }
+    pub fn stop_block(&mut self) {
+        self.blocking_direction = None;
     }
     pub fn is_attacking(&self) -> bool {
         self.action.is_some()
@@ -119,6 +150,7 @@ impl<'a> Weapon<'a> {
     }
     pub fn use_it(&mut self, direction: Direction) {
         self.action = self.kind.use_it(direction);
+        self.blocking_direction = None;
     }
 }
 
@@ -202,7 +234,7 @@ fn get_surface_data(surface: &Surface<'_>) -> Vec<u8> {
 }
 
 impl<'a> Sword<'a> {
-    pub fn new(texture_creator: &'a TextureCreator<WindowContext>) -> Weapon<'a> {
+    pub fn new(texture_creator: &'a TextureCreator<WindowContext>, attack: i32) -> Weapon<'a> {
         let mut surface = Surface::from_file("resources/weapon.png")
             .expect("failed to load `resources/weapon.png`");
 
@@ -226,7 +258,8 @@ impl<'a> Sword<'a> {
                     .create_texture_from_surface(surface)
                     .expect("failed to build weapon texture from surface"),
             }),
-            attack: 10,
+            attack,
+            blocking_direction: None,
         }
     }
     /// In case there is a timeout or something, you might not be able to use the weapon.

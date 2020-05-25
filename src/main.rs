@@ -240,12 +240,14 @@ pub fn main() {
                 players[i].update(update_elapsed, x, y);
                 if players[i].is_attacking() {
                     let id = players[i].id;
+                    let dir = players[i].get_direction();
                     if let Some(ref weapon) = players[i].weapon {
                         let mut matrix = None;
                         // TODO: for now, players can only attack NPCs
                         for it in (0..enemies.len()).rev() {
                             let attack = enemies[it].check_intersection(
                                 id,
+                                dir,
                                 weapon,
                                 &mut matrix,
                                 &font_14,
@@ -291,12 +293,14 @@ pub fn main() {
                 enemies[i].update(update_elapsed, x, y);
                 if enemies[i].is_attacking() {
                     let id = enemies[i].id;
+                    let dir = enemies[i].get_direction();
                     if let Some(ref weapon) = enemies[i].weapon {
                         let mut matrix = None;
                         // TODO: for now, NPCs can only attack players
                         for player in players.iter_mut() {
                             player.check_intersection(
                                 id,
+                                dir,
                                 weapon,
                                 &mut matrix,
                                 &font_14,

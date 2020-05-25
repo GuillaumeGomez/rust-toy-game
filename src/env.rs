@@ -83,6 +83,10 @@ impl<'a> Env<'a> {
                                 self.is_attack_pressed = true;
                             }
                         }
+                        Keycode::LCtrl => {
+                            players[0].stop_attack();
+                            players[0].block();
+                        }
                         Keycode::LShift => {
                             players[0].is_run_pressed = true;
                             players[0].is_running = players[0].action.movement.is_some();
@@ -107,6 +111,12 @@ impl<'a> Env<'a> {
                         Keycode::LShift => {
                             players[0].is_run_pressed = false;
                             players[0].is_running = false;
+                        }
+                        Keycode::LCtrl => {
+                            players[0].stop_block();
+                            if self.is_attack_pressed {
+                                players[0].attack();
+                            }
                         }
                         Keycode::Space => self.is_attack_pressed = false,
                         Keycode::Return => {
