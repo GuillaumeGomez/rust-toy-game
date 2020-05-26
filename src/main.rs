@@ -23,6 +23,9 @@ macro_rules! return_if_none {
     }};
 }
 
+#[macro_use]
+mod utils;
+
 mod character;
 mod death_animation;
 mod debug_display;
@@ -41,7 +44,6 @@ mod system;
 mod texture_handler;
 mod texture_holder;
 mod traits;
-mod utils;
 mod weapon;
 
 use character::CharacterKind;
@@ -95,9 +97,11 @@ pub fn main() {
 
     let sdl_context = sdl2::init().expect("failed to init SDL");
     let _sdl_img_context = image::init(image::InitFlag::PNG).expect("failed to init SDL image");
+    let game_controller_subsystem = sdl_context
+        .game_controller()
+        .expect("failed to init game controller subsystem");
 
     let ttf_context = ttf::init().expect("failed to init SDL TTF");
-
     let video_subsystem = sdl_context.video().expect("failed to get video context");
 
     let window = video_subsystem
@@ -179,7 +183,7 @@ pub fn main() {
         &enemy_texture,
         &forced_enemy_surface,
         0,
-        40,
+        800, // 40,
         2,
         CharacterKind::Enemy,
         enemy_surface.width() / 3,
@@ -187,7 +191,13 @@ pub fn main() {
     )];
 
     let hud = HUD::new(&texture_creator);
-    let mut env = Env::new(&texture_creator, &font_16, WIDTH as u32, HEIGHT as u32);
+    let mut env = Env::new(
+        &game_controller_subsystem,
+        &texture_creator,
+        &font_16,
+        WIDTH as u32,
+        HEIGHT as u32,
+    );
     let mut rewards = Vec::new();
 
     let mut update_elapsed = 0;

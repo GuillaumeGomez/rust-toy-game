@@ -40,3 +40,16 @@ where
     y *= y;
     ((x + y) as f32).sqrt() as i32
 }
+
+#[macro_export]
+macro_rules! debug_enemy {
+    ($($x:tt)*) => (
+        #[cfg(feature = "debug_enemy")]
+        {
+            println!($($x)*);
+        }
+        #[cfg(not(feature = "debug_enemy"))]
+        {
+        }
+    )
+}

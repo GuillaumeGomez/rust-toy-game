@@ -1,3 +1,4 @@
+use sdl2::controller::{self, Axis, GameController};
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::mouse::MouseButton;
@@ -8,6 +9,7 @@ use sdl2::surface::Surface;
 use sdl2::ttf::Font;
 use sdl2::video::WindowContext;
 
+use crate::env::Env;
 use crate::system::System;
 
 struct Button<'a> {
