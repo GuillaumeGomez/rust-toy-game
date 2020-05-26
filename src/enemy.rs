@@ -441,7 +441,7 @@ impl<'a> Enemy<'a> {
                 // be able to attack him. If we can't, then we find a way to the target by creating
                 // a path.
                 if dist_x > weapon_height / 3 && dist_y > weapon_height / 2 {
-                    println!("Re-adjusting position!");
+                    debug_enemy!("Re-adjusting position!");
                     if self.character.check_map_pos(
                         if target.x() > self.x() {
                             Direction::Right
@@ -498,7 +498,7 @@ impl<'a> Enemy<'a> {
                 if distance < crate::ONE_METER as i32 * 8 =>
             {
                 let player = &players[index];
-                // println!("Enemy is gonna chase player!");
+                // debug_enemy!("Enemy is gonna chase player!");
                 if let Some(nodes) = self.path_finder(
                     self.x(),
                     self.y(),
@@ -673,7 +673,7 @@ impl<'a> Enemy<'a> {
                             }
                         }
                         Obstacle::Character => {
-                            println!("character in the path");
+                            debug_enemy!("character in the path");
                             // We need to recompute the path
                             if let Some(nodes) = self.path_finder(
                                 self.x(),
@@ -693,7 +693,7 @@ impl<'a> Enemy<'a> {
                             }
                         }
                         _ => {
-                            println!("no problem with the path apparently!");
+                            debug_enemy!("no problem with the path apparently!");
                             None
                         }
                     }
@@ -705,7 +705,7 @@ impl<'a> Enemy<'a> {
         if let Some(new_action) = new_action {
             *action = new_action;
         }
-        println!("next action: {:?}", action);
+        debug_enemy!("next action: {:?}", action);
         // Time to apply actions now!
         match &mut *action {
             EnemyAction::None | EnemyAction::Attack(_) => (0, 0),
@@ -720,7 +720,7 @@ impl<'a> Enemy<'a> {
                     let node = &nodes[nodes.len() - 1];
                     let (x_add, y_add) = self.compute_adds(node.0, node.1);
                     let (dir, dir2) = self.get_directions(x_add, y_add);
-                    println!(
+                    debug_enemy!(
                         "---> [{:?}] ({}, {}) || ({}, {}) => ({}, {})",
                         dir,
                         x_add,
