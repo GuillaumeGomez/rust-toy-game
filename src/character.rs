@@ -539,7 +539,7 @@ impl<'a> Character<'a> {
         }
     }
 
-    // TODO: add stamina consumption when attacking
+    // TODO: add stamina consumption when attacking, depending on the weight of the weapon!
     pub fn attack(&mut self) {
         if let Some(ref mut weapon) = self.weapon {
             weapon.use_it(self.action.direction);
