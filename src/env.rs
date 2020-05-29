@@ -20,6 +20,218 @@ use crate::texture_holder::TextureHolder;
 use crate::utils::compute_distance;
 use crate::{GetDimension, GetPos, FPS_REFRESH, ONE_SECOND};
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum EventKind {
+    Press,
+    Release,
+}
+
+struct GamePad {
+    controller: GameController,
+    left_stick_last_event_x: (EventKind, Direction),
+    left_stick_last_event_y: (EventKind, Direction),
+    right_stick_last_event_x: (EventKind, Direction),
+    right_stick_last_event_y: (EventKind, Direction),
+    left_trigger_last_event: EventKind,
+    right_trigger_last_event: EventKind,
+}
+
+impl Direction {
+    fn into_sdl_keycode(self) -> Keycode {
+        match self {
+            Direction::Right => Keycode::Right,
+            Direction::Left => Keycode::Left,
+            Direction::Up => Keycode::Up,
+            Direction::Down => Keycode::Down,
+        }
+    }
+}
+
+macro_rules! update_axis {
+    ($field:expr, $value:ident, $dir1:expr, $dir2:expr, $timestamp:expr) => {{
+        let is_pressed = $field.0 == EventKind::Press;
+        let mut tmp = None;
+        if $value > 7500 {
+            if $field == (EventKind::Press, $dir1) {
+                return vec![];
+            }
+            if is_pressed {
+                tmp = Some($dir2);
+            }
+            $field = (EventKind::Press, $dir1);
+        } else if $value < -7500 {
+            if $field == (EventKind::Press, $dir2) {
+                return vec![];
+            }
+            if is_pressed {
+                tmp = Some($dir2);
+            }
+            $field = (EventKind::Press, $dir2);
+        } else {
+            if $field.0 == EventKind::Release {
+                return vec![];
+            }
+            $field.0 = EventKind::Release;
+            return vec![Event::KeyUp {
+                keycode: Some($field.1.into_sdl_keycode()),
+                window_id: 0,
+                timestamp: $timestamp,
+                scancode: None,
+                repeat: false,
+                keymod: Mod::empty(),
+            }];
+        }
+        if let Some(tmp) = tmp {
+            vec![
+                Event::KeyDown {
+                    keycode: Some(tmp.into_sdl_keycode()),
+                    window_id: 0,
+                    timestamp: $timestamp,
+                    scancode: None,
+                    repeat: false,
+                    keymod: Mod::empty(),
+                },
+                Event::KeyDown {
+                    keycode: Some($field.1.into_sdl_keycode()),
+                    window_id: 0,
+                    timestamp: $timestamp,
+                    scancode: None,
+                    repeat: false,
+                    keymod: Mod::empty(),
+                },
+            ]
+        } else {
+            vec![Event::KeyDown {
+                keycode: Some($field.1.into_sdl_keycode()),
+                window_id: 0,
+                timestamp: $timestamp,
+                scancode: None,
+                repeat: false,
+                keymod: Mod::empty(),
+            }]
+        }
+    }};
+}
+
+macro_rules! update_trigger {
+    ($keycode:expr, $field:expr, $timestamp:expr, $value:expr) => {{
+        if $value > 30 {
+            if $field != EventKind::Press {
+                $field = EventKind::Press;
+                vec![Event::KeyDown {
+                    keycode: Some($keycode),
+                    window_id: 0,
+                    timestamp: $timestamp,
+                    scancode: None,
+                    repeat: false,
+                    keymod: Mod::empty(),
+                }]
+            } else {
+                vec![]
+            }
+        } else {
+            if $field == EventKind::Press {
+                vec![Event::KeyUp {
+                    keycode: Some($keycode),
+                    window_id: 0,
+                    timestamp: $timestamp,
+                    scancode: None,
+                    repeat: false,
+                    keymod: Mod::empty(),
+                }]
+            } else {
+                vec![]
+            }
+        }
+    }};
+}
+
+impl GamePad {
+    pub fn new(controller: GameController) -> Self {
+        GamePad {
+            controller,
+            left_stick_last_event_x: (EventKind::Release, Direction::Up),
+            left_stick_last_event_y: (EventKind::Release, Direction::Up),
+            right_stick_last_event_x: (EventKind::Release, Direction::Up),
+            right_stick_last_event_y: (EventKind::Release, Direction::Up),
+            left_trigger_last_event: EventKind::Release,
+            right_trigger_last_event: EventKind::Release,
+        }
+    }
+    pub fn convert_event(&mut self, event: Event) -> Vec<Event> {
+        match event {
+            Event::ControllerAxisMotion { which, .. }
+            | Event::ControllerButtonDown { which, .. }
+            | Event::ControllerButtonUp { which, .. }
+            | Event::ControllerDeviceRemoved { which, .. }
+            | Event::JoyDeviceRemoved { which, .. }
+                if which as i32 != self.controller.instance_id() =>
+            {
+                vec![]
+            }
+            Event::ControllerAxisMotion {
+                timestamp,
+                axis,
+                value,
+                which,
+            } => match axis {
+                Axis::LeftX => update_axis!(
+                    self.left_stick_last_event_x,
+                    value,
+                    Direction::Right,
+                    Direction::Left,
+                    timestamp
+                ),
+                Axis::LeftY => update_axis!(
+                    self.left_stick_last_event_y,
+                    value,
+                    Direction::Down,
+                    Direction::Up,
+                    timestamp
+                ),
+                Axis::RightX => update_axis!(
+                    self.right_stick_last_event_x,
+                    value,
+                    Direction::Right,
+                    Direction::Left,
+                    timestamp
+                ),
+                Axis::RightY => update_axis!(
+                    self.right_stick_last_event_y,
+                    value,
+                    Direction::Down,
+                    Direction::Up,
+                    timestamp
+                ),
+                Axis::TriggerRight => update_trigger!(
+                    Keycode::LCtrl,
+                    self.right_trigger_last_event,
+                    timestamp,
+                    value
+                ),
+                Axis::TriggerLeft => update_trigger!(
+                    Keycode::LShift,
+                    self.left_trigger_last_event,
+                    timestamp,
+                    value
+                ),
+                _ => vec![Event::ControllerAxisMotion {
+                    axis,
+                    timestamp,
+                    value,
+                    which,
+                }],
+            },
+            Event::ControllerDeviceRemoved { which, timestamp }
+            | Event::JoyDeviceRemoved { which, timestamp } => {
+                // We remap the two events into one.
+                vec![Event::ControllerDeviceRemoved { which, timestamp }]
+            }
+            ev => vec![ev],
+        }
+    }
+}
+
 pub struct Env<'a> {
     pub display_menu: bool,
     pub is_attack_pressed: bool,
@@ -30,7 +242,7 @@ pub struct Env<'a> {
     pub need_sort_rewards: bool,
     pub closest_reward: Option<(i32, usize)>,
     pub game_controller_subsystem: &'a GameControllerSubsystem,
-    pub controller: Option<GameController>,
+    controller: Option<GamePad>,
 }
 
 impl<'a> Env<'a> {
@@ -84,7 +296,7 @@ impl<'a> Env<'a> {
                     // We managed to find and open a game controller,
                     // exit the loop
                     println!("Success: opened \"{}\"", c.name());
-                    Some(c)
+                    Some(GamePad::new(c))
                 }
                 Err(e) => {
                     println!("failed: {:?}", e);
@@ -102,45 +314,28 @@ impl<'a> Env<'a> {
     ) -> bool {
         let mouse_state = event_pump.mouse_state();
         for event in event_pump.poll_iter() {
-            if self.display_menu {
-                match self.menu.handle_event(match event {
-                    Event::ControllerDeviceAdded { .. } => {
-                        println!("new device detected!");
-                        self.update_controller();
-                        continue;
-                    }
-                    Event::ControllerDeviceRemoved { which, .. }
-                    | Event::JoyDeviceRemoved { which, .. } => {
-                        if Some(which as i32) == self.controller.as_ref().map(|c| c.instance_id()) {
-                            self.controller = None;
+            let events = match self.controller {
+                Some(ref mut c) => c.convert_event(event),
+                None => vec![event],
+            };
+            for event in events {
+                if self.display_menu {
+                    match self.menu.handle_event(match event {
+                        Event::ControllerDeviceAdded { .. } => {
+                            println!("new device detected!");
+                            self.update_controller();
+                            continue;
                         }
-                        println!("device removed!");
-                        continue;
-                    }
-                    Event::ControllerButtonDown {
-                        button,
-                        which,
-                        timestamp,
-                    } if Some(which as i32)
-                        == self.controller.as_ref().map(|c| c.instance_id()) =>
-                    {
-                        match button {
-                            Button::DPadUp => Event::KeyDown {
-                                keycode: Some(Keycode::Up),
-                                window_id: 0,
-                                timestamp,
-                                scancode: None,
-                                repeat: false,
-                                keymod: Mod::empty(),
-                            },
-                            Button::DPadDown => Event::KeyDown {
-                                keycode: Some(Keycode::Down),
-                                window_id: 0,
-                                timestamp,
-                                scancode: None,
-                                repeat: false,
-                                keymod: Mod::empty(),
-                            },
+                        Event::ControllerDeviceRemoved { which, .. } => {
+                            self.controller = None;
+                            println!("device removed!");
+                            continue;
+                        }
+                        Event::ControllerButtonDown {
+                            button,
+                            which,
+                            timestamp,
+                        } => match button {
                             Button::A => Event::KeyDown {
                                 keycode: Some(Keycode::Return),
                                 window_id: 0,
@@ -158,167 +353,120 @@ impl<'a> Env<'a> {
                                 keymod: Mod::empty(),
                             },
                             _ => continue,
+                        },
+                        e => e,
+                    }) {
+                        MenuEvent::Quit => return false,
+                        MenuEvent::Resume => self.display_menu = false,
+                        MenuEvent::None => {}
+                    }
+                } else {
+                    match event {
+                        Event::ControllerDeviceAdded { .. } => {
+                            println!("new device detected!");
+                            self.update_controller();
                         }
-                    }
-                    e => e,
-                }) {
-                    MenuEvent::Quit => return false,
-                    MenuEvent::Resume => self.display_menu = false,
-                    MenuEvent::None => {}
-                }
-            } else {
-                match event {
-                    Event::ControllerDeviceAdded { .. } => {
-                        println!("new device detected!");
-                        self.update_controller();
-                    }
-                    Event::ControllerDeviceRemoved { which, .. }
-                    | Event::JoyDeviceRemoved { which, .. } => {
-                        if Some(which as i32) == self.controller.as_ref().map(|c| c.instance_id()) {
+                        Event::ControllerDeviceRemoved { which, .. } => {
                             self.controller = None;
+                            println!("device removed!");
                         }
-                        println!("device removed!");
-                    }
-                    Event::ControllerButtonDown { button, which, .. } => {
-                        if Some(which as i32) == self.controller.as_ref().map(|c| c.instance_id()) {
-                            match button {
-                                Button::DPadUp => players[0].handle_move(Direction::Up),
-                                Button::DPadDown => players[0].handle_move(Direction::Down),
-                                Button::DPadLeft => players[0].handle_move(Direction::Left),
-                                Button::DPadRight => players[0].handle_move(Direction::Right),
-                                Button::A => {
-                                    if !self.is_attack_pressed {
-                                        players[0].attack();
-                                        self.is_attack_pressed = true;
-                                    }
+                        Event::ControllerButtonDown { button, which, .. } => match button {
+                            Button::DPadUp => players[0].handle_move(Direction::Up),
+                            Button::DPadDown => players[0].handle_move(Direction::Down),
+                            Button::DPadLeft => players[0].handle_move(Direction::Left),
+                            Button::DPadRight => players[0].handle_move(Direction::Right),
+                            Button::A => {
+                                if !self.is_attack_pressed {
+                                    players[0].attack();
+                                    self.is_attack_pressed = true;
                                 }
-                                _ => {}
                             }
-                        }
-                    }
-                    Event::ControllerButtonUp { button, which, .. } => {
-                        if Some(which as i32) == self.controller.as_ref().map(|c| c.instance_id()) {
-                            println!("button pressed: {:?}", button);
-                            match button {
-                                Button::DPadUp => players[0].handle_release(Direction::Up),
-                                Button::DPadDown => players[0].handle_release(Direction::Down),
-                                Button::DPadLeft => players[0].handle_release(Direction::Left),
-                                Button::DPadRight => players[0].handle_release(Direction::Right),
-                                Button::A => self.is_attack_pressed = false,
-                                Button::Start => {
-                                    self.display_menu = true;
-                                    self.menu.update(0, 0);
+                            _ => {}
+                        },
+                        Event::ControllerButtonUp { button, which, .. } => match button {
+                            Button::DPadUp => players[0].handle_release(Direction::Up),
+                            Button::DPadDown => players[0].handle_release(Direction::Down),
+                            Button::DPadLeft => players[0].handle_release(Direction::Left),
+                            Button::DPadRight => players[0].handle_release(Direction::Right),
+                            Button::A => self.is_attack_pressed = false,
+                            Button::Start => {
+                                self.display_menu = true;
+                                self.menu.update(0, 0);
+                            }
+                            _ => {}
+                        },
+                        Event::Quit { .. } => return false,
+                        Event::KeyDown {
+                            keycode: Some(x), ..
+                        } => match x {
+                            Keycode::Escape => {
+                                self.display_menu = true;
+                                // To hover buttons in case the mouse is hovering one.
+                                self.menu.update(mouse_state.x(), mouse_state.y());
+                            }
+                            Keycode::Left | Keycode::Q => players[0].handle_move(Direction::Left),
+                            Keycode::Right | Keycode::D => players[0].handle_move(Direction::Right),
+                            Keycode::Up | Keycode::Z => players[0].handle_move(Direction::Up),
+                            Keycode::Down | Keycode::S => players[0].handle_move(Direction::Down),
+                            Keycode::Space => {
+                                if !self.is_attack_pressed {
+                                    players[0].attack();
+                                    self.is_attack_pressed = true;
                                 }
-                                _ => {}
                             }
-                        }
-                    }
-                    Event::ControllerAxisMotion {
-                        axis, which, value, ..
-                    } => {
-                        if Some(which as i32) == self.controller.as_ref().map(|c| c.instance_id()) {
-                            match axis {
-                                Axis::LeftX => {
-                                    if value > 7500 {
-                                        players[0].handle_move(Direction::Right)
-                                    } else if value < -7500 {
-                                        players[0].handle_move(Direction::Left)
-                                    } else {
-                                        players[0].handle_release(Direction::Right);
-                                        players[0].handle_release(Direction::Left);
-                                    }
+                            Keycode::LCtrl => {
+                                players[0].stop_attack();
+                                players[0].block();
+                            }
+                            Keycode::LShift => {
+                                players[0].is_run_pressed = true;
+                                players[0].is_running = players[0].action.movement.is_some();
+                            }
+                            Keycode::F3 => {
+                                if self.debug.is_some() {
+                                    self.debug = None;
+                                } else {
+                                    self.debug = Some(FPS_REFRESH - 1);
                                 }
-                                Axis::LeftY => {
-                                    if value > 7500 {
-                                        players[0].handle_move(Direction::Down)
-                                    } else if value < -7500 {
-                                        players[0].handle_move(Direction::Up)
-                                    } else {
-                                        players[0].handle_release(Direction::Up);
-                                        players[0].handle_release(Direction::Down);
-                                    }
+                            }
+                            Keycode::F5 => self.debug_display.switch_draw_grid(),
+                            _ => {}
+                        },
+                        Event::KeyUp {
+                            keycode: Some(x), ..
+                        } => match x {
+                            Keycode::Left | Keycode::Q => {
+                                players[0].handle_release(Direction::Left)
+                            }
+                            Keycode::Right | Keycode::D => {
+                                players[0].handle_release(Direction::Right)
+                            }
+                            Keycode::Up | Keycode::Z => players[0].handle_release(Direction::Up),
+                            Keycode::Down | Keycode::S => {
+                                players[0].handle_release(Direction::Down)
+                            }
+                            Keycode::LShift => {
+                                players[0].is_run_pressed = false;
+                                players[0].is_running = false;
+                            }
+                            Keycode::LCtrl => {
+                                players[0].stop_block();
+                                if self.is_attack_pressed {
+                                    players[0].attack();
                                 }
-                                Axis::TriggerRight => {
-                                    println!("{:?} {}", value > 30, !players[0].is_blocking());
-                                    if value > 30 && !players[0].is_blocking() {
-                                        players[0].stop_attack();
-                                        players[0].block();
-                                    } else if players[0].is_blocking() {
-                                        players[0].stop_block();
-                                        if self.is_attack_pressed {
-                                            players[0].attack();
-                                        }
-                                    }
+                            }
+                            Keycode::Space => self.is_attack_pressed = false,
+                            Keycode::Return => {
+                                if let Some((_, reward)) = self.closest_reward.take() {
+                                    // TODO: actually give reward to the players[0].
+                                    self.need_sort_rewards = true;
+                                    rewards.remove(reward);
                                 }
-                                _ => {}
                             }
-                        }
-                    }
-                    Event::Quit { .. } => return false,
-                    Event::KeyDown {
-                        keycode: Some(x), ..
-                    } => match x {
-                        Keycode::Escape => {
-                            self.display_menu = true;
-                            // To hover buttons in case the mouse is hovering one.
-                            self.menu.update(mouse_state.x(), mouse_state.y());
-                        }
-                        Keycode::Left | Keycode::Q => players[0].handle_move(Direction::Left),
-                        Keycode::Right | Keycode::D => players[0].handle_move(Direction::Right),
-                        Keycode::Up | Keycode::Z => players[0].handle_move(Direction::Up),
-                        Keycode::Down | Keycode::S => players[0].handle_move(Direction::Down),
-                        Keycode::Space => {
-                            if !self.is_attack_pressed {
-                                players[0].attack();
-                                self.is_attack_pressed = true;
-                            }
-                        }
-                        Keycode::LCtrl => {
-                            players[0].stop_attack();
-                            players[0].block();
-                        }
-                        Keycode::LShift => {
-                            players[0].is_run_pressed = true;
-                            players[0].is_running = players[0].action.movement.is_some();
-                        }
-                        Keycode::F3 => {
-                            if self.debug.is_some() {
-                                self.debug = None;
-                            } else {
-                                self.debug = Some(FPS_REFRESH - 1);
-                            }
-                        }
-                        Keycode::F5 => self.debug_display.switch_draw_grid(),
+                            _ => {}
+                        },
                         _ => {}
-                    },
-                    Event::KeyUp {
-                        keycode: Some(x), ..
-                    } => match x {
-                        Keycode::Left | Keycode::Q => players[0].handle_release(Direction::Left),
-                        Keycode::Right | Keycode::D => players[0].handle_release(Direction::Right),
-                        Keycode::Up | Keycode::Z => players[0].handle_release(Direction::Up),
-                        Keycode::Down | Keycode::S => players[0].handle_release(Direction::Down),
-                        Keycode::LShift => {
-                            players[0].is_run_pressed = false;
-                            players[0].is_running = false;
-                        }
-                        Keycode::LCtrl => {
-                            players[0].stop_block();
-                            if self.is_attack_pressed {
-                                players[0].attack();
-                            }
-                        }
-                        Keycode::Space => self.is_attack_pressed = false,
-                        Keycode::Return => {
-                            if let Some((_, reward)) = self.closest_reward.take() {
-                                // TODO: actually give reward to the players[0].
-                                self.need_sort_rewards = true;
-                                rewards.remove(reward);
-                            }
-                        }
-                        _ => {}
-                    },
-                    _ => {}
+                    }
                 }
             }
         }
