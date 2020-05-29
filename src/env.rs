@@ -249,6 +249,7 @@ impl<'a> Env<'a> {
     pub fn new(
         game_controller_subsystem: &'a GameControllerSubsystem,
         texture_creator: &'a TextureCreator<WindowContext>,
+        textures: &mut HashMap<String, TextureHolder<'a>>,
         font: &'a Font<'_, 'static>,
         width: u32,
         height: u32,
@@ -259,7 +260,7 @@ impl<'a> Env<'a> {
             debug: None,
             fps_str: String::new(),
             debug_display: DebugDisplay::new(font, texture_creator, 16),
-            menu: Menu::new(texture_creator, font, width, height),
+            menu: Menu::new(texture_creator, textures, font, width, height),
             need_sort_rewards: false,
             closest_reward: None,
             game_controller_subsystem,
@@ -311,6 +312,7 @@ impl<'a> Env<'a> {
         event_pump: &mut EventPump,
         players: &mut [Player],
         rewards: &mut Vec<Reward>,
+        textures: &'a HashMap<String, TextureHolder<'a>>,
     ) -> bool {
         let mouse_state = event_pump.mouse_state();
         for event in event_pump.poll_iter() {
@@ -320,45 +322,49 @@ impl<'a> Env<'a> {
             };
             for event in events {
                 if self.display_menu {
-                    match self.menu.handle_event(match event {
-                        Event::ControllerDeviceAdded { .. } => {
-                            println!("new device detected!");
-                            self.update_controller();
-                            continue;
-                        }
-                        Event::ControllerDeviceRemoved { which, .. } => {
-                            self.controller = None;
-                            println!("device removed!");
-                            continue;
-                        }
-                        Event::ControllerButtonDown {
-                            button,
-                            which,
-                            timestamp,
-                        } => match button {
-                            Button::A => Event::KeyDown {
-                                keycode: Some(Keycode::Return),
-                                window_id: 0,
+                    match self.menu.handle_event(
+                        match event {
+                            Event::ControllerDeviceAdded { .. } => {
+                                println!("new device detected!");
+                                self.update_controller();
+                                continue;
+                            }
+                            Event::ControllerDeviceRemoved { which, .. } => {
+                                self.controller = None;
+                                println!("device removed!");
+                                continue;
+                            }
+                            Event::ControllerButtonDown {
+                                button,
+                                which,
                                 timestamp,
-                                scancode: None,
-                                repeat: false,
-                                keymod: Mod::empty(),
+                            } => match button {
+                                Button::A => Event::KeyDown {
+                                    keycode: Some(Keycode::Return),
+                                    window_id: 0,
+                                    timestamp,
+                                    scancode: None,
+                                    repeat: false,
+                                    keymod: Mod::empty(),
+                                },
+                                Button::B | Button::Start => Event::KeyDown {
+                                    keycode: Some(Keycode::Escape),
+                                    window_id: 0,
+                                    timestamp,
+                                    scancode: None,
+                                    repeat: false,
+                                    keymod: Mod::empty(),
+                                },
+                                _ => continue,
                             },
-                            Button::B | Button::Start => Event::KeyDown {
-                                keycode: Some(Keycode::Escape),
-                                window_id: 0,
-                                timestamp,
-                                scancode: None,
-                                repeat: false,
-                                keymod: Mod::empty(),
-                            },
-                            _ => continue,
+                            e => e,
                         },
-                        e => e,
-                    }) {
+                        textures,
+                    ) {
                         MenuEvent::Quit => return false,
                         MenuEvent::Resume => self.display_menu = false,
                         MenuEvent::None => {}
+                        _ => {}
                     }
                 } else {
                     match event {
@@ -401,6 +407,7 @@ impl<'a> Env<'a> {
                         } => match x {
                             Keycode::Escape => {
                                 self.display_menu = true;
+                                self.menu.set_pause(textures);
                                 // To hover buttons in case the mouse is hovering one.
                                 self.menu.update(mouse_state.x(), mouse_state.y());
                             }
@@ -508,7 +515,7 @@ impl<'a> Env<'a> {
         system: &mut System,
         rewards: &[Reward],
         player: &Player,
-        textures: &HashMap<&str, TextureHolder>,
+        textures: &HashMap<String, TextureHolder>,
     ) {
         if self.need_sort_rewards {
             self.closest_reward = None;

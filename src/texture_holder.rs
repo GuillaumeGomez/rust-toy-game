@@ -15,7 +15,7 @@ pub struct TextureHolder<'a> {
 }
 
 impl<'a> TextureHolder<'a> {
-    fn surface_to_texture(
+    pub fn surface_to_texture(
         texture_creator: &'a TextureCreator<WindowContext>,
         surface: Surface,
     ) -> TextureHolder<'a> {

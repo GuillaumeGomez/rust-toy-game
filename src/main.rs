@@ -144,7 +144,6 @@ pub fn main() {
     let enemy_texture = texture_creator
         .create_texture_from_surface(&enemy_surface)
         .expect("failed to build texture from surface");
-    use sdl2::rect::Rect;
     let mut forced_enemy_surface = Surface::new(24 * 3, 24 * 4, enemy_surface.pixel_format_enum())
         .expect("failed to create new surface for resize");
     let rect = forced_enemy_surface.rect();
@@ -155,11 +154,11 @@ pub fn main() {
     // TODO: maybe move that in `Env`?
     let mut textures = HashMap::new();
     textures.insert(
-        "reward",
+        "reward".to_owned(),
         TextureHolder::from_image(&texture_creator, "resources/bag.png").with_max_size(24),
     );
     textures.insert(
-        "reward-text",
+        "reward-text".to_owned(),
         TextureHolder::from_text(
             &texture_creator,
             &font_10,
@@ -194,6 +193,7 @@ pub fn main() {
     let mut env = Env::new(
         &game_controller_subsystem,
         &texture_creator,
+        &mut textures,
         &font_16,
         WIDTH as u32,
         HEIGHT as u32,
@@ -206,7 +206,7 @@ pub fn main() {
     let mut dead_enemies: Vec<Enemy> = Vec::new();
 
     loop {
-        if !env.handle_events(&mut event_pump, &mut players, &mut rewards) {
+        if !env.handle_events(&mut event_pump, &mut players, &mut rewards, &textures) {
             break;
         }
 

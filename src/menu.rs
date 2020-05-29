@@ -9,75 +9,41 @@ use sdl2::surface::Surface;
 use sdl2::ttf::Font;
 use sdl2::video::WindowContext;
 
+use std::collections::HashMap;
+
 use crate::env::Env;
 use crate::system::System;
+use crate::texture_holder::TextureHolder;
 
 struct Button<'a> {
-    texture: Texture<'a>,
-    texture_clicked: Texture<'a>,
-    text: Texture<'a>,
-    text_hovered: Texture<'a>,
+    texture: &'a TextureHolder<'a>,
+    texture_clicked: &'a TextureHolder<'a>,
+    text: &'a TextureHolder<'a>,
+    text_hovered: &'a TextureHolder<'a>,
     rect: Rect,
-    text_width: u32,
-    text_height: u32,
     is_hovered: bool,
     is_clicked: bool,
+    action: MenuEvent,
 }
 
 impl<'a> Button<'a> {
     fn new(
-        texture_creator: &'a TextureCreator<WindowContext>,
-        font: &'a Font,
-        text: &str,
+        text: &'a TextureHolder<'a>,
+        text_hovered: &'a TextureHolder<'a>,
+        button_texture: &'a TextureHolder<'a>,
+        button_texture_clicked: &'a TextureHolder<'a>,
         rect: Rect,
+        action: MenuEvent,
     ) -> Button<'a> {
-        let mut button = Surface::new(
-            rect.width(),
-            rect.height(),
-            texture_creator.default_pixel_format(),
-        )
-        .expect("failed to create button surface");
-        button
-            .fill_rect(None, Color::RGB(30, 30, 30))
-            .expect("failed to fill button surface");
-        let mut button_clicked = Surface::new(
-            rect.width(),
-            rect.height(),
-            texture_creator.default_pixel_format(),
-        )
-        .expect("failed to create button surface");
-        button_clicked
-            .fill_rect(None, Color::RGB(20, 20, 20))
-            .expect("failed to fill button surface");
-        let text_surface = font
-            .render(text)
-            .blended(Color::RGB(255, 255, 255))
-            .expect("failed to convert text to surface");
-        let text_width = text_surface.width();
-        let text_height = text_surface.height();
-        let text_hover_surface = font
-            .render(text)
-            .blended(Color::RGB(74, 138, 221))
-            .expect("failed to convert text to surface");
-
         Button {
-            texture: texture_creator
-                .create_texture_from_surface(button)
-                .expect("failed to build texture from Button surface"),
-            texture_clicked: texture_creator
-                .create_texture_from_surface(button_clicked)
-                .expect("failed to build texture from Button surface"),
-            text: texture_creator
-                .create_texture_from_surface(text_surface)
-                .expect("failed to build texture from Button surface"),
-            text_hovered: texture_creator
-                .create_texture_from_surface(text_hover_surface)
-                .expect("failed to build texture from Button surface"),
+            texture: button_texture,
+            texture_clicked: button_texture_clicked,
+            text,
+            text_hovered,
             rect,
-            text_width,
-            text_height,
             is_hovered: false,
             is_clicked: false,
+            action,
         }
     }
 
@@ -101,9 +67,9 @@ impl<'a> Button<'a> {
             .canvas
             .copy(
                 if self.is_clicked {
-                    &self.texture_clicked
+                    &self.texture_clicked.texture
                 } else {
-                    &self.texture
+                    &self.texture.texture
                 },
                 None,
                 self.rect,
@@ -113,40 +79,129 @@ impl<'a> Button<'a> {
             .canvas
             .copy(
                 if self.is_hovered {
-                    &self.text_hovered
+                    &self.text_hovered.texture
                 } else {
-                    &self.text
+                    &self.text.texture
                 },
                 None,
                 Rect::new(
-                    self.rect.x + (self.rect.width() - self.text_width) as i32 / 2,
-                    self.rect.y + (self.rect.height() - self.text_height) as i32 / 2,
-                    self.text_width,
-                    self.text_height,
+                    self.rect.x + (self.rect.width() - self.text.width) as i32 / 2,
+                    self.rect.y + (self.rect.height() - self.text.height) as i32 / 2,
+                    self.text.width,
+                    self.text.height,
                 ),
             )
             .expect("copy menu failed");
     }
 }
 
+fn create_text_textures<'a>(
+    texture_creator: &'a TextureCreator<WindowContext>,
+    textures: &mut HashMap<String, TextureHolder<'a>>,
+    font: &'a Font,
+    text: &str,
+) {
+    let name = format!("n:{}", text);
+    if !textures.contains_key(&name) {
+        textures.insert(
+            name,
+            TextureHolder::from_text(texture_creator, font, Color::RGB(255, 255, 255), None, text),
+        );
+    }
+    let name = format!("h:{}", text);
+    if !textures.contains_key(&name) {
+        textures.insert(
+            name,
+            TextureHolder::from_text(texture_creator, font, Color::RGB(74, 138, 221), None, text),
+        );
+    }
+}
+
+fn init_button_textures<'a>(
+    texture_creator: &'a TextureCreator<WindowContext>,
+    textures: &mut HashMap<String, TextureHolder<'a>>,
+    width: u32,
+    height: u32,
+) {
+    let mut button = Surface::new(width, height, texture_creator.default_pixel_format())
+        .expect("failed to create button surface");
+    button
+        .fill_rect(None, Color::RGB(30, 30, 30))
+        .expect("failed to fill button surface");
+    textures.insert(
+        "t:button".to_owned(),
+        TextureHolder::surface_to_texture(texture_creator, button),
+    );
+    let mut button_clicked = Surface::new(width, height, texture_creator.default_pixel_format())
+        .expect("failed to create button surface");
+    button_clicked
+        .fill_rect(None, Color::RGB(20, 20, 20))
+        .expect("failed to fill button surface");
+    textures.insert(
+        "t:button-clicked".to_owned(),
+        TextureHolder::surface_to_texture(texture_creator, button_clicked),
+    );
+}
+
+const MENUS: once_cell::sync::Lazy<Vec<(&'static str, Vec<(&'static str, MenuEvent)>)>> =
+    once_cell::sync::Lazy::new(|| {
+        vec![
+            (
+                "start",
+                vec![
+                    ("Start", MenuEvent::StartGame),
+                    ("Settings", MenuEvent::GoTo("settings")),
+                    ("Quit", MenuEvent::Quit),
+                ],
+            ),
+            (
+                "death",
+                vec![
+                    ("Save and exit", MenuEvent::Quit),
+                    ("Resurrect", MenuEvent::Resurrect),
+                ],
+            ),
+            (
+                "pause",
+                vec![
+                    ("Resume", MenuEvent::Resume),
+                    ("Settings", MenuEvent::GoTo("settings")),
+                    ("Quit", MenuEvent::Quit),
+                ],
+            ),
+            (
+                "settings",
+                vec![("Stuff", MenuEvent::None), ("Back", MenuEvent::GoBack)],
+            ),
+        ]
+    });
+
 #[derive(Clone, Copy, Debug)]
 pub enum MenuEvent {
+    StartGame,
     Quit,
     Resume,
+    Resurrect,
+    GoBack,
+    GoTo(&'static str),
     None,
 }
 
 pub struct Menu<'a> {
     background: Texture<'a>,
-    button_resume: Button<'a>,
-    button_quit: Button<'a>,
+    buttons: Vec<Button<'a>>,
     selected: Option<usize>,
     selected_texture: Texture<'a>,
+    parent_state: Vec<&'static str>,
+    state: &'static str,
+    width: u32,
+    height: u32,
 }
 
 impl<'a> Menu<'a> {
     pub fn new(
         texture_creator: &'a TextureCreator<WindowContext>,
+        textures: &mut HashMap<String, TextureHolder<'a>>,
         font: &'a Font,
         width: u32,
         height: u32,
@@ -162,68 +217,146 @@ impl<'a> Menu<'a> {
             .fill_rect(None, Color::RGB(74, 138, 221))
             .expect("failed to fill selected surface");
 
+        for (_, buttons) in MENUS.iter() {
+            for (text, _) in buttons {
+                create_text_textures(texture_creator, textures, font, text);
+            }
+        }
+
+        init_button_textures(texture_creator, textures, width / 2, 50);
+
         Menu {
             background: texture_creator
                 .create_texture_from_surface(background)
                 .expect("failed to build texture from Menu surface"),
-            button_resume: Button::new(
-                texture_creator,
-                font,
-                "Resume",
-                Rect::new(width as i32 / 4, height as i32 / 3, width / 2, 50),
-            ),
-            button_quit: Button::new(
-                texture_creator,
-                font,
-                "Quit",
-                Rect::new(width as i32 / 4, height as i32 / 3 * 2, width / 2, 50),
-            ),
+            buttons: Vec::new(),
             selected_texture: texture_creator
                 .create_texture_from_surface(selected_surface)
                 .expect("failed to build texture from selected surface"),
             selected: None,
+            state: "",
+            parent_state: Vec::new(),
+            width,
+            height,
+        }
+    }
+
+    pub fn set_pause(&mut self, textures: &'a HashMap<String, TextureHolder<'a>>) {
+        self.parent_state.clear();
+        self.set_state("pause", textures);
+    }
+
+    pub fn set_state(
+        &mut self,
+        state: &'static str,
+        textures: &'a HashMap<String, TextureHolder<'a>>,
+    ) {
+        if self.state == state {
+            return;
+        }
+        if self.state != "" {
+            self.parent_state.push(self.state);
+            self.selected = Some(0);
+        } else {
+            self.selected = None;
+        }
+        self.state = state;
+        for (name, buttons) in MENUS.iter() {
+            if *name == self.state {
+                self.buttons.clear();
+                let total = buttons.len() as i32 + 1;
+                for (pos, (text, action)) in buttons.iter().enumerate() {
+                    let texture = &textures[&format!("n:{}", text)];
+                    let texture_hover = &textures[&format!("h:{}", text)];
+                    let button_texture = &textures[&"t:button".to_owned()];
+                    let button_texture_clicked = &textures[&"t:button-clicked".to_owned()];
+                    self.buttons.push(Button::new(
+                        texture,
+                        texture_hover,
+                        button_texture,
+                        button_texture_clicked,
+                        Rect::new(
+                            self.width as i32 / 4,
+                            // 25 is the button's height divided by 2
+                            self.height as i32 / total * (pos + 1) as i32 - 25,
+                            self.width / 2,
+                            50,
+                        ),
+                        *action,
+                    ));
+                }
+            }
         }
     }
 
     pub fn update(&mut self, mouse_x: i32, mouse_y: i32) {
-        self.button_resume.update(mouse_x, mouse_y);
-        self.button_quit.update(mouse_x, mouse_y);
-
-        if self.button_resume.is_hovered {
-            self.selected = Some(0);
-        } else if self.button_quit.is_hovered {
-            self.selected = Some(1);
+        for (pos, button) in self.buttons.iter_mut().enumerate() {
+            button.update(mouse_x, mouse_y);
+            if button.is_hovered {
+                self.selected = Some(pos);
+            }
         }
     }
 
-    fn get_button(&self, pos: usize) -> &Button {
-        if pos == 0 {
-            &self.button_resume
-        } else {
-            &self.button_quit
+    fn get_selected_button(&self) -> Option<&Button> {
+        match self.selected {
+            Some(selected) => self.buttons.get(selected),
+            None => None,
         }
     }
 
     pub fn reset_buttons(&mut self) {
         self.selected = None;
-        self.button_resume.is_hovered = false;
-        self.button_quit.is_hovered = false;
+        for button in self.buttons.iter_mut() {
+            button.is_hovered = false;
+        }
         self.unclick_buttons();
     }
 
     pub fn unclick_buttons(&mut self) {
-        self.button_resume.is_clicked = false;
-        self.button_quit.is_clicked = false;
+        for button in self.buttons.iter_mut() {
+            button.is_clicked = false;
+        }
     }
 
-    pub fn handle_event(&mut self, event: Event) -> MenuEvent {
+    fn handle_button(
+        &mut self,
+        button_pos: usize,
+        textures: &'a HashMap<String, TextureHolder<'a>>,
+    ) -> MenuEvent {
+        match self.buttons[button_pos].action {
+            MenuEvent::StartGame => return MenuEvent::Resume,
+            MenuEvent::Resurrect => {
+                // TODO: handle this one correctly!
+                return MenuEvent::Resume;
+            }
+            MenuEvent::GoBack => {
+                self.state = "";
+                if let Some(p) = self.parent_state.pop() {
+                    self.set_state(p, textures);
+                    return MenuEvent::None;
+                } else {
+                    return MenuEvent::Resume;
+                }
+            }
+            MenuEvent::GoTo(s) => {
+                self.set_state(s, textures);
+                return MenuEvent::None;
+            }
+            e => return e,
+        }
+    }
+
+    pub fn handle_event(
+        &mut self,
+        event: Event,
+        textures: &'a HashMap<String, TextureHolder<'a>>,
+    ) -> MenuEvent {
         match event {
             Event::Quit { .. } => {
                 self.reset_buttons();
                 return MenuEvent::Quit;
             }
-            // TODO: would be nice to hover buttons with keys and not just mouse
-            // TODO: actually, might be worth it to just give events to the menu directly...
             Event::KeyDown {
                 keycode: Some(x), ..
             } => match x {
@@ -244,25 +377,19 @@ impl<'a> Menu<'a> {
                 }
                 Keycode::Down => {
                     if let Some(ref mut selected) = self.selected {
-                        if *selected < 1 {
+                        if *selected + 1 < self.buttons.len() {
                             *selected += 1;
                         } else {
                             *selected = 0;
                         }
                     } else {
-                        self.selected = Some(1);
+                        self.selected = Some(self.buttons.len() - 1);
                     }
                 }
-                Keycode::Return => {
-                    if let Some(selected) = self.selected {
-                        if selected == 0 {
-                            self.reset_buttons();
-                            return MenuEvent::Resume;
-                        } else {
-                            return MenuEvent::Quit;
-                        }
-                    }
-                }
+                Keycode::Return => match self.selected {
+                    Some(selected) => return self.handle_button(selected, textures),
+                    None => {}
+                },
                 _ => {}
             },
             Event::MouseMotion { x, y, .. } => {
@@ -274,8 +401,9 @@ impl<'a> Menu<'a> {
                 mouse_btn: MouseButton::Left,
                 ..
             } => {
-                self.button_resume.update_click(x, y);
-                self.button_quit.update_click(x, y);
+                for button in self.buttons.iter_mut() {
+                    button.update_click(x, y);
+                }
             }
             Event::MouseButtonUp {
                 x,
@@ -283,12 +411,12 @@ impl<'a> Menu<'a> {
                 mouse_btn: MouseButton::Left,
                 ..
             } => {
-                if self.button_resume.is_clicked && self.button_resume.is_in(x, y) {
-                    self.reset_buttons();
-                    return MenuEvent::Resume;
-                }
-                if self.button_quit.is_clicked && self.button_quit.is_in(x, y) {
-                    return MenuEvent::Quit;
+                if let Some(clicked) = self
+                    .buttons
+                    .iter()
+                    .position(|b| b.is_clicked && b.is_in(x, y))
+                {
+                    return self.handle_button(clicked, textures);
                 }
                 self.unclick_buttons();
             }
@@ -302,10 +430,11 @@ impl<'a> Menu<'a> {
             .canvas
             .copy(&self.background, None, None)
             .expect("copy menu failed");
-        self.button_resume.draw(system);
-        self.button_quit.draw(system);
-        if let Some(selected) = self.selected {
-            let rect = self.get_button(selected).rect;
+        for button in self.buttons.iter() {
+            button.draw(system);
+        }
+        if let Some(selected) = self.get_selected_button() {
+            let rect = selected.rect;
             system
                 .canvas
                 .copy(

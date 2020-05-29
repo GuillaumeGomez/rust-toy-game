@@ -8,6 +8,7 @@ edition = "2018"
 sdl2 = { version = "0.33", features = ["image", "ttf"] }
 rand_chacha = "0.2"
 rand = "0.7"
+once_cell = "1.3"
 
 [features]
 debug_enemy = []
