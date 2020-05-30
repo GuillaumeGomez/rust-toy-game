@@ -904,6 +904,23 @@ impl<'a> Character<'a> {
     pub fn get_direction(&self) -> Direction {
         self.action.direction
     }
+
+    pub fn resurrect(&mut self) {
+        if !self.is_dead() {
+            return;
+        }
+        self.health.reset();
+        self.mana.reset();
+        self.stamina.reset();
+        // When you get resurrected "by yourself", you lose 10% of your xp.
+        let tenth = self.xp_to_next_level / 10;
+        if tenth <= self.xp {
+            self.xp -= tenth;
+        } else {
+            self.xp = 0;
+        }
+        // TODO: also reset its position
+    }
 }
 
 impl<'a> GetDimension for Character<'a> {

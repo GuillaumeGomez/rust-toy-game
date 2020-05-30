@@ -157,8 +157,8 @@ const MENUS: once_cell::sync::Lazy<Vec<(&'static str, Vec<(&'static str, MenuEve
             (
                 "death",
                 vec![
-                    ("Save and exit", MenuEvent::Quit),
                     ("Resurrect", MenuEvent::Resurrect),
+                    ("Save and exit", MenuEvent::Quit),
                 ],
             ),
             (
@@ -244,6 +244,13 @@ impl<'a> Menu<'a> {
     pub fn set_pause(&mut self, textures: &'a HashMap<String, TextureHolder<'a>>) {
         self.parent_state.clear();
         self.set_state("pause", textures);
+        self.update(0, 0);
+    }
+
+    pub fn set_death(&mut self, textures: &'a HashMap<String, TextureHolder<'a>>) {
+        self.parent_state.clear();
+        self.set_state("death", textures);
+        self.update(0, 0);
     }
 
     pub fn set_state(
@@ -326,10 +333,6 @@ impl<'a> Menu<'a> {
     ) -> MenuEvent {
         match self.buttons[button_pos].action {
             MenuEvent::StartGame => return MenuEvent::Resume,
-            MenuEvent::Resurrect => {
-                // TODO: handle this one correctly!
-                return MenuEvent::Resume;
-            }
             MenuEvent::GoBack => {
                 self.state = "";
                 if let Some(p) = self.parent_state.pop() {
@@ -361,8 +364,14 @@ impl<'a> Menu<'a> {
                 keycode: Some(x), ..
             } => match x {
                 Keycode::Escape => {
-                    self.reset_buttons();
-                    return MenuEvent::Resume;
+                    self.state = "";
+                    if let Some(p) = self.parent_state.pop() {
+                        self.set_state(p, textures);
+                        return MenuEvent::None;
+                    } else {
+                        self.reset_buttons();
+                        return MenuEvent::Resume;
+                    }
                 }
                 Keycode::Up => {
                     if let Some(ref mut selected) = self.selected {
@@ -411,14 +420,14 @@ impl<'a> Menu<'a> {
                 mouse_btn: MouseButton::Left,
                 ..
             } => {
-                if let Some(clicked) = self
+                let clicked = self
                     .buttons
                     .iter()
-                    .position(|b| b.is_clicked && b.is_in(x, y))
-                {
+                    .position(|b| b.is_clicked && b.is_in(x, y));
+                self.unclick_buttons();
+                if let Some(clicked) = clicked {
                     return self.handle_button(clicked, textures);
                 }
-                self.unclick_buttons();
             }
             _ => {}
         }

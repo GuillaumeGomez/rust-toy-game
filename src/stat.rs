@@ -62,4 +62,9 @@ impl Stat {
             self.value = self.max_value;
         }
     }
+
+    /// Put back the stat at the max.
+    pub fn reset(&mut self) {
+        self.value = self.max_value;
+    }
 }

@@ -363,6 +363,17 @@ impl<'a> Env<'a> {
                     ) {
                         MenuEvent::Quit => return false,
                         MenuEvent::Resume => self.display_menu = false,
+                        // TODO: better handling for resurrection:
+                        // * reset monsters
+                        // * reset resources
+                        // * reset player position
+                        //
+                        // Keep in mind that in multiplayer mode, only reset everything if both
+                        // players die!
+                        MenuEvent::Resurrect => {
+                            players[0].resurrect();
+                            self.display_menu = false;
+                        }
                         MenuEvent::None => {}
                         _ => {}
                     }
@@ -397,7 +408,7 @@ impl<'a> Env<'a> {
                             Button::A => self.is_attack_pressed = false,
                             Button::Start => {
                                 self.display_menu = true;
-                                self.menu.update(0, 0);
+                                self.menu.set_pause(&textures);
                             }
                             _ => {}
                         },
@@ -478,6 +489,11 @@ impl<'a> Env<'a> {
             }
         }
         true
+    }
+
+    pub fn show_death_screen(&mut self, textures: &'a HashMap<String, TextureHolder<'a>>) {
+        self.menu.set_death(textures);
+        self.display_menu = true;
     }
 
     pub fn debug_draw(&mut self, system: &mut System, player: &Player, elapsed: u64) {

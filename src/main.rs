@@ -182,7 +182,7 @@ pub fn main() {
         &enemy_texture,
         &forced_enemy_surface,
         0,
-        800, // 40,
+        40,
         2,
         CharacterKind::Enemy,
         enemy_surface.width() / 3,
@@ -319,6 +319,9 @@ pub fn main() {
                         }
                     }
                 }
+            }
+            if players[0].is_dead() {
+                env.show_death_screen(&textures);
             }
         }
 
