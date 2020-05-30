@@ -86,7 +86,7 @@ impl<'a> Weapon<'a> {
             }
         }
     }
-    pub fn draw(&self, system: &mut System) {
+    pub fn draw(&self, system: &mut System, debug: bool) {
         if let Some(direction) = self.blocking_direction {
             if let Some(texture) = self.get_texture() {
                 let x = self.x - system.x();
@@ -176,7 +176,10 @@ impl<'a> WeaponKind<'a> {
         }
     }
     pub fn weight(&self) -> u32 {
-        0
+        match *self {
+            Self::Sword(ref s) => s.weight(),
+            _ => 0,
+        }
     }
     pub fn get_texture(&self) -> Option<&Texture<'a>> {
         match *self {
@@ -279,8 +282,7 @@ impl<'a> Sword<'a> {
         })
     }
     pub fn weight(&self) -> u32 {
-        // TODO: when inventory will be a thing
-        0
+        10
     }
     pub fn get_texture(&self) -> &Texture<'a> {
         &self.texture

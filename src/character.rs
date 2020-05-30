@@ -518,7 +518,7 @@ impl<'a> Character<'a> {
             //         canvas.fill_rect(Rect::new(x - screen.x, y - screen.y, 8, 8));
             //     }
             // }
-            weapon.draw(system);
+            weapon.draw(system, self.id == 1);
         }
 
         if self.show_health_bar && !self.health.is_full() {
@@ -541,9 +541,17 @@ impl<'a> Character<'a> {
 
     // TODO: add stamina consumption when attacking, depending on the weight of the weapon!
     pub fn attack(&mut self) {
-        if let Some(ref mut weapon) = self.weapon {
-            weapon.use_it(self.action.direction);
+        let remaining_stamina = self.stamina.value();
+        let to_subtract = match self.weapon {
+            Some(ref mut weapon) if remaining_stamina >= weapon.weight() as u64 => {
+                weapon.use_it(self.action.direction);
+                weapon.weight() as u64
+            }
+            _ => 0,
+        };
+        if to_subtract != 0 {
             self.set_weapon_pos();
+            self.stamina.subtract(to_subtract);
         }
     }
 
@@ -769,21 +777,20 @@ impl<'a> Character<'a> {
         let (tile_x, tile_y, _, _, width, height) = self
             .action
             .compute_current(self.is_running, &self.texture_handler);
-        let w_height = weapon.height() as i64;
-        let w_width = weapon.width() as i64;
-        let w_biggest = if w_height > w_width {
-            w_height
+        let w_biggest = ::std::cmp::max(weapon.height(), weapon.width()) as i64;
+        let weapon_x = if attacker_direction == Direction::Right {
+            weapon.x + w_biggest
         } else {
-            w_width
+            weapon.x
         };
-        let weapon_y = if self.action.direction == Direction::Down {
+        let weapon_y = if attacker_direction == Direction::Down {
             weapon.y + w_biggest
         } else {
             weapon.y
         };
 
-        if weapon.x + w_biggest < self.x
-            || weapon.x - w_biggest > self.x + width as i64
+        if weapon_x + w_biggest < self.x
+            || weapon_x - w_biggest > self.x + width as i64
             || weapon_y + w_biggest < self.y
             || weapon_y - w_biggest > self.y + height as i64
         {

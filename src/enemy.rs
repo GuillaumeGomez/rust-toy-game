@@ -210,7 +210,7 @@ impl<'a> Enemy<'a> {
                 y,
                 health: Stat::new(1., 100),
                 mana: Stat::new(1., 100),
-                stamina: Stat::new(1., 100),
+                stamina: Stat::new(10., 200),
                 xp_to_next_level: 1000,
                 xp: 100,
                 texture_handler,
