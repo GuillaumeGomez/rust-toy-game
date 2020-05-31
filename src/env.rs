@@ -83,7 +83,7 @@ macro_rules! update_axis {
         }
         if let Some(tmp) = tmp {
             vec![
-                Event::KeyDown {
+                Event::KeyUp {
                     keycode: Some(tmp.into_sdl_keycode()),
                     window_id: 0,
                     timestamp: $timestamp,
@@ -131,6 +131,7 @@ macro_rules! update_trigger {
             }
         } else {
             if $field == EventKind::Press {
+                $field = EventKind::Release;
                 vec![Event::KeyUp {
                     keycode: Some($keycode),
                     window_id: 0,

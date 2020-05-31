@@ -378,7 +378,7 @@ impl<'a> Menu<'a> {
                         if *selected > 0 {
                             *selected -= 1;
                         } else {
-                            *selected = 1;
+                            *selected = self.buttons.len() - 1;
                         }
                     } else {
                         self.selected = Some(0);
