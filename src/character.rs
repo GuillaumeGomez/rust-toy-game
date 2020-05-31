@@ -330,6 +330,8 @@ impl<'a> Character<'a> {
         }
     }
 
+    /// `x_add` and `y_add` are used in case you want to move in two directions at once, so when
+    /// checking the second direction, you actually already "moved" and don't check a bad position.
     pub fn check_move(
         &self,
         direction: Direction,
@@ -427,6 +429,8 @@ impl<'a> Character<'a> {
         }
     }
 
+    /// `x_add` and `y_add` are used in case you want to move in two directions at once, so when
+    /// checking the second direction, you actually already "moved" and don't check a bad position.
     pub fn inner_check_move(
         &self,
         map: &Map,
@@ -453,6 +457,8 @@ impl<'a> Character<'a> {
         (x, y)
     }
 
+    /// `x_add` and `y_add` are used in case you want to move in two directions at once, so when
+    /// checking the second direction, you actually already "moved" and don't check a bad position.
     pub fn inner_apply_move(
         &self,
         map: &Map,

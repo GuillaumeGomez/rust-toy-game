@@ -122,7 +122,7 @@ impl<'a> Player<'a> {
                 },
                 x,
                 y,
-                health: Stat::new(1., 100),
+                health: Stat::new(1., 100000),
                 mana: Stat::new(1., 100),
                 stamina: Stat::new(30., 200),
                 xp_to_next_level: 1000,

@@ -386,14 +386,75 @@ impl<'a> Enemy<'a> {
     }
 
     fn get_attack_direction<T: GetPos + GetDimension>(&self, target: &T) -> Direction {
-        if target.y() > self.y() + self.height() as i64 {
+        let dist_x = self.x() - target.x();
+        let dist_y = self.y() - target.y();
+        if dist_x.abs() > dist_y.abs() {
+            if self.x() > target.x() {
+                Direction::Left
+            } else {
+                Direction::Right
+            }
+        } else if self.y() < target.y() {
             Direction::Down
-        } else if target.height() as i64 + target.y() < self.y() {
-            Direction::Up
-        } else if target.x() > self.x() + self.width() as i64 {
-            Direction::Right
         } else {
-            Direction::Left
+            Direction::Up
+        }
+    }
+
+    fn move_back_from_target(
+        &self,
+        map: &Map,
+        players: &[Player],
+        npcs: &[Enemy],
+        self_x: i64,
+        self_y: i64,
+        target_x: i64,
+        target_y: i64,
+    ) -> Option<EnemyAction> {
+        let mut res = None;
+        if target_x > self_x {
+            let (x_add, _) =
+                self.character
+                    .inner_check_move(map, players, npcs, Direction::Left, None, 0, 0);
+            if x_add != 0 {
+                res = Some(EnemyAction::MoveTo(vec![(self_x - 1, self_y)]));
+            }
+        } else if target_x < self_x {
+            let (x_add, _) =
+                self.character
+                    .inner_check_move(map, players, npcs, Direction::Right, None, 0, 0);
+            if x_add != 0 {
+                res = Some(EnemyAction::MoveTo(vec![(self_x + 1, self_y)]));
+            }
+        }
+        if res.is_none() {
+            if target_y > self_y {
+                let (_, y_add) =
+                    self.character
+                        .inner_check_move(map, players, npcs, Direction::Up, None, 0, 0);
+                if y_add != 0 {
+                    res = Some(EnemyAction::MoveTo(vec![(self_x, self_y - 1)]));
+                }
+            } else if target_y < self_y {
+                let (_, y_add) = self.character.inner_check_move(
+                    map,
+                    players,
+                    npcs,
+                    Direction::Down,
+                    None,
+                    0,
+                    0,
+                );
+                if y_add != 0 {
+                    res = Some(EnemyAction::MoveTo(vec![(self_x, self_y + 1)]));
+                }
+            }
+        }
+        if res.is_none() {
+            // Seems like we're stuck...
+            Some(EnemyAction::None)
+        } else {
+            res
         }
     }
 
@@ -424,18 +485,22 @@ impl<'a> Enemy<'a> {
             .as_ref()
             .map(|w| w.height() * 3 / 4)
             .unwrap_or_else(|| distance as u32 + 1);
+        let self_x = self.x();
+        let self_y = self.y();
         let new_action = match &mut *self.action.borrow_mut() {
             EnemyAction::None
             | EnemyAction::MoveTo(..)
             | EnemyAction::MoveToPlayer(..)
             | EnemyAction::Attack(_)
-                if (distance as u32) < weapon_height =>
+                if (distance as u32) < weapon_height + MAP_CASE_SIZE as u32 =>
             {
                 // We're in attack range, however we need to check if we're not in a corner (which
                 // would prevent the attack to work!).
                 let target = &players[0];
-                let dist_x = (self.x() - target.x()).abs() as u32;
-                let dist_y = (self.y() - target.y()).abs() as u32;
+                let target_x = target.x();
+                let target_y = target.y();
+                let dist_x = (self_x - target_x).abs() as u32;
+                let dist_y = (self_y - target_y).abs() as u32;
 
                 // Little explanations here: we first try to get on the same axis than the user to
                 // be able to attack him. If we can't, then we find a way to the target by creating
@@ -443,7 +508,7 @@ impl<'a> Enemy<'a> {
                 if dist_x > weapon_height / 3 && dist_y > weapon_height / 2 {
                     debug_enemy!("Re-adjusting position!");
                     if self.character.check_map_pos(
-                        if target.x() > self.x() {
+                        if target_x > self_x {
                             Direction::Right
                         } else {
                             Direction::Left
@@ -451,14 +516,15 @@ impl<'a> Enemy<'a> {
                         map,
                         players,
                         npcs,
-                        target.x(),
-                        self.y(),
+                        target_x,
+                        self_y,
                         None,
                     ) == Obstacle::None
                     {
-                        Some(EnemyAction::MoveToPlayer(vec![(target.x(), self.y())]))
+                        debug_enemy!("we can move to player (on x)!");
+                        Some(EnemyAction::MoveToPlayer(vec![(target_x, self_y)]))
                     } else if self.character.check_map_pos(
-                        if target.y() > self.y() {
+                        if target_y > self_y {
                             Direction::Down
                         } else {
                             Direction::Up
@@ -466,32 +532,24 @@ impl<'a> Enemy<'a> {
                         map,
                         players,
                         npcs,
-                        self.x(),
-                        target.y(),
+                        self_x,
+                        target_y,
                         None,
                     ) == Obstacle::None
                     {
-                        Some(EnemyAction::MoveToPlayer(vec![(self.x(), target.y())]))
-                    } else if let Some(nodes) = self.path_finder(
-                        self.x(),
-                        self.y(),
-                        target.x(),
-                        target.y(),
-                        map,
-                        &players,
-                        npcs,
-                        MAP_CASE_SIZE,
-                        // We exclude the "target" to allow the path finder to not be able to finish
-                        Some(target.id),
-                    ) {
-                        Some(EnemyAction::MoveToPlayer(nodes))
+                        debug_enemy!("we can move to player (on y)!");
+                        Some(EnemyAction::MoveToPlayer(vec![(self_x, target_y)]))
                     } else {
-                        // We stop the movement to "watch" the enemy in case we can't reach it for
-                        // whatever reason...
-                        Some(EnemyAction::None)
+                        debug_enemy!("move back to move closer!");
+                        // We seem to not be able to move closer to the target, let's try to move
+                        // around then!
+                        self.move_back_from_target(
+                            map, players, npcs, self_x, self_y, target_x, target_y,
+                        )
                     }
                 } else {
-                    Some(EnemyAction::Attack(self.get_attack_direction(&players[0])))
+                    debug_enemy!("attacking!");
+                    Some(EnemyAction::Attack(self.get_attack_direction(target)))
                 }
             }
             EnemyAction::None | EnemyAction::MoveTo(..)
@@ -500,8 +558,8 @@ impl<'a> Enemy<'a> {
                 let player = &players[index];
                 // debug_enemy!("Enemy is gonna chase player!");
                 if let Some(nodes) = self.path_finder(
-                    self.x(),
-                    self.y(),
+                    self_x,
+                    self_y,
                     player.x(),
                     player.y(),
                     map,
@@ -511,6 +569,7 @@ impl<'a> Enemy<'a> {
                     // We exclude the "target" to allow the path finder to not be able to finish
                     Some(player.id),
                 ) {
+                    debug_enemy!("Moving to player {:?}", nodes);
                     Some(EnemyAction::MoveToPlayer(nodes))
                 } else {
                     // We stop the movement to "watch" the enemy in case we can't reach it for
@@ -537,8 +596,8 @@ impl<'a> Enemy<'a> {
                     y += 1;
                 }
                 if let Some(nodes) = self.path_finder(
-                    self.x(),
-                    self.y(),
+                    self_x,
+                    self_y,
                     x,
                     y,
                     map,
@@ -554,11 +613,14 @@ impl<'a> Enemy<'a> {
                 }
             }
             EnemyAction::MoveToPlayer(nodes) => {
-                if distance > MAX_DISTANCE_PURSUIT {
+                if distance > MAX_DISTANCE_PURSUIT
+                    || utils::compute_distance(&(self.start_x, self.start_y), self)
+                        > MAX_DISTANCE_WANDERING
+                {
                     // We stop going after this player.
                     if let Some(nodes) = self.path_finder(
-                        self.x(),
-                        self.y(),
+                        self_x,
+                        self_y,
                         self.start_x,
                         self.start_y,
                         map,
@@ -576,8 +638,8 @@ impl<'a> Enemy<'a> {
                         let player = &players[0];
                         // Player moved too much, we need to recompute a new path!
                         if let Some(nodes) = self.path_finder(
-                            self.x(),
-                            self.y(),
+                            self_x,
+                            self_y,
                             player.x(),
                             player.y(),
                             map,
@@ -587,6 +649,7 @@ impl<'a> Enemy<'a> {
                             MAP_CASE_SIZE,
                             Some(player.id),
                         ) {
+                            debug_enemy!("recomputed path to player: {:?}", nodes);
                             Some(EnemyAction::MoveToPlayer(nodes))
                         } else {
                             // Weird that no paths can reach the place, but whatever...
@@ -601,8 +664,8 @@ impl<'a> Enemy<'a> {
                             map,
                             players,
                             npcs,
-                            self.x() + x_add,
-                            self.y() + y_add,
+                            self_x + x_add,
+                            self_y + y_add,
                             None,
                         ) {
                             Obstacle::Map => {
@@ -610,16 +673,16 @@ impl<'a> Enemy<'a> {
                                     let (next_x, next_y) = nodes[nodes.len() - 2];
                                     let pos = nodes.len() - 1;
                                     if x_add != 0 {
-                                        if next_y > self.y() {
-                                            nodes[pos].1 = self.y() + MAP_CASE_SIZE;
+                                        if next_y > self_y {
+                                            nodes[pos].1 = self_y + MAP_CASE_SIZE;
                                         } else {
-                                            nodes[pos].1 = self.y() - MAP_CASE_SIZE;
+                                            nodes[pos].1 = self_y - MAP_CASE_SIZE;
                                         }
                                     } else {
-                                        if next_x > self.x() {
-                                            nodes[pos].0 = self.x() + MAP_CASE_SIZE;
+                                        if next_x > self_x {
+                                            nodes[pos].0 = self_x + MAP_CASE_SIZE;
                                         } else {
-                                            nodes[pos].0 = self.x() - MAP_CASE_SIZE;
+                                            nodes[pos].0 = self_x - MAP_CASE_SIZE;
                                         }
                                     }
                                     None
@@ -646,8 +709,8 @@ impl<'a> Enemy<'a> {
                         map,
                         players,
                         npcs,
-                        self.x() + x_add,
-                        self.y() + y_add,
+                        self_x + x_add,
+                        self_y + y_add,
                         None,
                     ) {
                         Obstacle::Map => {
@@ -655,16 +718,16 @@ impl<'a> Enemy<'a> {
                                 let (next_x, next_y) = nodes[nodes.len() - 2];
                                 let pos = nodes.len() - 1;
                                 if x_add != 0 {
-                                    if next_y > self.y() {
-                                        nodes[pos].1 = self.y() + MAP_CASE_SIZE;
+                                    if next_y > self_y {
+                                        nodes[pos].1 = self_y + MAP_CASE_SIZE;
                                     } else {
-                                        nodes[pos].1 = self.y() - MAP_CASE_SIZE;
+                                        nodes[pos].1 = self_y - MAP_CASE_SIZE;
                                     }
                                 } else {
-                                    if next_x > self.x() {
-                                        nodes[pos].0 = self.x() + MAP_CASE_SIZE;
+                                    if next_x > self_x {
+                                        nodes[pos].0 = self_x + MAP_CASE_SIZE;
                                     } else {
-                                        nodes[pos].0 = self.x() - MAP_CASE_SIZE;
+                                        nodes[pos].0 = self_x - MAP_CASE_SIZE;
                                     }
                                 }
                                 None
@@ -676,8 +739,8 @@ impl<'a> Enemy<'a> {
                             debug_enemy!("character in the path");
                             // We need to recompute the path
                             if let Some(nodes) = self.path_finder(
-                                self.x(),
-                                self.y(),
+                                self_x,
+                                self_y,
                                 nodes[0].0,
                                 nodes[0].1,
                                 map,
@@ -702,17 +765,29 @@ impl<'a> Enemy<'a> {
         };
 
         let mut action = self.action.borrow_mut();
+        debug_enemy!(
+            "next action: {:?}{}",
+            if let Some(ref new_action) = new_action {
+                new_action
+            } else {
+                &*action
+            },
+            if new_action.is_some() {
+                " from new action"
+            } else {
+                ""
+            }
+        );
         if let Some(new_action) = new_action {
             *action = new_action;
         }
-        debug_enemy!("next action: {:?}", action);
         // Time to apply actions now!
         match &mut *action {
             EnemyAction::None | EnemyAction::Attack(_) => (0, 0),
             EnemyAction::MoveTo(ref mut nodes) | EnemyAction::MoveToPlayer(ref mut nodes) => {
                 if !nodes.is_empty()
-                    && nodes[nodes.len() - 1].0 == self.x()
-                    && nodes[nodes.len() - 1].1 == self.y()
+                    && nodes[nodes.len() - 1].0 == self_x
+                    && nodes[nodes.len() - 1].1 == self_y
                 {
                     nodes.pop();
                 }
@@ -725,13 +800,19 @@ impl<'a> Enemy<'a> {
                         dir,
                         x_add,
                         y_add,
-                        self.x(),
-                        self.y(),
+                        self_x,
+                        self_y,
                         node.0,
                         node.1
                     );
-                    self.character
-                        .inner_check_move(map, players, npcs, dir, dir2, 0, 0)
+                    let (x_add, y_add) = self
+                        .character
+                        .inner_check_move(map, players, npcs, dir, dir2, 0, 0);
+                    if x_add == 0 && y_add == 0 {
+                        debug_enemy!("Path blocked, forcing recomputation!");
+                        nodes.clear();
+                    }
+                    (x_add, y_add)
                 } else {
                     (0, 0)
                 }
