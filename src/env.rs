@@ -160,6 +160,7 @@ impl GamePad {
         }
     }
     pub fn convert_event(&mut self, event: Event) -> Vec<Event> {
+        // TODO: ignore controller events and instead get buttons and joysticks state.
         match event {
             Event::ControllerAxisMotion { which, .. }
             | Event::ControllerButtonDown { which, .. }
