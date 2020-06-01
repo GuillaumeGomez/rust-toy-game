@@ -26,8 +26,8 @@ macro_rules! return_if_none {
 #[macro_use]
 mod utils;
 
+mod animation;
 mod character;
-mod death_animation;
 mod debug_display;
 mod enemy;
 mod env;
@@ -167,27 +167,8 @@ pub fn main() {
             "Press ENTER",
         ),
     );
-
-    let mut players = vec![Player::new(
-        &texture_creator,
-        &player_texture,
-        &player_surface,
-        0,
-        0,
-        1,
-        Some(Default::default()),
-    )];
-    let mut enemies = vec![Enemy::new(
-        &texture_creator,
-        &enemy_texture,
-        &forced_enemy_surface,
-        0,
-        40,
-        2,
-        CharacterKind::Enemy,
-        enemy_surface.width() / 3,
-        enemy_surface.height() / 4,
-    )];
+    animation::create_death_animation_texture(&mut textures, &texture_creator);
+    animation::create_level_up_animation_texture(&mut textures, &texture_creator);
 
     let hud = HUD::new(&texture_creator);
     let mut env = Env::new(
@@ -202,6 +183,28 @@ pub fn main() {
 
     let mut update_elapsed = 0;
     let mut loop_timer = Instant::now();
+
+    let mut players = vec![Player::new(
+        &texture_creator,
+        &player_texture,
+        &player_surface,
+        0,
+        0,
+        1,
+        Some(Default::default()),
+    )];
+    let mut enemies = vec![Enemy::new(
+        &texture_creator,
+        &textures,
+        &enemy_texture,
+        &forced_enemy_surface,
+        0,
+        40,
+        2,
+        CharacterKind::Enemy,
+        enemy_surface.width() / 3,
+        enemy_surface.height() / 4,
+    )];
 
     let mut dead_enemies: Vec<Enemy> = Vec::new();
 
@@ -251,6 +254,7 @@ pub fn main() {
                 if players[i].is_attacking() {
                     let id = players[i].id;
                     let dir = players[i].get_direction();
+                    let mut xp_to_add = 0;
                     if let Some(ref weapon) = players[i].weapon {
                         let mut matrix = None;
                         // TODO: for now, players can only attack NPCs
@@ -272,6 +276,7 @@ pub fn main() {
                                             attack as u64;
                                         if is_dead {
                                             stats.total_damages.total_kills += 1;
+                                            xp_to_add += enemies[it].xp;
                                         }
                                     } else {
                                         stats.total_damages.total_healed += (attack * -1) as u64;
@@ -294,6 +299,9 @@ pub fn main() {
                                 }
                             }
                         }
+                    }
+                    if xp_to_add > 0 {
+                        players[i].increase_xp(xp_to_add, &textures);
                     }
                 }
             }

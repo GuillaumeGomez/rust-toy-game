@@ -5,8 +5,9 @@ use sdl2::ttf::Font;
 use sdl2::video::WindowContext;
 
 use std::cell::RefCell;
+use std::collections::HashMap;
 
-use crate::death_animation::DeathAnimation;
+use crate::animation::Animation;
 use crate::enemy::Enemy;
 use crate::map::Map;
 use crate::player::Player;
@@ -15,6 +16,7 @@ use crate::stat::Stat;
 use crate::status::Status;
 use crate::system::System;
 use crate::texture_handler::{Dimension, TextureHandler};
+use crate::texture_holder::TextureHolder;
 use crate::weapon::Weapon;
 use crate::{GetDimension, GetPos, Id, MAP_CASE_SIZE, MAP_SIZE, ONE_SECOND};
 
@@ -207,6 +209,7 @@ pub struct Character<'a> {
     pub stamina: Stat,
     pub xp_to_next_level: u64,
     pub xp: u64,
+    pub level: u16,
     // TODO: Instead of creating a new TextureHandler every time, might be better to use references!
     pub texture_handler: TextureHandler<'a>,
     pub weapon: Option<Weapon<'a>>,
@@ -221,12 +224,29 @@ pub struct Character<'a> {
     pub invincible_against: Vec<InvincibleAgainst>,
     pub statuses: Vec<Status<'a>>,
     pub show_health_bar: bool,
-    pub death_animation: Option<DeathAnimation<'a>>,
+    pub death_animation: Option<Animation<'a>>,
     /// (x, y, delay)
     pub effect: RefCell<Option<(i64, i64, u64)>>,
+    pub animations: Vec<Animation<'a>>,
 }
 
 impl<'a> Character<'a> {
+    pub fn increase_xp(
+        &mut self,
+        xp_to_add: u64,
+        textures: &'a HashMap<String, TextureHolder<'a>>,
+    ) {
+        self.xp += xp_to_add;
+        if self.xp >= self.xp_to_next_level {
+            self.level += 1;
+            self.xp = self.xp - self.xp_to_next_level;
+            self.xp_to_next_level = self.xp_to_next_level + self.xp_to_next_level / 2;
+            // TODO: increase health and other stats by a fixed amount (the same for every level).
+            self.reset_stats();
+            self.animations.push(Animation::new_level_up(textures));
+        }
+    }
+
     pub fn check_hitbox(
         &self,
         new_x: i64,
@@ -512,6 +532,13 @@ impl<'a> Character<'a> {
                 )
                 .expect("copy character failed");
         }
+        for animation in self.animations.iter() {
+            animation.draw(
+                system,
+                self.x + draw_width as i64 / 2,
+                self.y + draw_height as i64,
+            );
+        }
         if debug {
             system
                 .canvas
@@ -706,6 +733,12 @@ impl<'a> Character<'a> {
         // We update the statuses display
         for status in self.statuses.iter_mut() {
             status.update(elapsed);
+        }
+        for pos in (0..self.animations.len()).rev() {
+            self.animations[pos].update(elapsed);
+            if self.animations[pos].is_done() {
+                self.animations.remove(pos);
+            }
         }
 
         // The "combat" part: we update the list of characters that can't hit this one.
@@ -918,13 +951,17 @@ impl<'a> Character<'a> {
         self.action.direction
     }
 
+    pub fn reset_stats(&mut self) {
+        self.health.reset();
+        self.mana.reset();
+        self.stamina.reset();
+    }
+
     pub fn resurrect(&mut self) {
         if !self.is_dead() {
             return;
         }
-        self.health.reset();
-        self.mana.reset();
-        self.stamina.reset();
+        self.reset_stats();
         // When you get resurrected "by yourself", you lose 10% of your xp.
         let tenth = self.xp_to_next_level / 10;
         if tenth <= self.xp {

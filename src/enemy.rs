@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 use std::cmp::{Ordering, Reverse};
-use std::collections::BinaryHeap;
+use std::collections::{BinaryHeap, HashMap};
 use std::ops::{Deref, DerefMut};
 
 use rand::Rng;
@@ -10,12 +10,13 @@ use sdl2::render::{Texture, TextureCreator};
 use sdl2::surface::Surface;
 use sdl2::video::WindowContext;
 
+use crate::animation::Animation;
 use crate::character::{Action, Character, CharacterKind, Direction, Obstacle};
-use crate::death_animation::DeathAnimation;
 use crate::map::Map;
 use crate::player::Player;
 use crate::stat::Stat;
 use crate::texture_handler::{Dimension, TextureHandler};
+use crate::texture_holder::TextureHolder;
 use crate::utils;
 use crate::weapon::Sword;
 use crate::{
@@ -101,6 +102,7 @@ pub struct Enemy<'a> {
 impl<'a> Enemy<'a> {
     pub fn new(
         texture_creator: &'a TextureCreator<WindowContext>,
+        textures: &'a HashMap<String, TextureHolder<'a>>,
         texture: &'a Texture<'a>,
         surface: &'a Surface<'a>,
         x: i64,
@@ -222,9 +224,11 @@ impl<'a> Enemy<'a> {
                 speed: ONE_SECOND / 45, // we want to move 45 times per second
                 move_delay: 0,
                 show_health_bar: true,
-                death_animation: Some(DeathAnimation::new(texture_creator, ONE_SECOND)),
+                death_animation: Some(Animation::new_death(textures)),
                 kind,
                 effect: RefCell::new(None),
+                level: 1,
+                animations: Vec::new(),
             },
             action: RefCell::new(EnemyAction::None),
             start_x: x,
