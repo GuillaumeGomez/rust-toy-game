@@ -40,8 +40,8 @@ pub struct Animation<'a> {
     max_duration: u64,
     sprite_width: u32,
     sprite_height: u32,
-    sprite_display_width: u32,
-    sprite_display_height: u32,
+    pub sprite_display_width: u32,
+    pub sprite_display_height: u32,
 }
 
 impl<'a> Animation<'a> {

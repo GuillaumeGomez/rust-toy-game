@@ -536,7 +536,7 @@ impl<'a> Character<'a> {
             animation.draw(
                 system,
                 self.x + draw_width as i64 / 2,
-                self.y + draw_height as i64,
+                self.y + (draw_height - animation.sprite_display_height / 2) as i64,
             );
         }
         if debug {
