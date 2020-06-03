@@ -326,7 +326,9 @@ pub fn main() {
                                 &mut matrix,
                                 &font_14,
                                 &texture_creator,
-                            ) > 0 && pos == 0 {
+                            ) > 0
+                                && pos == 0
+                            {
                                 env.rumble(u16::MAX / 10, 250);
                             }
                         }

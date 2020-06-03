@@ -9,7 +9,7 @@ use sdl2::video::WindowContext;
 
 use crate::character::Direction;
 use crate::system::System;
-use crate::{GetDimension, ONE_SECOND};
+use crate::{GetDimension, GetPos, ONE_SECOND};
 
 #[allow(dead_code)]
 pub enum WeaponKind<'a> {
@@ -151,6 +151,24 @@ impl<'a> Weapon<'a> {
     pub fn use_it(&mut self, direction: Direction) {
         self.action = self.kind.use_it(direction);
         self.blocking_direction = None;
+    }
+}
+
+impl<'a> GetPos for Weapon<'a> {
+    fn x(&self) -> i64 {
+        self.x
+    }
+    fn y(&self) -> i64 {
+        self.y
+    }
+}
+
+impl<'a> GetDimension for Weapon<'a> {
+    fn width(&self) -> u32 {
+        self.kind.width()
+    }
+    fn height(&self) -> u32 {
+        self.kind.height()
     }
 }
 

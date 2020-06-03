@@ -758,25 +758,7 @@ impl<'a> Character<'a> {
 
     fn set_weapon_pos(&mut self) {
         if let Some(ref mut weapon) = self.weapon {
-            if weapon.is_attacking() {
-                let (_, _, _, _, draw_width, draw_height) = self
-                    .action
-                    .compute_current(self.is_running, &self.texture_handler);
-                let draw_width = draw_width as i64;
-                let draw_height = draw_height as i64;
-                let width = weapon.width() as i64;
-                let height = weapon.height() as i64;
-                let (x, y) = match self.action.direction {
-                    Direction::Up => (self.x + draw_width / 2 - 3, self.y - height),
-                    Direction::Down => (self.x + draw_width / 2 - 4, self.y + draw_height - height),
-                    Direction::Left => (self.x - 2, self.y + draw_height / 2 - height + 2),
-                    Direction::Right => (
-                        self.x + draw_width - width + 2,
-                        self.y + draw_height / 2 - height,
-                    ),
-                };
-                weapon.set_pos(x, y);
-            } else if weapon.is_blocking() {
+            if weapon.is_blocking() {
                 // To set the direction of the blocking.
                 weapon.block(self.action.direction);
 
@@ -792,6 +774,24 @@ impl<'a> Character<'a> {
                     Direction::Down => (self.x + width / 2, self.y + draw_height - 2),
                     Direction::Left => (self.x - width - 4, self.y),
                     Direction::Right => (self.x + draw_width, self.y),
+                };
+                weapon.set_pos(x, y);
+            } else {
+                let (_, _, _, _, draw_width, draw_height) = self
+                    .action
+                    .compute_current(self.is_running, &self.texture_handler);
+                let draw_width = draw_width as i64;
+                let draw_height = draw_height as i64;
+                let width = weapon.width() as i64;
+                let height = weapon.height() as i64;
+                let (x, y) = match self.action.direction {
+                    Direction::Up => (self.x + draw_width / 2 - 3, self.y - height),
+                    Direction::Down => (self.x + draw_width / 2 - 4, self.y + draw_height - height),
+                    Direction::Left => (self.x - 2, self.y + draw_height / 2 - height + 2),
+                    Direction::Right => (
+                        self.x + draw_width - width + 2,
+                        self.y + draw_height / 2 - height,
+                    ),
                 };
                 weapon.set_pos(x, y);
             }

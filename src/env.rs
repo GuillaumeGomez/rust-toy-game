@@ -643,7 +643,10 @@ impl<'a> Env<'a> {
 
     pub fn rumble(&mut self, strength: u16, duration_ms: u32) {
         if let Some(ref mut controller) = self.controller {
-            if let Err(e) = controller.controller.set_rumble(strength, strength, duration_ms) {
+            if let Err(e) = controller
+                .controller
+                .set_rumble(strength, strength, duration_ms)
+            {
                 eprintln!("cannot set rumble: {:?}", e);
             }
         }

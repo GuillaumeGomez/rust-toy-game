@@ -489,6 +489,7 @@ impl<'a> Enemy<'a> {
             .as_ref()
             .map(|w| w.height() * 3 / 4)
             .unwrap_or_else(|| distance as u32 + 1);
+
         let self_x = self.x();
         let self_y = self.y();
         let new_action = match &mut *self.action.borrow_mut() {
@@ -552,8 +553,29 @@ impl<'a> Enemy<'a> {
                         )
                     }
                 } else {
-                    debug_enemy!("attacking!");
-                    Some(EnemyAction::Attack(self.get_attack_direction(target)))
+                    let (dist, incr_x, incr_y) = match self.weapon {
+                        Some(ref w) => {
+                            println!("({} {}) vs ({} {})", w.x(), w.y(), self_x, self_y);
+                            utils::get_axis_distance(w, target)
+                        }
+                        None => utils::get_axis_distance(self, target),
+                    };
+
+                    debug_enemy!("{} > {} || {} {}", dist, weapon_height, incr_x, incr_y);
+                    // Little explanations here: we first try to get on the same axis than the user to
+                    // be able to attack him. If we can't, then we find a way to the target by creating
+                    // a path.
+
+                    if dist >= weapon_height {
+                        debug_enemy!("Re-adjusting position!");
+                        Some(EnemyAction::MoveToPlayer(vec![(
+                            self_x + incr_x as i64 * MAP_CASE_SIZE,
+                            self_y + incr_y as i64 * MAP_CASE_SIZE,
+                        )]))
+                    } else {
+                        debug_enemy!("attacking!");
+                        Some(EnemyAction::Attack(self.get_attack_direction(target)))
+                    }
                 }
             }
             EnemyAction::None | EnemyAction::MoveTo(..)
