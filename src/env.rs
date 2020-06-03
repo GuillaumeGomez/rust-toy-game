@@ -245,6 +245,7 @@ pub struct Env<'a> {
     pub closest_reward: Option<(i32, usize)>,
     pub game_controller_subsystem: &'a GameControllerSubsystem,
     controller: Option<GamePad>,
+    // pressed_keys: Vec<Event>,
 }
 
 impl<'a> Env<'a> {
@@ -637,6 +638,14 @@ impl<'a> Env<'a> {
                 reward.x() + (reward.width() as i64) / 2 - (texture.width as i64) / 2,
                 reward.y() - 2 - texture.height as i64,
             );
+        }
+    }
+
+    pub fn rumble(&mut self, strength: u16, duration_ms: u32) {
+        if let Some(ref mut controller) = self.controller {
+            if let Err(e) = controller.controller.set_rumble(strength, strength, duration_ms) {
+                eprintln!("cannot set rumble: {:?}", e);
+            }
         }
     }
 }

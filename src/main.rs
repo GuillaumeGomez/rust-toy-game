@@ -268,6 +268,9 @@ pub fn main() {
                                 &texture_creator,
                             );
                             if attack > 0 {
+                                if i == 0 {
+                                    env.rumble(u16::MAX / 13, 250);
+                                }
                                 let is_dead = enemies[it].is_dead();
                                 if let Some(ref stats) = players[i].stats {
                                     let mut stats = stats.borrow_mut();
@@ -315,15 +318,17 @@ pub fn main() {
                     if let Some(ref weapon) = enemies[i].weapon {
                         let mut matrix = None;
                         // TODO: for now, NPCs can only attack players
-                        for player in players.iter_mut() {
-                            player.check_intersection(
+                        for (pos, player) in players.iter_mut().enumerate() {
+                            if player.check_intersection(
                                 id,
                                 dir,
                                 weapon,
                                 &mut matrix,
                                 &font_14,
                                 &texture_creator,
-                            );
+                            ) > 0 && pos == 0 {
+                                env.rumble(u16::MAX / 10, 250);
+                            }
                         }
                     }
                 }
