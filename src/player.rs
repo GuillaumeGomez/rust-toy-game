@@ -41,7 +41,7 @@ pub fn create_right_actions<'a>(
             for x in 0..left.width() {
                 for tmp in 0..block_size {
                     let dest = tmp
-                        + (left.width() - x + dest_x as u32 - 6) * block_size
+                        + (left.width() - x + dest_x as u32 - 3) * block_size
                         + (y + dest_y as u32) * width * block_size;
                     let src = tmp
                         + (x + src_x as u32) * block_size
