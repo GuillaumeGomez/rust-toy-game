@@ -17,13 +17,19 @@ pub struct TextureHolder<'a> {
 impl<'a> TextureHolder<'a> {
     pub fn surface_to_texture(
         texture_creator: &'a TextureCreator<WindowContext>,
-        surface: Surface,
+        mut surface: Surface,
     ) -> TextureHolder<'a> {
         let width = surface.width();
         let height = surface.height();
         let texture = texture_creator
             .create_texture_from_surface(&surface)
             .expect("failed to build texture from surface");
+
+        if surface.pixel_format_enum() != PixelFormatEnum::RGBA8888 {
+            surface = surface
+                .convert_format(PixelFormatEnum::RGBA8888)
+                .expect("failed to convert surface to RGBA8888");
+        }
 
         TextureHolder {
             texture,
