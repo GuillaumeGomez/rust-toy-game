@@ -68,12 +68,12 @@ pub const FPS: u64 = 60;
 pub const FRAME_DELAY: u64 = ONE_SECOND / FPS;
 pub const MAX_DISTANCE_DETECTION: i32 = 200;
 pub const MAX_DISTANCE_PURSUIT: i32 = 300;
-pub const MAX_DISTANCE_WANDERING: i32 = 300;
 pub const MAP_CASE_SIZE: i64 = 8;
 /// You need 8 pixels to have 1 "grid case" and you need 4 "grid cases" to have a meter.
 pub const PIXELS_TO_METERS: i64 = 8 * 4;
 /// Just an alias to `PIXELS_TO_METERS`, to make usage more clear in the code.
 pub const ONE_METER: i64 = PIXELS_TO_METERS;
+pub const MAX_DISTANCE_WANDERING: i32 = ONE_METER as i32 * 15;
 
 const FPS_REFRESH: u32 = 5;
 
@@ -188,8 +188,8 @@ pub fn main() {
         &texture_creator,
         &player_texture,
         &player_surface,
-        0,
-        0,
+        -63,
+        -374,
         1,
         Some(Default::default()),
     )];
@@ -198,8 +198,8 @@ pub fn main() {
         &textures,
         &enemy_texture,
         &forced_enemy_surface,
-        0,
-        40,
+        -1,
+        -273,
         2,
         CharacterKind::Enemy,
         enemy_surface.width() / 3,

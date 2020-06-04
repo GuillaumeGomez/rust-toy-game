@@ -482,7 +482,15 @@ impl<'a> Enemy<'a> {
             }
         }
 
-        let min_target_dist = ::std::cmp::min(self.height(), self.width()) * 2;
+        let wander_target_distance =
+            utils::compute_distance(&players[index], &(self.start_x, self.start_y));
+
+        debug_enemy!(
+            "Distance to player: {} / {}",
+            distance,
+            crate::ONE_METER as i32 * 8
+        );
+
         let weapon_height = self
             .character
             .weapon
@@ -497,7 +505,8 @@ impl<'a> Enemy<'a> {
             | EnemyAction::MoveTo(..)
             | EnemyAction::MoveToPlayer(..)
             | EnemyAction::Attack(_)
-                if (distance as u32) < weapon_height + MAP_CASE_SIZE as u32 =>
+                if (distance as u32) < weapon_height + MAP_CASE_SIZE as u32
+                    && wander_target_distance < MAX_DISTANCE_WANDERING =>
             {
                 // We're in attack range, however we need to check if we're not in a corner (which
                 // would prevent the attack to work!).
@@ -511,7 +520,7 @@ impl<'a> Enemy<'a> {
                 // be able to attack him. If we can't, then we find a way to the target by creating
                 // a path.
                 if dist_x > weapon_height / 3 && dist_y > weapon_height / 2 {
-                    debug_enemy!("Re-adjusting position!");
+                    debug_enemy!("Re-adjusting position v1!");
                     if self.character.check_map_pos(
                         if target_x > self_x {
                             Direction::Right
@@ -553,24 +562,39 @@ impl<'a> Enemy<'a> {
                         )
                     }
                 } else {
-                    let (dist, incr_x, incr_y) = match self.weapon {
+                    let dist = match self.weapon {
                         Some(ref w) => {
-                            println!("({} {}) vs ({} {})", w.x(), w.y(), self_x, self_y);
-                            utils::get_axis_distance(w, target)
+                            // We don't want the width and weight of the weapon to be taken into
+                            // account in the computation.
+                            utils::compute_distance(&(w.x(), w.y()), target)
                         }
-                        None => utils::get_axis_distance(self, target),
-                    };
+                        None => utils::compute_distance(self, target),
+                    } as u32;
 
-                    debug_enemy!("{} > {} || {} {}", dist, weapon_height, incr_x, incr_y);
-                    // Little explanations here: we first try to get on the same axis than the user to
-                    // be able to attack him. If we can't, then we find a way to the target by creating
-                    // a path.
+                    debug_enemy!("{} > {} || {} {}", dist, weapon_height, 0, 0); //incr_x, incr_y);
+                                                                                 // Little explanations here: we first try to get on the same axis than the user to
+                                                                                 // be able to attack him. If we can't, then we find a way to the target by creating
+                                                                                 // a path.
 
                     if dist >= weapon_height {
-                        debug_enemy!("Re-adjusting position!");
+                        debug_enemy!("Re-adjusting position v2!");
                         Some(EnemyAction::MoveToPlayer(vec![(
-                            self_x + incr_x as i64 * MAP_CASE_SIZE,
-                            self_y + incr_y as i64 * MAP_CASE_SIZE,
+                            self_x
+                                + if self_x > target_x {
+                                    MAP_CASE_SIZE * -1
+                                } else if self_x < target_x {
+                                    MAP_CASE_SIZE
+                                } else {
+                                    0
+                                }, // + incr_x as i64 * MAP_CASE_SIZE,
+                            self_y
+                                + if self_y > target_y {
+                                    MAP_CASE_SIZE * -1
+                                } else if self_y < target_y {
+                                    MAP_CASE_SIZE
+                                } else {
+                                    0
+                                }, // + incr_y as i64 * MAP_CASE_SIZE,
                         )]))
                     } else {
                         debug_enemy!("attacking!");
@@ -579,7 +603,8 @@ impl<'a> Enemy<'a> {
                 }
             }
             EnemyAction::None | EnemyAction::MoveTo(..)
-                if distance < crate::ONE_METER as i32 * 8 =>
+                if distance < crate::ONE_METER as i32 * 8
+                    && wander_target_distance < MAX_DISTANCE_WANDERING =>
             {
                 let player = &players[index];
                 // debug_enemy!("Enemy is gonna chase player!");

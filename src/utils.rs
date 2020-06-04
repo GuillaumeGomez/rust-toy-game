@@ -42,47 +42,47 @@ where
 }
 
 /// Returns a tuple containing: `(distance, incr X axis, incr Y axis)`.
-pub fn get_axis_distance<A, B>(a: &A, b: &B) -> (u32, i8, i8)
-where
-    A: GetPos + GetDimension,
-    B: GetPos + GetDimension,
-{
-    let x1 = a.x();
-    let x1b = x1 + a.width() as i64;
-    let y1 = a.y();
-    let y1b = y1 + a.height() as i64;
-    let x2 = b.x();
-    let x2b = x2 + b.width() as i64;
-    let y2 = b.y();
-    let y2b = y2 + b.height() as i64;
+// pub fn get_axis_distance<A, B>(a: &A, b: &B) -> (u32, i8, i8)
+// where
+//     A: GetPos + GetDimension,
+//     B: GetPos + GetDimension,
+// {
+//     let x1 = a.x();
+//     let x1b = x1 + a.width() as i64;
+//     let y1 = a.y();
+//     let y1b = y1 + a.height() as i64;
+//     let x2 = b.x();
+//     let x2b = x2 + b.width() as i64;
+//     let y2 = b.y();
+//     let y2b = y2 + b.height() as i64;
 
-    let left = x2b < x1;
-    let right = x1b < x2;
-    let bottom = y2b < y1;
-    let top = y1b < y2;
+//     let left = x2b < x1;
+//     let right = x1b < x2;
+//     let bottom = y2b < y1;
+//     let top = y1b < y2;
 
-    let (a, b, c) = if top && left {
-        (compute_distance(&(x1, y1b), &(x2b, y2)), -1, 1)
-    } else if left && bottom {
-        (compute_distance(&(x1, y1), &(x2b, y2b)), -1, -1)
-    } else if bottom && right {
-        (compute_distance(&(x1b, y1), &(x2, y2b)), 1, -1)
-    } else if right && top {
-        (compute_distance(&(x1b, y1b), &(x2, y2)), 1, 1)
-    } else if left {
-        ((x1 - x2b) as i32, -1, 0)
-    } else if right {
-        ((x2 - x1b) as i32, 1, 0)
-    } else if bottom {
-        ((y1 - y2b) as i32, 0, -1)
-    } else if top {
-        ((y2 - y1b) as i32, 0, 1)
-    } else {
-        // rectangles intersect
-        (0, 0, 0)
-    };
-    (a.abs() as u32, b, c)
-}
+//     let (a, b, c) = if top && left {
+//         (compute_distance(&(x1, y1b), &(x2b, y2)), -1, 1)
+//     } else if left && bottom {
+//         (compute_distance(&(x1, y1), &(x2b, y2b)), -1, -1)
+//     } else if bottom && right {
+//         (compute_distance(&(x1b, y1), &(x2, y2b)), 1, -1)
+//     } else if right && top {
+//         (compute_distance(&(x1b, y1b), &(x2, y2)), 1, 1)
+//     } else if left {
+//         ((x1 - x2b) as i32, -1, 0)
+//     } else if right {
+//         ((x2 - x1b) as i32, 1, 0)
+//     } else if bottom {
+//         ((y1 - y2b) as i32, 0, -1)
+//     } else if top {
+//         ((y2 - y1b) as i32, 0, 1)
+//     } else {
+//         // rectangles intersect
+//         (0, 0, 0)
+//     };
+//     (a.abs() as u32, b, c)
+// }
 
 #[macro_export]
 macro_rules! debug_enemy {
