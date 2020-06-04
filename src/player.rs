@@ -72,10 +72,13 @@ impl<'a> Player<'a> {
 
     pub fn get_actions_standing() -> Vec<Dimension> {
         vec![
-            Dimension::new(Rect::new(15, 9, Self::tile_width, Self::tile_height), 0),
-            Dimension::new(Rect::new(78, 9, Self::tile_width, Self::tile_height), 0),
-            Dimension::new(Rect::new(51, 9, Self::tile_width, Self::tile_height), 0),
-            Dimension::new(Rect::new(100, 9, Self::tile_width, Self::tile_height), 0),
+            Dimension::new(Rect::new(15, 8, Self::tile_width - 3, Self::tile_height), 0),
+            Dimension::new(Rect::new(78, 8, Self::tile_width - 3, Self::tile_height), 0),
+            Dimension::new(Rect::new(51, 8, Self::tile_width - 3, Self::tile_height), 0),
+            Dimension::new(
+                Rect::new(100, 8, Self::tile_width - 2, Self::tile_height),
+                0,
+            ),
         ]
     }
 

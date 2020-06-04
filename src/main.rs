@@ -188,23 +188,37 @@ pub fn main() {
         &texture_creator,
         &player_texture,
         &player_surface,
-        -63,
-        -374,
+        0,
+        0,
         1,
         Some(Default::default()),
     )];
-    let mut enemies = vec![Enemy::new(
-        &texture_creator,
-        &textures,
-        &enemy_texture,
-        &forced_enemy_surface,
-        -1,
-        -273,
-        2,
-        CharacterKind::Enemy,
-        enemy_surface.width() / 3,
-        enemy_surface.height() / 4,
-    )];
+    let mut enemies = vec![
+        Enemy::new(
+            &texture_creator,
+            &textures,
+            &enemy_texture,
+            &forced_enemy_surface,
+            0,
+            40,
+            2,
+            CharacterKind::Enemy,
+            enemy_surface.width() / 3,
+            enemy_surface.height() / 4,
+        ),
+        Enemy::new(
+            &texture_creator,
+            &textures,
+            &enemy_texture,
+            &forced_enemy_surface,
+            40,
+            0,
+            3,
+            CharacterKind::Enemy,
+            enemy_surface.width() / 3,
+            enemy_surface.height() / 4,
+        ),
+    ];
 
     let mut dead_enemies: Vec<Enemy> = Vec::new();
 

@@ -698,9 +698,8 @@ impl<'a> Character<'a> {
         }
         self.x += x;
         self.y += y;
-        if x != 0 || y != 0 {
-            self.set_weapon_pos();
-        }
+        // Since we might change direction, better update weapon in any case...
+        self.set_weapon_pos();
 
         self.stamina.refresh(elapsed);
         self.health.refresh(elapsed);

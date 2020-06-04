@@ -9,36 +9,27 @@ where
     let a_height = a.height() as i64;
     let b_width = b.width() as i64;
     let b_height = b.height() as i64;
-    let mut x;
-    let mut y;
 
-    if a_width == 0 || b_width == 0 {
-        x = b.x() - a.x();
-        y = b.y() - a.y();
+    let a_x = a.x();
+    let a_y = a.y();
+    let b_x = b.x();
+    let b_y = b.y();
+
+    let x = if b_x >= a_x + a_width {
+        b_x - a_x - a_width
+    } else if a_x >= b_x + b_width {
+        b_x + b_width - a_x
     } else {
-        let a_x = a.x();
-        let a_y = a.y();
-        let b_x = b.x();
-        let b_y = b.y();
-
-        if b_x >= a_x + a_width {
-            x = b_x - a_x - a_width;
-        } else if a_x >= b_x + b_width {
-            x = b_x + b_width - a_x;
-        } else {
-            x = b_x - a_x;
-        }
-        if b_y >= a_y + a_height {
-            y = b_y - a_y - a_height;
-        } else if a_y >= b_y + b_height {
-            y = b_y + b_height - a_y;
-        } else {
-            y = b_y - a_y;
-        }
-    }
-    x *= x;
-    y *= y;
-    ((x + y) as f32).sqrt() as i32
+        b_x - a_x
+    };
+    let y = if b_y + b_height <= a_y {
+        a_y - b_y - b_height
+    } else if a_y + a_height <= b_y {
+        b_y - a_y - a_height
+    } else {
+        b_y - a_y
+    };
+    ((x * x + y * y) as f32).sqrt() as i32
 }
 
 /// Returns a tuple containing: `(distance, incr X axis, incr Y axis)`.
