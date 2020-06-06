@@ -252,7 +252,7 @@ impl<'a> Env<'a> {
     pub fn new(
         game_controller_subsystem: &'a GameControllerSubsystem,
         texture_creator: &'a TextureCreator<WindowContext>,
-        textures: &mut HashMap<String, TextureHolder<'a>>,
+        textures: &mut HashMap<&'static str, TextureHolder<'a>>,
         font: &'a Font<'_, 'static>,
         width: u32,
         height: u32,
@@ -315,7 +315,7 @@ impl<'a> Env<'a> {
         event_pump: &mut EventPump,
         players: &mut [Player],
         rewards: &mut Vec<Reward>,
-        textures: &'a HashMap<String, TextureHolder<'a>>,
+        textures: &'a HashMap<&'static str, TextureHolder<'a>>,
     ) -> bool {
         let mouse_state = event_pump.mouse_state();
         for event in event_pump.poll_iter() {
@@ -494,7 +494,7 @@ impl<'a> Env<'a> {
         true
     }
 
-    pub fn show_death_screen(&mut self, textures: &'a HashMap<String, TextureHolder<'a>>) {
+    pub fn show_death_screen(&mut self, textures: &'a HashMap<&'static str, TextureHolder<'a>>) {
         self.menu.set_death(textures);
         self.display_menu = true;
     }
@@ -534,7 +534,7 @@ impl<'a> Env<'a> {
         system: &mut System,
         rewards: &[Reward],
         player: &Player,
-        textures: &HashMap<String, TextureHolder>,
+        textures: &HashMap<&'static str, TextureHolder>,
     ) {
         if self.need_sort_rewards {
             self.closest_reward = None;

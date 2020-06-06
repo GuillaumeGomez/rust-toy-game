@@ -159,11 +159,11 @@ pub fn main() {
     // TODO: maybe move that in `Env`?
     let mut textures = HashMap::new();
     textures.insert(
-        "reward".to_owned(),
+        "reward",
         TextureHolder::from_image(&texture_creator, "resources/bag.png").with_max_size(24),
     );
     textures.insert(
-        "reward-text".to_owned(),
+        "reward-text",
         TextureHolder::from_text(
             &texture_creator,
             &font_10,

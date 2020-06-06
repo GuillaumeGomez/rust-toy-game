@@ -14,21 +14,21 @@ const LEVEL_UP_SPRITE_WIDTH: u32 = 82;
 const LEVEL_UP_SPRITE_HEIGHT: u32 = 36;
 
 pub fn create_death_animation_texture<'a>(
-    textures: &mut HashMap<String, TextureHolder<'a>>,
+    textures: &mut HashMap<&'static str, TextureHolder<'a>>,
     texture_creator: &'a TextureCreator<WindowContext>,
 ) {
     textures.insert(
-        "death".to_owned(),
+        "death",
         TextureHolder::from_image(texture_creator, "resources/death.png"),
     );
 }
 
 pub fn create_level_up_animation_texture<'a>(
-    textures: &mut HashMap<String, TextureHolder<'a>>,
+    textures: &mut HashMap<&'static str, TextureHolder<'a>>,
     texture_creator: &'a TextureCreator<WindowContext>,
 ) {
     textures.insert(
-        "level-up".to_owned(),
+        "level-up",
         TextureHolder::from_image(texture_creator, "resources/level-up.png"),
     );
 }
@@ -45,8 +45,8 @@ pub struct Animation<'a> {
 }
 
 impl<'a> Animation<'a> {
-    pub fn new_death(textures: &'a HashMap<String, TextureHolder<'a>>) -> Animation<'a> {
-        let texture = &textures[&"death".to_owned()];
+    pub fn new_death(textures: &'a HashMap<&'static str, TextureHolder<'a>>) -> Animation<'a> {
+        let texture = &textures[&"death"];
         let nb_animations = texture.width / DEATH_SPRITE_WIDTH;
         Animation {
             texture,
@@ -60,8 +60,8 @@ impl<'a> Animation<'a> {
         }
     }
 
-    pub fn new_level_up(textures: &'a HashMap<String, TextureHolder<'a>>) -> Animation<'a> {
-        let texture = &textures[&"level-up".to_owned()];
+    pub fn new_level_up(textures: &'a HashMap<&'static str, TextureHolder<'a>>) -> Animation<'a> {
+        let texture = &textures[&"level-up"];
         let nb_animations = texture.width / LEVEL_UP_SPRITE_WIDTH;
         Animation {
             texture,

@@ -90,7 +90,7 @@ impl<'a> Button<'a> {
 
 fn init_button_textures<'a>(
     texture_creator: &'a TextureCreator<WindowContext>,
-    textures: &mut HashMap<String, TextureHolder<'a>>,
+    textures: &mut HashMap<&'static str, TextureHolder<'a>>,
     width: u32,
     height: u32,
 ) {
@@ -100,7 +100,7 @@ fn init_button_textures<'a>(
         .fill_rect(None, Color::RGB(30, 30, 30))
         .expect("failed to fill button surface");
     textures.insert(
-        "t:button".to_owned(),
+        "t:button",
         TextureHolder::surface_to_texture(texture_creator, button),
     );
     let mut button_clicked = Surface::new(width, height, texture_creator.default_pixel_format())
@@ -109,7 +109,7 @@ fn init_button_textures<'a>(
         .fill_rect(None, Color::RGB(20, 20, 20))
         .expect("failed to fill button surface");
     textures.insert(
-        "t:button-clicked".to_owned(),
+        "t:button-clicked",
         TextureHolder::surface_to_texture(texture_creator, button_clicked),
     );
 }
@@ -172,7 +172,7 @@ pub struct Menu<'a> {
 impl<'a> Menu<'a> {
     pub fn new(
         texture_creator: &'a TextureCreator<WindowContext>,
-        textures: &mut HashMap<String, TextureHolder<'a>>,
+        textures: &mut HashMap<&'static str, TextureHolder<'a>>,
         font: &'a Font,
         width: u32,
         height: u32,
@@ -206,13 +206,13 @@ impl<'a> Menu<'a> {
         }
     }
 
-    pub fn set_pause(&mut self, textures: &'a HashMap<String, TextureHolder<'a>>) {
+    pub fn set_pause(&mut self, textures: &'a HashMap<&'static str, TextureHolder<'a>>) {
         self.parent_state.clear();
         self.set_state("pause", textures);
         self.update(0, 0);
     }
 
-    pub fn set_death(&mut self, textures: &'a HashMap<String, TextureHolder<'a>>) {
+    pub fn set_death(&mut self, textures: &'a HashMap<&'static str, TextureHolder<'a>>) {
         self.parent_state.clear();
         self.set_state("death", textures);
         self.update(0, 0);
@@ -221,7 +221,7 @@ impl<'a> Menu<'a> {
     pub fn set_state(
         &mut self,
         state: &'static str,
-        textures: &'a HashMap<String, TextureHolder<'a>>,
+        textures: &'a HashMap<&'static str, TextureHolder<'a>>,
     ) {
         if self.state == state {
             return;
@@ -238,8 +238,8 @@ impl<'a> Menu<'a> {
                 self.buttons.clear();
                 let total = buttons.len() as i32 + 1;
                 for (pos, (text, action)) in buttons.iter().enumerate() {
-                    let button_texture = &textures[&"t:button".to_owned()];
-                    let button_texture_clicked = &textures[&"t:button-clicked".to_owned()];
+                    let button_texture = &textures[&"t:button"];
+                    let button_texture_clicked = &textures[&"t:button-clicked"];
                     self.buttons.push(Button::new(
                         text.to_string(),
                         button_texture,
@@ -291,7 +291,7 @@ impl<'a> Menu<'a> {
     fn handle_button(
         &mut self,
         button_pos: usize,
-        textures: &'a HashMap<String, TextureHolder<'a>>,
+        textures: &'a HashMap<&'static str, TextureHolder<'a>>,
     ) -> MenuEvent {
         match self.buttons[button_pos].action {
             MenuEvent::StartGame => return MenuEvent::Resume,
@@ -315,7 +315,7 @@ impl<'a> Menu<'a> {
     pub fn handle_event(
         &mut self,
         event: Event,
-        textures: &'a HashMap<String, TextureHolder<'a>>,
+        textures: &'a HashMap<&'static str, TextureHolder<'a>>,
     ) -> MenuEvent {
         match event {
             Event::Quit { .. } => {

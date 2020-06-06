@@ -102,7 +102,7 @@ pub struct Enemy<'a> {
 impl<'a> Enemy<'a> {
     pub fn new(
         texture_creator: &'a TextureCreator<WindowContext>,
-        textures: &'a HashMap<String, TextureHolder<'a>>,
+        textures: &'a HashMap<&'static str, TextureHolder<'a>>,
         texture: &'a Texture<'a>,
         surface: &'a Surface<'a>,
         x: i64,

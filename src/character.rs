@@ -233,7 +233,7 @@ impl<'a> Character<'a> {
     pub fn increase_xp(
         &mut self,
         xp_to_add: u64,
-        textures: &'a HashMap<String, TextureHolder<'a>>,
+        textures: &'a HashMap<&'static str, TextureHolder<'a>>,
     ) {
         self.xp += xp_to_add;
         if self.xp >= self.xp_to_next_level {
