@@ -87,6 +87,7 @@ impl<'a> System<'a> {
         x: i32,
         y: i32,
         x_centered: bool,
+        y_centered: bool,
     ) -> (u32, u32) {
         if let Some(pos) = self
             .font_maps
@@ -95,9 +96,26 @@ impl<'a> System<'a> {
         {
             // Very ugly hack to be able to send &mut self while borrowing `self.font_maps`!
             let font = &self.font_maps[pos] as *const FontHandler;
-            unsafe { (*font).draw(self, text, x, y, x_centered) }
+            unsafe { (*font).draw(self, text, x, y, x_centered, y_centered) }
         } else {
             (0, 0)
         }
+    }
+
+    /// The purpose is just to display the font map.
+    pub fn full_draw_text(&mut self, x: i32, y: i32) {
+        use sdl2::rect::Rect;
+        self.canvas
+            .copy(
+                &self.font_maps[1].texture.texture,
+                None,
+                Rect::new(
+                    x,
+                    y,
+                    self.font_maps[1].texture.width,
+                    self.font_maps[1].texture.height,
+                ),
+            )
+            .unwrap();
     }
 }

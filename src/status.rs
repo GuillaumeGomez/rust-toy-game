@@ -37,7 +37,7 @@ impl<'a> Status {
         // increase position of the text
         let x = (x - system.x()) as i32;
         let y = (y - system.y()) as i32 - self.y_pos - 10;
-        system.draw_text(&self.text, 14, self.color, x, y, true);
+        system.draw_text(&self.text, 14, self.color, x, y, true, false);
     }
 
     pub fn should_be_removed(&self) -> bool {

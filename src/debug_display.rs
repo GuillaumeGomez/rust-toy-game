@@ -120,6 +120,7 @@ impl<'a, 'b> DebugDisplay<'a> {
                     3,
                     current_pos,
                     false,
+                    false,
                 );
                 current_pos += h as i32 + 1; // 1 is for having spacing between lines
             } else {
@@ -129,5 +130,6 @@ impl<'a, 'b> DebugDisplay<'a> {
                 break;
             }
         }
+        system.full_draw_text(3, current_pos);
     }
 }

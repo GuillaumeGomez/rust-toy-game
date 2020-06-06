@@ -18,8 +18,7 @@ use crate::texture_holder::TextureHolder;
 struct Button<'a> {
     texture: &'a TextureHolder<'a>,
     texture_clicked: &'a TextureHolder<'a>,
-    text: &'a TextureHolder<'a>,
-    text_hovered: &'a TextureHolder<'a>,
+    text: String,
     rect: Rect,
     is_hovered: bool,
     is_clicked: bool,
@@ -28,8 +27,7 @@ struct Button<'a> {
 
 impl<'a> Button<'a> {
     fn new(
-        text: &'a TextureHolder<'a>,
-        text_hovered: &'a TextureHolder<'a>,
+        text: String,
         button_texture: &'a TextureHolder<'a>,
         button_texture_clicked: &'a TextureHolder<'a>,
         rect: Rect,
@@ -39,7 +37,6 @@ impl<'a> Button<'a> {
             texture: button_texture,
             texture_clicked: button_texture_clicked,
             text,
-            text_hovered,
             rect,
             is_hovered: false,
             is_clicked: false,
@@ -75,44 +72,18 @@ impl<'a> Button<'a> {
                 self.rect,
             )
             .expect("copy menu failed");
-        system
-            .canvas
-            .copy(
-                if self.is_hovered {
-                    &self.text_hovered.texture
-                } else {
-                    &self.text.texture
-                },
-                None,
-                Rect::new(
-                    self.rect.x + (self.rect.width() - self.text.width) as i32 / 2,
-                    self.rect.y + (self.rect.height() - self.text.height) as i32 / 2,
-                    self.text.width,
-                    self.text.height,
-                ),
-            )
-            .expect("copy menu failed");
-    }
-}
-
-fn create_text_textures<'a>(
-    texture_creator: &'a TextureCreator<WindowContext>,
-    textures: &mut HashMap<String, TextureHolder<'a>>,
-    font: &'a Font,
-    text: &str,
-) {
-    let name = format!("n:{}", text);
-    if !textures.contains_key(&name) {
-        textures.insert(
-            name,
-            TextureHolder::from_text(texture_creator, font, Color::RGB(255, 255, 255), None, text),
-        );
-    }
-    let name = format!("h:{}", text);
-    if !textures.contains_key(&name) {
-        textures.insert(
-            name,
-            TextureHolder::from_text(texture_creator, font, Color::RGB(74, 138, 221), None, text),
+        system.draw_text(
+            &self.text,
+            16,
+            if self.is_hovered {
+                Color::RGB(74, 138, 221)
+            } else {
+                Color::RGB(255, 255, 255)
+            },
+            self.rect.x + (self.rect.width() / 2) as i32,
+            self.rect.y + (self.rect.height() / 2) as i32,
+            true,
+            true,
         );
     }
 }
@@ -217,12 +188,6 @@ impl<'a> Menu<'a> {
             .fill_rect(None, Color::RGB(74, 138, 221))
             .expect("failed to fill selected surface");
 
-        for (_, buttons) in MENUS.iter() {
-            for (text, _) in buttons {
-                create_text_textures(texture_creator, textures, font, text);
-            }
-        }
-
         init_button_textures(texture_creator, textures, width / 2, 50);
 
         Menu {
@@ -273,13 +238,10 @@ impl<'a> Menu<'a> {
                 self.buttons.clear();
                 let total = buttons.len() as i32 + 1;
                 for (pos, (text, action)) in buttons.iter().enumerate() {
-                    let texture = &textures[&format!("n:{}", text)];
-                    let texture_hover = &textures[&format!("h:{}", text)];
                     let button_texture = &textures[&"t:button".to_owned()];
                     let button_texture_clicked = &textures[&"t:button-clicked".to_owned()];
                     self.buttons.push(Button::new(
-                        texture,
-                        texture_hover,
+                        text.to_string(),
                         button_texture,
                         button_texture_clicked,
                         Rect::new(

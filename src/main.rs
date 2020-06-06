@@ -135,6 +135,7 @@ pub fn main() {
 
     system.create_new_font_map(&texture_creator, &font_14, 14, Color::RGB(255, 0, 0));
     system.create_new_font_map(&texture_creator, &font_16, 16, Color::RGB(255, 255, 255));
+    system.create_new_font_map(&texture_creator, &font_16, 16, Color::RGB(74, 138, 221));
 
     let (player_texture, player_surface) =
         player::create_right_actions(&texture_creator, &Player::get_actions_standing());

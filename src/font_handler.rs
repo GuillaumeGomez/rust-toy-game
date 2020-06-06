@@ -1,11 +1,12 @@
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
-use sdl2::render::{Texture, TextureCreator};
+use sdl2::render::{BlendMode, Texture, TextureCreator};
 use sdl2::surface::Surface;
 use sdl2::ttf::Font;
 use sdl2::video::WindowContext;
 
 use crate::system::System;
+use crate::texture_holder::TextureHolder;
 
 struct CharInfo {
     c: char,
@@ -15,7 +16,7 @@ struct CharInfo {
 }
 
 pub struct FontHandler<'a> {
-    pub texture: Texture<'a>,
+    pub texture: TextureHolder<'a>,
     pub size: u16,
     pub color: Color,
     inner: Vec<CharInfo>,
@@ -51,7 +52,11 @@ impl<'a> FontHandler<'a> {
         current_width = 0;
         let inner = v
             .into_iter()
-            .map(|(c, surface)| {
+            .map(|(c, mut surface)| {
+                // If we don't set this blend mode, the letters won't render nicely...
+                surface
+                    .set_blend_mode(BlendMode::None)
+                    .expect("cannot set blend mode...");
                 surface
                     .blit(
                         None,
@@ -62,18 +67,15 @@ impl<'a> FontHandler<'a> {
                 let ret = CharInfo {
                     c,
                     x: current_width as i32,
-                    height: surface.height(),
+                    height: max_height,
                     width: surface.width(),
                 };
                 current_width += surface.width();
                 ret
             })
             .collect::<Vec<_>>();
-        let texture = texture_creator
-            .create_texture_from_surface(&letters_surface)
-            .expect("failed to build texture from surface");
         FontHandler {
-            texture,
+            texture: TextureHolder::surface_to_texture(texture_creator, letters_surface),
             size: font_size,
             color,
             inner,
@@ -87,20 +89,38 @@ impl<'a> FontHandler<'a> {
         x: i32,
         y: i32,
         x_centered: bool,
+        y_centered: bool,
     ) -> (u32, u32) {
-        let mut x = if x_centered {
+        let (mut x, y) = if x_centered || y_centered {
+            let mut max_height = 0;
             let mut total_width = 0;
             for c in text.chars() {
                 total_width += self
                     .inner
                     .iter()
                     .find(|x| x.c == c)
-                    .map(|x| x.width)
+                    .map(|x| {
+                        if x.height > max_height {
+                            max_height = x.height;
+                        }
+                        x.width + 1
+                    })
                     .unwrap_or(0);
             }
-            x - total_width as i32 / 2
+            (
+                if x_centered {
+                    x - total_width as i32 / 2
+                } else {
+                    x
+                },
+                if y_centered {
+                    y - max_height as i32 / 2
+                } else {
+                    y
+                },
+            )
         } else {
-            x
+            (x, y)
         };
         let mut total_width = 0;
         let mut max_height = 0;
@@ -109,13 +129,13 @@ impl<'a> FontHandler<'a> {
                 system
                     .canvas
                     .copy(
-                        &self.texture,
+                        &self.texture.texture,
                         Rect::new(c_info.x, 0, c_info.width, c_info.height),
                         Rect::new(x, y, c_info.width, c_info.height),
                     )
                     .expect("copy letter failed");
-                x += c_info.width as i32;
-                total_width += c_info.width;
+                x += c_info.width as i32 + 1;
+                total_width += c_info.width + 1;
                 if c_info.height > max_height {
                     max_height = c_info.height;
                 }
