@@ -25,12 +25,6 @@ impl<'a> TextureHolder<'a> {
             .create_texture_from_surface(&surface)
             .expect("failed to build texture from surface");
 
-        if surface.pixel_format_enum() != PixelFormatEnum::RGBA8888 {
-            surface = surface
-                .convert_format(PixelFormatEnum::RGBA8888)
-                .expect("failed to convert surface to RGBA8888");
-        }
-
         TextureHolder {
             texture,
             width,

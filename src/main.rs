@@ -31,6 +31,7 @@ mod character;
 mod debug_display;
 mod enemy;
 mod env;
+mod font_handler;
 mod health_bar;
 mod hud;
 mod map;
@@ -131,6 +132,9 @@ pub fn main() {
     let font_10 = load_font!(ttf_context, 10);
     let font_14 = load_font!(ttf_context, 14);
     let font_16 = load_font!(ttf_context, 16);
+
+    system.create_new_font_map(&texture_creator, &font_14, 14, Color::RGB(255, 0, 0));
+    system.create_new_font_map(&texture_creator, &font_16, 16, Color::RGB(255, 255, 255));
 
     let (player_texture, player_surface) =
         player::create_right_actions(&texture_creator, &Player::get_actions_standing());
@@ -273,14 +277,8 @@ pub fn main() {
                         let mut matrix = None;
                         // TODO: for now, players can only attack NPCs
                         for it in (0..enemies.len()).rev() {
-                            let attack = enemies[it].check_intersection(
-                                id,
-                                dir,
-                                weapon,
-                                &mut matrix,
-                                &font_14,
-                                &texture_creator,
-                            );
+                            let attack =
+                                enemies[it].check_intersection(id, dir, weapon, &mut matrix);
                             if attack > 0 {
                                 if i == 0 {
                                     env.rumble(u16::MAX / 13, 250);
@@ -333,14 +331,7 @@ pub fn main() {
                         let mut matrix = None;
                         // TODO: for now, NPCs can only attack players
                         for (pos, player) in players.iter_mut().enumerate() {
-                            if player.check_intersection(
-                                id,
-                                dir,
-                                weapon,
-                                &mut matrix,
-                                &font_14,
-                                &texture_creator,
-                            ) > 0
+                            if player.check_intersection(id, dir, weapon, &mut matrix) > 0
                                 && pos == 0
                             {
                                 env.rumble(u16::MAX / 10, 250);

@@ -8,23 +8,20 @@ use sdl2::video::WindowContext;
 use crate::system::System;
 use crate::{HEIGHT, MAP_CASE_SIZE, WIDTH};
 
-pub struct DebugDisplay<'a, 'b> {
-    font: &'a Font<'a, 'static>,
-    texture_creator: &'b TextureCreator<WindowContext>,
-    background: Texture<'b>,
+pub struct DebugDisplay<'a> {
+    background: Texture<'a>,
     width: u32,
     height: u32,
-    font_size: i32,
+    font_size: u16,
     draw_grid: bool,
-    grid: Texture<'b>,
+    grid: Texture<'a>,
 }
 
-impl<'a, 'b> DebugDisplay<'a, 'b> {
+impl<'a, 'b> DebugDisplay<'a> {
     pub fn new(
-        font: &'a Font<'a, 'static>,
-        texture_creator: &'b TextureCreator<WindowContext>,
-        font_size: i32,
-    ) -> DebugDisplay<'a, 'b> {
+        texture_creator: &'a TextureCreator<WindowContext>,
+        font_size: u16,
+    ) -> DebugDisplay<'a> {
         let width = WIDTH as u32;
         let height = 200;
         let mut background = Surface::new(width, height, PixelFormatEnum::RGBA8888)
@@ -70,8 +67,6 @@ impl<'a, 'b> DebugDisplay<'a, 'b> {
             background: texture_creator
                 .create_texture_from_surface(background)
                 .expect("failed to build texture from debug surface"),
-            font,
-            texture_creator,
             width,
             height,
             font_size,
@@ -118,23 +113,17 @@ impl<'a, 'b> DebugDisplay<'a, 'b> {
         let mut current_pos = 2;
         for line in text.lines() {
             if !line.is_empty() {
-                let (w, h) = self.font.size_of(line).expect("failed to get font size");
-                let text_surface = self
-                    .font
-                    .render(line)
-                    .solid(Color::RGB(255, 255, 255))
-                    .expect("failed to convert text to surface");
-                let text_texture = self
-                    .texture_creator
-                    .create_texture_from_surface(text_surface)
-                    .expect("failed to build texture from debug surface");
-                system
-                    .canvas
-                    .copy(&text_texture, None, Rect::new(3, current_pos, w, h))
-                    .expect("copy failed for text texture");
+                let (_, h) = system.draw_text(
+                    line,
+                    self.font_size,
+                    Color::RGB(255, 255, 255),
+                    3,
+                    current_pos,
+                    false,
+                );
                 current_pos += h as i32 + 1; // 1 is for having spacing between lines
             } else {
-                current_pos += self.font_size + 1; // 1 is for having spacing between lines
+                current_pos += self.font_size as i32 + 1; // 1 is for having spacing between lines
             }
             if current_pos as u32 > self.height {
                 break;

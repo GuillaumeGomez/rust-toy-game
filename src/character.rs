@@ -1,7 +1,6 @@
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 use sdl2::render::TextureCreator;
-use sdl2::ttf::Font;
 use sdl2::video::WindowContext;
 
 use std::cell::RefCell;
@@ -222,7 +221,7 @@ pub struct Character<'a> {
     /// invincible to any other attack from your ID until the total attack time is over.
     pub id: Id,
     pub invincible_against: Vec<InvincibleAgainst>,
-    pub statuses: Vec<Status<'a>>,
+    pub statuses: Vec<Status>,
     pub show_health_bar: bool,
     pub death_animation: Option<Animation<'a>>,
     /// (x, y, delay)
@@ -797,14 +796,12 @@ impl<'a> Character<'a> {
         }
     }
 
-    pub fn check_intersection<'b>(
+    pub fn check_intersection(
         &mut self,
         attacker_id: Id,
         attacker_direction: Direction,
         weapon: &Weapon<'a>,
         matrix: &mut Option<Vec<(i64, i64)>>,
-        font: &'b Font<'b, 'static>,
-        texture_creator: &'a TextureCreator<WindowContext>,
     ) -> i32 {
         if self.is_dead()
             || attacker_id == self.id
@@ -892,12 +889,8 @@ impl<'a> Character<'a> {
                         .push(InvincibleAgainst::new(attacker_id, weapon.total_time));
                     // TODO: add defense on characters and make computation here (also add dodge
                     // computation and the other stuff...)
-                    self.statuses.push(Status::new(
-                        font,
-                        texture_creator,
-                        &attack.to_string(),
-                        Color::RGB(255, 0, 0),
-                    ));
+                    self.statuses
+                        .push(Status::new(attack.to_string(), Color::RGB(255, 0, 0)));
                 }
                 return weapon.attack;
             }

@@ -1,6 +1,9 @@
-use sdl2::render::Canvas;
-use sdl2::video::Window;
+use sdl2::pixels::Color;
+use sdl2::render::{Canvas, TextureCreator};
+use sdl2::ttf::Font;
+use sdl2::video::{Window, WindowContext};
 
+use crate::font_handler::FontHandler;
 use crate::health_bar::HealthBar;
 use crate::player::Player;
 
@@ -11,6 +14,7 @@ pub struct System<'a> {
     pub width: u32,
     pub height: u32,
     pub health_bar: &'a HealthBar<'a>,
+    pub font_maps: Vec<FontHandler<'a>>,
 }
 
 impl<'a> System<'a> {
@@ -27,7 +31,26 @@ impl<'a> System<'a> {
             width,
             height,
             health_bar,
+            font_maps: Vec::new(),
         }
+    }
+
+    pub fn create_new_font_map<'b>(
+        &mut self,
+        texture_creator: &'a TextureCreator<WindowContext>,
+        font: &'b Font<'b, 'static>,
+        font_size: u16,
+        color: Color,
+    ) {
+        if self
+            .font_maps
+            .iter()
+            .any(|f| f.color == color && f.size == font_size)
+        {
+            return;
+        }
+        self.font_maps
+            .push(FontHandler::new(texture_creator, font, font_size, color));
     }
 
     pub fn set_screen_position(&mut self, player: &Player) {
@@ -54,5 +77,27 @@ impl<'a> System<'a> {
     pub fn clear(&mut self) {
         self.canvas.present();
         self.canvas.clear();
+    }
+
+    pub fn draw_text(
+        &mut self,
+        text: &str,
+        font_size: u16,
+        color: Color,
+        x: i32,
+        y: i32,
+        x_centered: bool,
+    ) -> (u32, u32) {
+        if let Some(pos) = self
+            .font_maps
+            .iter()
+            .position(|f| f.color == color && f.size == font_size)
+        {
+            // Very ugly hack to be able to send &mut self while borrowing `self.font_maps`!
+            let font = &self.font_maps[pos] as *const FontHandler;
+            unsafe { (*font).draw(self, text, x, y, x_centered) }
+        } else {
+            (0, 0)
+        }
     }
 }
