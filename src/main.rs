@@ -358,7 +358,7 @@ pub fn main() {
         // TODO: put this whole thing somewhere else
         env.draw_rewards(&mut system, &rewards, &players[0], &textures);
         for enemy in enemies.iter_mut() {
-            enemy.draw(&mut system, env.debug.is_some());
+            enemy.draw(&mut system, env.debug);
         }
         for dead_enemy in dead_enemies.iter_mut() {
             dead_enemy.draw(&mut system, false);
@@ -370,7 +370,7 @@ pub fn main() {
         // Actually, doing the opposite seems better: first draw the character, then the vegetation
         // unless the character is just under the vegetation.
         for player in players.iter_mut() {
-            player.draw(&mut system, env.debug.is_some());
+            player.draw(&mut system, env.debug);
         }
         hud.draw(&players[0], &mut system);
 
