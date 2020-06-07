@@ -167,7 +167,7 @@ impl GamePad {
             | Event::ControllerButtonUp { which, .. }
             | Event::ControllerDeviceRemoved { which, .. }
             | Event::JoyDeviceRemoved { which, .. }
-                if which as i32 != self.controller.instance_id() =>
+                if which != self.controller.instance_id() =>
             {
                 vec![]
             }
