@@ -46,6 +46,7 @@ mod texture_handler;
 mod texture_holder;
 mod traits;
 mod weapon;
+mod window;
 
 use character::CharacterKind;
 use enemy::Enemy;
@@ -374,9 +375,7 @@ pub fn main() {
         }
         hud.draw(&players[0], &mut system);
 
-        if env.display_menu {
-            env.menu.draw(&mut system);
-        }
+        env.draw(&mut system);
 
         let elapsed_time = loop_timer.elapsed();
 

@@ -18,6 +18,7 @@ use crate::reward::Reward;
 use crate::system::System;
 use crate::texture_holder::TextureHolder;
 use crate::utils::compute_distance;
+use crate::window::Window;
 use crate::{GetDimension, GetPos, FPS_REFRESH, ONE_SECOND};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -244,6 +245,7 @@ pub struct Env<'a> {
     pub need_sort_rewards: bool,
     pub closest_reward: Option<(i32, usize)>,
     pub game_controller_subsystem: &'a GameControllerSubsystem,
+    pub inventory_window: Window<'a>,
     controller: Option<GamePad>,
     // pressed_keys: Vec<Event>,
 }
@@ -268,6 +270,13 @@ impl<'a> Env<'a> {
             closest_reward: None,
             game_controller_subsystem,
             controller: None,
+            inventory_window: Window::new(
+                texture_creator,
+                width as i32 - 210,
+                height as i32 / 4,
+                200,
+                height / 3,
+            ),
         };
         env.update_controller();
         env
@@ -420,10 +429,14 @@ impl<'a> Env<'a> {
                             keycode: Some(x), ..
                         } => match x {
                             Keycode::Escape => {
-                                self.display_menu = true;
-                                self.menu.set_pause(textures);
-                                // To hover buttons in case the mouse is hovering one.
-                                self.menu.update(mouse_state.x(), mouse_state.y());
+                                if self.inventory_window.is_hidden() {
+                                    self.display_menu = true;
+                                    self.menu.set_pause(textures);
+                                    // To hover buttons in case the mouse is hovering one.
+                                    self.menu.update(mouse_state.x(), mouse_state.y());
+                                } else {
+                                    self.inventory_window.hide();
+                                }
                             }
                             Keycode::Left | Keycode::Q => players[0].handle_move(Direction::Left),
                             Keycode::Right | Keycode::D => players[0].handle_move(Direction::Right),
@@ -447,6 +460,13 @@ impl<'a> Env<'a> {
                                 self.debug = self.debug == false;
                             }
                             Keycode::F5 => self.debug_display.switch_draw_grid(),
+                            Keycode::I => {
+                                if self.inventory_window.is_hidden() {
+                                    self.inventory_window.show();
+                                } else {
+                                    self.inventory_window.hide();
+                                }
+                            }
                             _ => {}
                         },
                         Event::KeyUp {
@@ -482,7 +502,11 @@ impl<'a> Env<'a> {
                             }
                             _ => {}
                         },
-                        _ => {}
+                        ev => {
+                            if !self.inventory_window.is_hidden() {
+                                self.inventory_window.handle_event(&ev);
+                            }
+                        }
                     }
                 }
             }
@@ -639,6 +663,13 @@ impl<'a> Env<'a> {
             {
                 eprintln!("cannot set rumble: {:?}", e);
             }
+        }
+    }
+
+    pub fn draw(&mut self, system: &mut System) {
+        self.inventory_window.draw(system);
+        if self.display_menu {
+            self.menu.draw(system);
         }
     }
 }
