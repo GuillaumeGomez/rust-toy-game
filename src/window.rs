@@ -75,6 +75,7 @@ impl<'a> TitleBarButton<'a> {
 
 pub struct Window<'a> {
     title_bar_height: u32,
+    title: &'static str,
     border_width: u32,
     texture: TextureHolder<'a>,
     button: TitleBarButton<'a>,
@@ -91,8 +92,9 @@ impl<'a> Window<'a> {
         y: i32,
         width: u32,
         height: u32,
+        title: &'static str,
     ) -> Window<'a> {
-        let title_bar_height = 20;
+        let title_bar_height = 22;
         let border_width = 1;
         let mut window = Surface::new(width, height, texture_creator.default_pixel_format())
             .expect("Failed to create surface for font map");
@@ -119,6 +121,7 @@ impl<'a> Window<'a> {
             is_hidden: true,
             is_dragging_window: None,
             button: TitleBarButton::new(texture_creator, title_bar_height - 6),
+            title,
         }
     }
 
@@ -148,6 +151,15 @@ impl<'a> Window<'a> {
             // 3 is half the border around the titlebar button
             self.x + self.texture.width as i32 - self.title_bar_height as i32 + 3,
             self.y + 3,
+        );
+        system.draw_text(
+            self.title,
+            16,
+            Color::RGB(255, 255, 255),
+            self.x + self.texture.width as i32 / 2,
+            self.y + self.title_bar_height as i32 / 2,
+            true,
+            true,
         );
     }
 

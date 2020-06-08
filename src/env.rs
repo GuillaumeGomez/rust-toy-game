@@ -276,6 +276,7 @@ impl<'a> Env<'a> {
                 height as i32 / 4,
                 200,
                 height / 3,
+                "Inventory",
             ),
         };
         env.update_controller();
