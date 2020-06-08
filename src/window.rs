@@ -10,6 +10,25 @@ use crate::system::System;
 use crate::texture_holder::TextureHolder;
 use crate::GetDimension;
 
+pub trait Widget: GetDimension {
+    fn draw(&self, system: &mut System, x_add: i32, y_add: i32);
+    fn x(&self) -> i32;
+    fn y(&self) -> i32;
+    fn is_in(&self, x: i32, y: i32) -> bool {
+        !(x < self.x()
+            || x > self.x() + self.width() as i32
+            || y < self.y()
+            || y > self.y() + self.height() as i32)
+    }
+    /// Returns true is the event has been handled
+    fn handle_event(&mut self, ev: &Event, x_add: i32, y_add: i32) -> Option<EventAction>;
+}
+
+enum EventAction {
+    None,
+    Close,
+}
+
 struct TitleBarButton<'a> {
     texture: Texture<'a>,
     texture_pressed: Texture<'a>,
@@ -64,8 +83,19 @@ impl<'a> TitleBarButton<'a> {
             y,
         }
     }
+}
 
-    fn draw(&self, system: &mut System, x: i32, y: i32) {
+impl<'a> GetDimension for TitleBarButton<'a> {
+    fn width(&self) -> u32 {
+        self.size
+    }
+    fn height(&self) -> u32 {
+        self.size
+    }
+}
+
+impl<'a> Widget for TitleBarButton<'a> {
+    fn draw(&self, system: &mut System, x_add: i32, y_add: i32) {
         let t = if self.is_pressed && self.is_hovered {
             &self.texture_hovered_and_pressed
         } else if self.is_pressed {
@@ -77,15 +107,111 @@ impl<'a> TitleBarButton<'a> {
         };
         system
             .canvas
-            .copy(t, None, Rect::new(x, y, self.size, self.size))
+            .copy(
+                t,
+                None,
+                Rect::new(self.x + x_add, self.y + y_add, self.size, self.size),
+            )
             .expect("failed to draw titlebar button");
     }
+    fn x(&self) -> i32 {
+        self.x
+    }
+    fn y(&self) -> i32 {
+        self.y
+    }
+    fn handle_event(&mut self, ev: &Event, x_add: i32, y_add: i32) -> Option<EventAction> {
+        if !ev.is_mouse() && !ev.is_controller() {
+            return None;
+        }
+        match ev {
+            Event::MouseButtonDown {
+                mouse_btn: MouseButton::Left,
+                x: mouse_x,
+                y: mouse_y,
+                ..
+            } => {
+                if self.is_in(*mouse_x - x_add, *mouse_y - y_add) {
+                    self.is_pressed = true;
+                    Some(EventAction::None)
+                } else {
+                    None
+                }
+            }
+            Event::MouseButtonUp {
+                mouse_btn: MouseButton::Left,
+                x: mouse_x,
+                y: mouse_y,
+                ..
+            } => {
+                let ret = if self.is_pressed && self.is_in(*mouse_x - x_add, *mouse_y - y_add) {
+                    self.is_hovered = true;
+                    Some(EventAction::Close)
+                } else {
+                    None
+                };
+                self.is_pressed = false;
+                ret
+            }
+            Event::MouseMotion {
+                x: mouse_x,
+                y: mouse_y,
+                ..
+            } => {
+                self.is_hovered = self.is_in(*mouse_x - x_add, *mouse_y - y_add);
+                if self.is_hovered {
+                    Some(EventAction::None)
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+}
 
-    fn is_in(&self, x: i32, y: i32) -> bool {
-        !(x < self.x
-            || x > self.x + self.size as i32
-            || y < self.y
-            || y > self.y + self.size as i32)
+pub struct InventoryCase<'a> {
+    texture: &'a TextureHolder<'a>,
+    texture_hovered: &'a TextureHolder<'a>,
+    x: i32,
+    y: i32,
+    size: u32,
+    is_hovered: bool,
+}
+
+impl<'a> GetDimension for InventoryCase<'a> {
+    fn width(&self) -> u32 {
+        self.size
+    }
+    fn height(&self) -> u32 {
+        self.size
+    }
+}
+
+impl<'a> Widget for InventoryCase<'a> {
+    fn draw(&self, system: &mut System, x_add: i32, y_add: i32) {
+        let t = if self.is_hovered {
+            &self.texture_hovered
+        } else {
+            &self.texture
+        };
+        system
+            .canvas
+            .copy(
+                &t.texture,
+                None,
+                Rect::new(self.x + x_add, self.y + y_add, self.size, self.size),
+            )
+            .expect("failed to draw titlebar button");
+    }
+    fn x(&self) -> i32 {
+        self.x
+    }
+    fn y(&self) -> i32 {
+        self.y
+    }
+    fn handle_event(&mut self, ev: &Event, x_add: i32, y_add: i32) -> Option<EventAction> {
+        None
     }
 }
 
@@ -94,11 +220,11 @@ pub struct Window<'a> {
     title: &'static str,
     border_width: u32,
     texture: TextureHolder<'a>,
-    button: TitleBarButton<'a>,
     x: i32,
     y: i32,
     is_hidden: bool,
     is_dragging_window: Option<(i32, i32)>,
+    widgets: Vec<Box<Widget + 'a>>,
 }
 
 impl<'a> Window<'a> {
@@ -136,12 +262,12 @@ impl<'a> Window<'a> {
             y,
             is_hidden: true,
             is_dragging_window: None,
-            button: TitleBarButton::new(
+            widgets: vec![Box::new(TitleBarButton::new(
                 texture_creator,
                 title_bar_height - 6,
                 width as i32 - title_bar_height as i32 + 3,
                 3,
-            ),
+            ))],
             title,
         }
     }
@@ -167,12 +293,9 @@ impl<'a> Window<'a> {
                 Rect::new(self.x, self.y, self.texture.width, self.texture.height),
             )
             .expect("failed to draw window");
-        self.button.draw(
-            system,
-            // 3 is half the border around the titlebar button
-            self.x + self.texture.width as i32 - self.title_bar_height as i32 + 3,
-            self.y + 3,
-        );
+        for widget in self.widgets.iter() {
+            widget.draw(system, self.x, self.y);
+        }
         system.draw_text(
             self.title,
             16,
@@ -191,38 +314,63 @@ impl<'a> Window<'a> {
         match ev {
             Event::MouseButtonDown {
                 mouse_btn: MouseButton::Left,
-                ref x,
-                ref y,
+                x: mouse_x,
+                y: mouse_y,
                 ..
             } => {
-                if *x >= self.x
-                    && *x <= self.x + self.width() as i32
-                    && *y >= self.y
-                    && *y <= self.y + self.title_bar_height as i32
-                {
-                    if self.button.is_in(*x - self.x, *y - self.y) {
-                        self.button.is_pressed = true;
-                    } else {
-                        self.is_dragging_window = Some((*x - self.x, *y - self.y));
+                // TODO: clean this up
+                let ev = Event::MouseButtonDown {
+                    mouse_btn: MouseButton::Left,
+                    x: *mouse_x,
+                    y: *mouse_y,
+                    timestamp: 0,
+                    which: 0,
+                    clicks: 0,
+                    window_id: 0,
+                };
+                let mut actions = false;
+                for widget in self.widgets.iter_mut() {
+                    if widget.handle_event(&ev, self.x, self.y).is_some() {
+                        actions = true;
                     }
+                }
+                // If we are in the titlebar, then we can drag the window.
+                if !actions
+                    && *mouse_x >= self.x
+                    && *mouse_x <= self.x + self.width() as i32
+                    && *mouse_y >= self.y
+                    && *mouse_y <= self.y + self.title_bar_height as i32
+                {
+                    self.is_dragging_window = Some((*mouse_x - self.x, *mouse_y - self.y));
                 }
             }
             Event::MouseButtonUp {
                 mouse_btn: MouseButton::Left,
-                x,
-                y,
+                x: mouse_x,
+                y: mouse_y,
                 ..
             } => {
                 self.is_dragging_window = None;
-                if self.button.is_pressed && self.button.is_in(*x - self.x, *y - self.y) {
-                    self.is_hidden = true;
-                    self.button.is_hovered = true;
+                // TODO: clean this up
+                let ev = Event::MouseButtonUp {
+                    mouse_btn: MouseButton::Left,
+                    x: *mouse_x,
+                    y: *mouse_y,
+                    timestamp: 0,
+                    which: 0,
+                    clicks: 0,
+                    window_id: 0,
+                };
+                for widget in self.widgets.iter_mut() {
+                    if let Some(EventAction::Close) = widget.handle_event(&ev, self.x, self.y) {
+                        self.is_hidden = true;
+                    }
                 }
-                self.button.is_pressed = false;
             }
             Event::MouseMotion {
                 x: mouse_x,
                 y: mouse_y,
+                mousestate,
                 ..
             } => match self.is_dragging_window {
                 Some((x_add, y_add)) => {
@@ -230,8 +378,20 @@ impl<'a> Window<'a> {
                     self.y = *mouse_y - y_add;
                 }
                 None => {
-                    self.button.is_hovered =
-                        self.button.is_in(*mouse_x - self.x, *mouse_y - self.y);
+                    // TODO: clean this up
+                    let ev = Event::MouseMotion {
+                        x: *mouse_x,
+                        y: *mouse_y,
+                        xrel: 0,
+                        yrel: 0,
+                        timestamp: 0,
+                        which: 0,
+                        mousestate: *mousestate,
+                        window_id: 0,
+                    };
+                    for widget in self.widgets.iter_mut() {
+                        widget.handle_event(&ev, self.x, self.y);
+                    }
                 }
             },
             _ => {}
