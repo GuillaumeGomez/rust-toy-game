@@ -18,10 +18,17 @@ struct TitleBarButton<'a> {
     size: u32,
     is_hovered: bool,
     is_pressed: bool,
+    x: i32,
+    y: i32,
 }
 
 impl<'a> TitleBarButton<'a> {
-    fn new(texture_creator: &'a TextureCreator<WindowContext>, size: u32) -> TitleBarButton<'a> {
+    fn new(
+        texture_creator: &'a TextureCreator<WindowContext>,
+        size: u32,
+        x: i32,
+        y: i32,
+    ) -> TitleBarButton<'a> {
         let create_button = |button_color: Color, cross_color: Color| {
             let mut button = Surface::new(size, size, texture_creator.default_pixel_format())
                 .expect("Failed to create surface for titlebar button");
@@ -53,6 +60,8 @@ impl<'a> TitleBarButton<'a> {
             size,
             is_hovered: false,
             is_pressed: false,
+            x,
+            y,
         }
     }
 
@@ -70,6 +79,13 @@ impl<'a> TitleBarButton<'a> {
             .canvas
             .copy(t, None, Rect::new(x, y, self.size, self.size))
             .expect("failed to draw titlebar button");
+    }
+
+    fn is_in(&self, x: i32, y: i32) -> bool {
+        !(x < self.x
+            || x > self.x + self.size as i32
+            || y < self.y
+            || y > self.y + self.size as i32)
     }
 }
 
@@ -120,7 +136,12 @@ impl<'a> Window<'a> {
             y,
             is_hidden: true,
             is_dragging_window: None,
-            button: TitleBarButton::new(texture_creator, title_bar_height - 6),
+            button: TitleBarButton::new(
+                texture_creator,
+                title_bar_height - 6,
+                width as i32 - title_bar_height as i32 + 3,
+                3,
+            ),
             title,
         }
     }
@@ -163,15 +184,6 @@ impl<'a> Window<'a> {
         );
     }
 
-    pub fn is_in_titlebar_button(&self, mouse_x: i32, mouse_y: i32) -> bool {
-        let x = self.x + self.texture.width as i32 - self.title_bar_height as i32 + 3;
-        let y = self.y + 3;
-        !(mouse_x < x
-            || mouse_x > x + self.button.size as i32
-            || mouse_y < y
-            || mouse_y > y + self.button.size as i32)
-    }
-
     pub fn handle_event(&mut self, ev: &Event) {
         if self.is_hidden || (!ev.is_mouse() && !ev.is_controller()) {
             return;
@@ -188,7 +200,7 @@ impl<'a> Window<'a> {
                     && *y >= self.y
                     && *y <= self.y + self.title_bar_height as i32
                 {
-                    if self.is_in_titlebar_button(*x, *y) {
+                    if self.button.is_in(*x - self.x, *y - self.y) {
                         self.button.is_pressed = true;
                     } else {
                         self.is_dragging_window = Some((*x - self.x, *y - self.y));
@@ -202,7 +214,7 @@ impl<'a> Window<'a> {
                 ..
             } => {
                 self.is_dragging_window = None;
-                if self.button.is_pressed && self.is_in_titlebar_button(*x, *y) {
+                if self.button.is_pressed && self.button.is_in(*x - self.x, *y - self.y) {
                     self.is_hidden = true;
                     self.button.is_hovered = true;
                 }
@@ -218,7 +230,8 @@ impl<'a> Window<'a> {
                     self.y = *mouse_y - y_add;
                 }
                 None => {
-                    self.button.is_hovered = self.is_in_titlebar_button(*mouse_x, *mouse_y);
+                    self.button.is_hovered =
+                        self.button.is_in(*mouse_x - self.x, *mouse_y - self.y);
                 }
             },
             _ => {}
