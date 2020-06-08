@@ -2,7 +2,7 @@ use sdl2::event::Event;
 use sdl2::mouse::MouseButton;
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
-use sdl2::render::{Texture, TextureCreator};
+use sdl2::render::{Canvas, Texture, TextureCreator};
 use sdl2::surface::Surface;
 use sdl2::video::WindowContext;
 
@@ -13,6 +13,8 @@ use crate::GetDimension;
 struct TitleBarButton<'a> {
     texture: Texture<'a>,
     texture_pressed: Texture<'a>,
+    texture_hovered: Texture<'a>,
+    texture_hovered_and_pressed: Texture<'a>,
     size: u32,
     is_hovered: bool,
     is_pressed: bool,
@@ -20,25 +22,34 @@ struct TitleBarButton<'a> {
 
 impl<'a> TitleBarButton<'a> {
     fn new(texture_creator: &'a TextureCreator<WindowContext>, size: u32) -> TitleBarButton<'a> {
-        let mut button = Surface::new(size, size, texture_creator.default_pixel_format())
-            .expect("Failed to create surface for titlebar button");
-        button
-            .fill_rect(None, Color::RGB(255, 0, 0))
-            .expect("failed to create window titlebar button");
-
-        let mut button_pressed = Surface::new(size, size, texture_creator.default_pixel_format())
-            .expect("Failed to create surface for titlebar button");
-        button_pressed
-            .fill_rect(None, Color::RGB(220, 0, 0))
-            .expect("failed to create window titlebar button");
+        let create_button = |button_color: Color, cross_color: Color| {
+            let mut button = Surface::new(size, size, texture_creator.default_pixel_format())
+                .expect("Failed to create surface for titlebar button");
+            button
+                .fill_rect(None, button_color)
+                .expect("failed to create window titlebar button");
+            let mut canvas =
+                Canvas::from_surface(button).expect("failed to create Canvas from surface");
+            canvas.set_draw_color(cross_color);
+            canvas
+                .draw_line((3, 3), (size as i32 - 4, size as i32 - 4))
+                .expect("failed to draw line");
+            canvas
+                .draw_line((size as i32 - 4, 3), (3, size as i32 - 4))
+                .expect("failed to draw line");
+            texture_creator
+                .create_texture_from_surface(canvas.into_surface())
+                .expect("failed to build texture from surface")
+        };
 
         TitleBarButton {
-            texture: texture_creator
-                .create_texture_from_surface(&button)
-                .expect("failed to build texture from surface"),
-            texture_pressed: texture_creator
-                .create_texture_from_surface(&button_pressed)
-                .expect("failed to build texture from surface"),
+            texture: create_button(Color::RGB(255, 0, 0), Color::RGB(255, 255, 255)),
+            texture_pressed: create_button(Color::RGB(220, 0, 0), Color::RGB(255, 255, 255)),
+            texture_hovered: create_button(Color::RGB(255, 0, 0), Color::RGB(200, 200, 255)),
+            texture_hovered_and_pressed: create_button(
+                Color::RGB(220, 0, 0),
+                Color::RGB(200, 200, 255),
+            ),
             size,
             is_hovered: false,
             is_pressed: false,
@@ -46,31 +57,19 @@ impl<'a> TitleBarButton<'a> {
     }
 
     fn draw(&self, system: &mut System, x: i32, y: i32) {
-        if self.is_pressed {
-            system.canvas.copy(
-                &self.texture_pressed,
-                None,
-                Rect::new(x, y, self.size, self.size),
-            )
+        let t = if self.is_pressed && self.is_hovered {
+            &self.texture_hovered_and_pressed
+        } else if self.is_pressed {
+            &self.texture_pressed
+        } else if self.is_hovered {
+            &self.texture_hovered
         } else {
-            system
-                .canvas
-                .copy(&self.texture, None, Rect::new(x, y, self.size, self.size))
-        }
-        .expect("failed to draw titlebar button");
-        system.draw_text(
-            "X",
-            16,
-            if self.is_hovered {
-                Color::RGB(74, 138, 221)
-            } else {
-                Color::RGB(255, 255, 255)
-            },
-            x + self.size as i32 / 2,
-            y + self.size as i32 / 2,
-            true,
-            true,
-        );
+            &self.texture
+        };
+        system
+            .canvas
+            .copy(t, None, Rect::new(x, y, self.size, self.size))
+            .expect("failed to draw titlebar button");
     }
 }
 
