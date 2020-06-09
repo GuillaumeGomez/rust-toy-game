@@ -88,32 +88,6 @@ impl<'a> Button<'a> {
     }
 }
 
-fn init_button_textures<'a>(
-    texture_creator: &'a TextureCreator<WindowContext>,
-    textures: &mut HashMap<&'static str, TextureHolder<'a>>,
-    width: u32,
-    height: u32,
-) {
-    let mut button = Surface::new(width, height, texture_creator.default_pixel_format())
-        .expect("failed to create button surface");
-    button
-        .fill_rect(None, Color::RGB(30, 30, 30))
-        .expect("failed to fill button surface");
-    textures.insert(
-        "t:button",
-        TextureHolder::surface_to_texture(texture_creator, button),
-    );
-    let mut button_clicked = Surface::new(width, height, texture_creator.default_pixel_format())
-        .expect("failed to create button surface");
-    button_clicked
-        .fill_rect(None, Color::RGB(20, 20, 20))
-        .expect("failed to fill button surface");
-    textures.insert(
-        "t:button-clicked",
-        TextureHolder::surface_to_texture(texture_creator, button_clicked),
-    );
-}
-
 const MENUS: once_cell::sync::Lazy<Vec<(&'static str, Vec<(&'static str, MenuEvent)>)>> =
     once_cell::sync::Lazy::new(|| {
         vec![
@@ -170,9 +144,35 @@ pub struct Menu<'a> {
 }
 
 impl<'a> Menu<'a> {
-    pub fn new(
+    pub fn init_button_textures(
         texture_creator: &'a TextureCreator<WindowContext>,
         textures: &mut HashMap<&'static str, TextureHolder<'a>>,
+        width: u32,
+        height: u32,
+    ) {
+        let mut button = Surface::new(width, height, texture_creator.default_pixel_format())
+            .expect("failed to create button surface");
+        button
+            .fill_rect(None, Color::RGB(30, 30, 30))
+            .expect("failed to fill button surface");
+        textures.insert(
+            "t:button",
+            TextureHolder::surface_to_texture(texture_creator, button),
+        );
+        let mut button_clicked =
+            Surface::new(width, height, texture_creator.default_pixel_format())
+                .expect("failed to create button surface");
+        button_clicked
+            .fill_rect(None, Color::RGB(20, 20, 20))
+            .expect("failed to fill button surface");
+        textures.insert(
+            "t:button-clicked",
+            TextureHolder::surface_to_texture(texture_creator, button_clicked),
+        );
+    }
+
+    pub fn new(
+        texture_creator: &'a TextureCreator<WindowContext>,
         font: &'a Font,
         width: u32,
         height: u32,
@@ -187,8 +187,6 @@ impl<'a> Menu<'a> {
         selected_surface
             .fill_rect(None, Color::RGB(74, 138, 221))
             .expect("failed to fill selected surface");
-
-        init_button_textures(texture_creator, textures, width / 2, 50);
 
         Menu {
             background: texture_creator

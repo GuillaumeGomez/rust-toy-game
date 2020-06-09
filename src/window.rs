@@ -1,10 +1,12 @@
 use sdl2::event::Event;
 use sdl2::mouse::MouseButton;
-use sdl2::pixels::Color;
+use sdl2::pixels::{Color, PixelFormatEnum};
 use sdl2::rect::Rect;
 use sdl2::render::{Canvas, Texture, TextureCreator};
 use sdl2::surface::Surface;
 use sdl2::video::WindowContext;
+
+use std::collections::HashMap;
 
 use crate::system::System;
 use crate::texture_holder::TextureHolder;
@@ -171,36 +173,70 @@ impl<'a> Widget for TitleBarButton<'a> {
 }
 
 pub struct InventoryCase<'a> {
-    texture: &'a TextureHolder<'a>,
     texture_hovered: &'a TextureHolder<'a>,
     x: i32,
     y: i32,
-    size: u32,
     is_hovered: bool,
+}
+
+impl<'a> InventoryCase<'a> {
+    pub fn init_textures(
+        texture_creator: &'a TextureCreator<WindowContext>,
+        textures: &mut HashMap<&'static str, TextureHolder<'a>>,
+        width: u32,
+    ) {
+        let size = InventoryCases::get_case_size(width - 2);
+
+        let mut inventory_case =
+            Surface::new(size - 4, size - 4, texture_creator.default_pixel_format())
+                .expect("failed to create inventory case surface");
+        inventory_case
+            .fill_rect(None, Color::RGB(250, 183, 55))
+            .expect("failed to fill inventory case");
+        textures.insert(
+            "inventory-case-hover",
+            TextureHolder::surface_to_texture(texture_creator, inventory_case),
+        );
+    }
+    fn new(
+        textures: &'a HashMap<&'static str, TextureHolder<'a>>,
+        x: i32,
+        y: i32,
+    ) -> InventoryCase<'a> {
+        InventoryCase {
+            x,
+            y,
+            texture_hovered: &textures["inventory-case-hover"],
+            is_hovered: false,
+        }
+    }
 }
 
 impl<'a> GetDimension for InventoryCase<'a> {
     fn width(&self) -> u32 {
-        self.size
+        self.texture_hovered.width
     }
     fn height(&self) -> u32 {
-        self.size
+        self.texture_hovered.height
     }
 }
 
 impl<'a> Widget for InventoryCase<'a> {
     fn draw(&self, system: &mut System, x_add: i32, y_add: i32) {
-        let t = if self.is_hovered {
-            &self.texture_hovered
-        } else {
-            &self.texture
-        };
+        if !self.is_hovered {
+            return;
+        }
         system
             .canvas
             .copy(
-                &t.texture,
+                &self.texture_hovered.texture,
                 None,
-                Rect::new(self.x + x_add, self.y + y_add, self.size, self.size),
+                Rect::new(
+                    self.x + x_add + 2,
+                    self.y + y_add + 2,
+                    self.texture_hovered.width,
+                    self.texture_hovered.height,
+                ),
             )
             .expect("failed to draw titlebar button");
     }
@@ -211,7 +247,135 @@ impl<'a> Widget for InventoryCase<'a> {
         self.y
     }
     fn handle_event(&mut self, ev: &Event, x_add: i32, y_add: i32) -> Option<EventAction> {
-        None
+        match ev {
+            Event::MouseMotion {
+                x: mouse_x,
+                y: mouse_y,
+                ..
+            } => {
+                self.is_hovered = self.is_in(*mouse_x - x_add, *mouse_y - y_add);
+                if self.is_hovered {
+                    Some(EventAction::None)
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+}
+
+pub struct InventoryCases<'a> {
+    texture: TextureHolder<'a>,
+    x: i32,
+    y: i32,
+    width: u32,
+    height: u32,
+    widgets: Vec<InventoryCase<'a>>,
+}
+
+impl<'a> InventoryCases<'a> {
+    fn get_case_size(width: u32) -> u32 {
+        // We want 4 inventory cases per line, so it makes "5 borders".
+        (width - 3) / 4
+    }
+    fn new(
+        textures: &'a HashMap<&'static str, TextureHolder<'a>>,
+        texture_creator: &'a TextureCreator<WindowContext>,
+        x: i32,
+        y: i32,
+        width: u32,
+        height: u32,
+    ) -> InventoryCases<'a> {
+        let size = Self::get_case_size(width - 2);
+        let mut inventory_case = Surface::new(size, size, texture_creator.default_pixel_format())
+            .expect("failed to create inventory case surface");
+        inventory_case
+            .fill_rect(None, Color::RGB(0, 0, 0))
+            .expect("failed to fill inventory case");
+        inventory_case
+            .fill_rect(
+                Rect::new(2, 2, size - 4, size - 4),
+                Color::RGB(200, 140, 27),
+            )
+            .expect("failed to fill inventory case");
+        let nb_rows = 6;
+        let total_height = (size + 1) * nb_rows + 1;
+        let mut surface = Surface::new(width - 2, total_height, PixelFormatEnum::RGBA8888)
+            .expect("failed to create cases surface");
+        let mut widgets = Vec::with_capacity((4 * total_height / size) as usize);
+        let mut pos_y = 0;
+        for _ in 0..nb_rows {
+            let mut pos_x = 0;
+            for _ in 0..4 {
+                inventory_case
+                    .blit(None, &mut surface, Rect::new(pos_x, pos_y, size, size))
+                    .expect("failed to blit surface case");
+                widgets.push(InventoryCase::new(textures, pos_x + x, pos_y + y));
+                pos_x += size as i32 + 1;
+            }
+            pos_y += size as i32 + 1;
+        }
+        InventoryCases {
+            texture: TextureHolder::surface_to_texture(texture_creator, surface),
+            x,
+            y,
+            height,
+            width,
+            widgets,
+        }
+    }
+}
+
+impl<'a> GetDimension for InventoryCases<'a> {
+    fn width(&self) -> u32 {
+        self.width
+    }
+    fn height(&self) -> u32 {
+        self.height
+    }
+}
+
+impl<'a> Widget for InventoryCases<'a> {
+    fn draw(&self, system: &mut System, x_add: i32, y_add: i32) {
+        system
+            .canvas
+            .copy(
+                &self.texture.texture,
+                Rect::new(0, 0, self.texture.width, self.height - 2),
+                Rect::new(
+                    self.x + x_add + 1,
+                    self.y + y_add + 1,
+                    self.texture.width,
+                    self.height - 2,
+                ),
+            )
+            .expect("failed to draw inventory cases");
+        for widget in self.widgets.iter() {
+            widget.draw(system, x_add + 1, y_add + 1);
+        }
+    }
+    fn x(&self) -> i32 {
+        self.x
+    }
+    fn y(&self) -> i32 {
+        self.y
+    }
+    fn handle_event(&mut self, ev: &Event, x_add: i32, y_add: i32) -> Option<EventAction> {
+        let mut ret = None;
+        for widget in self.widgets.iter_mut() {
+            match ev {
+                Event::MouseWheel { .. } => {
+                    // handle scroll
+                }
+                e => {
+                    if let Some(r) = widget.handle_event(e, x_add, y_add) {
+                        ret = Some(r);
+                    }
+                }
+            }
+        }
+        ret
     }
 }
 
@@ -228,16 +392,33 @@ pub struct Window<'a> {
 }
 
 impl<'a> Window<'a> {
+    pub fn init_textures(
+        texture_creator: &'a TextureCreator<WindowContext>,
+        textures: &mut HashMap<&'static str, TextureHolder<'a>>,
+        width: u32,
+        border_width: u32,
+    ) {
+        InventoryCase::init_textures(texture_creator, textures, width - border_width * 2);
+    }
+    pub fn create_widgets_textures(
+        texture_creator: &'a TextureCreator<WindowContext>,
+        textures: &mut HashMap<&'static str, TextureHolder<'a>>,
+        width: u32,
+        height: u32,
+        border_width: u32,
+    ) {
+    }
     pub fn new(
         texture_creator: &'a TextureCreator<WindowContext>,
+        textures: &'a HashMap<&'static str, TextureHolder<'a>>,
         x: i32,
         y: i32,
         width: u32,
         height: u32,
         title: &'static str,
+        border_width: u32,
     ) -> Window<'a> {
         let title_bar_height = 22;
-        let border_width = 1;
         let mut window = Surface::new(width, height, texture_creator.default_pixel_format())
             .expect("Failed to create surface for font map");
         window
@@ -262,12 +443,22 @@ impl<'a> Window<'a> {
             y,
             is_hidden: true,
             is_dragging_window: None,
-            widgets: vec![Box::new(TitleBarButton::new(
-                texture_creator,
-                title_bar_height - 6,
-                width as i32 - title_bar_height as i32 + 3,
-                3,
-            ))],
+            widgets: vec![
+                Box::new(TitleBarButton::new(
+                    texture_creator,
+                    title_bar_height - 6,
+                    width as i32 - title_bar_height as i32 + 3,
+                    3,
+                )),
+                Box::new(InventoryCases::new(
+                    textures,
+                    texture_creator,
+                    border_width as i32,
+                    title_bar_height as i32,
+                    width - border_width * 2,
+                    height - title_bar_height - border_width,
+                )),
+            ],
             title,
         }
     }
@@ -306,7 +497,15 @@ impl<'a> Window<'a> {
             true,
         );
     }
-
+    fn is_in(&self, x: i32, y: i32) -> bool {
+        x >= self.x
+            && x <= self.x + self.width() as i32
+            && y >= self.y
+            && y <= self.y + self.height() as i32
+    }
+    fn is_in_title_bar(&self, x: i32, y: i32) -> bool {
+        self.is_in(x, y) && y <= self.y + self.title_bar_height as i32
+    }
     pub fn handle_event(&mut self, ev: &Event) {
         if self.is_hidden || (!ev.is_mouse() && !ev.is_controller()) {
             return;
@@ -335,12 +534,7 @@ impl<'a> Window<'a> {
                     }
                 }
                 // If we are in the titlebar, then we can drag the window.
-                if !actions
-                    && *mouse_x >= self.x
-                    && *mouse_x <= self.x + self.width() as i32
-                    && *mouse_y >= self.y
-                    && *mouse_y <= self.y + self.title_bar_height as i32
-                {
+                if !actions && self.is_in_title_bar(*mouse_x, *mouse_y) {
                     self.is_dragging_window = Some((*mouse_x - self.x, *mouse_y - self.y));
                 }
             }
@@ -351,19 +545,21 @@ impl<'a> Window<'a> {
                 ..
             } => {
                 self.is_dragging_window = None;
-                // TODO: clean this up
-                let ev = Event::MouseButtonUp {
-                    mouse_btn: MouseButton::Left,
-                    x: *mouse_x,
-                    y: *mouse_y,
-                    timestamp: 0,
-                    which: 0,
-                    clicks: 0,
-                    window_id: 0,
-                };
-                for widget in self.widgets.iter_mut() {
-                    if let Some(EventAction::Close) = widget.handle_event(&ev, self.x, self.y) {
-                        self.is_hidden = true;
+                if self.is_in(*mouse_x, *mouse_y) {
+                    // TODO: clean this up
+                    let ev = Event::MouseButtonUp {
+                        mouse_btn: MouseButton::Left,
+                        x: *mouse_x,
+                        y: *mouse_y,
+                        timestamp: 0,
+                        which: 0,
+                        clicks: 0,
+                        window_id: 0,
+                    };
+                    for widget in self.widgets.iter_mut() {
+                        if let Some(EventAction::Close) = widget.handle_event(&ev, self.x, self.y) {
+                            self.is_hidden = true;
+                        }
                     }
                 }
             }
@@ -378,19 +574,21 @@ impl<'a> Window<'a> {
                     self.y = *mouse_y - y_add;
                 }
                 None => {
-                    // TODO: clean this up
-                    let ev = Event::MouseMotion {
-                        x: *mouse_x,
-                        y: *mouse_y,
-                        xrel: 0,
-                        yrel: 0,
-                        timestamp: 0,
-                        which: 0,
-                        mousestate: *mousestate,
-                        window_id: 0,
-                    };
-                    for widget in self.widgets.iter_mut() {
-                        widget.handle_event(&ev, self.x, self.y);
+                    if self.is_in(*mouse_x, *mouse_y) {
+                        // TODO: clean this up
+                        let ev = Event::MouseMotion {
+                            x: *mouse_x,
+                            y: *mouse_y,
+                            xrel: 0,
+                            yrel: 0,
+                            timestamp: 0,
+                            which: 0,
+                            mousestate: *mousestate,
+                            window_id: 0,
+                        };
+                        for widget in self.widgets.iter_mut() {
+                            widget.handle_event(&ev, self.x, self.y);
+                        }
                     }
                 }
             },

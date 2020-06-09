@@ -177,10 +177,11 @@ pub fn main() {
     animation::create_level_up_animation_texture(&mut textures, &texture_creator);
 
     let hud = HUD::new(&texture_creator);
+    Env::init_textures(&mut textures, &texture_creator, WIDTH as u32, HEIGHT as u32);
     let mut env = Env::new(
         &game_controller_subsystem,
         &texture_creator,
-        &mut textures,
+        &textures,
         &font_16,
         WIDTH as u32,
         HEIGHT as u32,

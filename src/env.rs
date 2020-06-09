@@ -250,11 +250,23 @@ pub struct Env<'a> {
     // pressed_keys: Vec<Event>,
 }
 
+const WINDOW_WIDTH: u32 = 200;
+
 impl<'a> Env<'a> {
+    pub fn init_textures(
+        textures: &mut HashMap<&'static str, TextureHolder<'a>>,
+        texture_creator: &'a TextureCreator<WindowContext>,
+        width: u32,
+        height: u32,
+    ) {
+        Menu::init_button_textures(texture_creator, textures, width, height);
+        Window::init_textures(texture_creator, textures, WINDOW_WIDTH, 1);
+    }
+
     pub fn new(
         game_controller_subsystem: &'a GameControllerSubsystem,
         texture_creator: &'a TextureCreator<WindowContext>,
-        textures: &mut HashMap<&'static str, TextureHolder<'a>>,
+        textures: &'a HashMap<&'static str, TextureHolder<'a>>,
         font: &'a Font<'_, 'static>,
         width: u32,
         height: u32,
@@ -265,18 +277,20 @@ impl<'a> Env<'a> {
             debug: false,
             fps_str: String::new(),
             debug_display: DebugDisplay::new(texture_creator, 16),
-            menu: Menu::new(texture_creator, textures, font, width, height),
+            menu: Menu::new(texture_creator, font, width, height),
             need_sort_rewards: false,
             closest_reward: None,
             game_controller_subsystem,
             controller: None,
             inventory_window: Window::new(
                 texture_creator,
+                &*textures,
                 width as i32 - 210,
                 height as i32 / 4,
-                200,
+                WINDOW_WIDTH,
                 height / 3,
                 "Inventory",
+                1,
             ),
         };
         env.update_controller();
