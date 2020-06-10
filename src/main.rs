@@ -105,10 +105,15 @@ pub fn draw_in_good_order(
     let mut enemy_iter = enemies.iter_mut().peekable();
     let mut dead_enemy_iter = dead_enemies.iter_mut().peekable();
 
-    while player_iter.peek().is_some() || enemy_iter.peek().is_some() || dead_enemy_iter.peek().is_some() {
+    while player_iter.peek().is_some()
+        || enemy_iter.peek().is_some()
+        || dead_enemy_iter.peek().is_some()
+    {
         if let Some(ref player) = player_iter.peek() {
             let y = player.y();
-            if y < enemy_iter.peek().map(|x| x.y()).unwrap_or(y + 1) && y < dead_enemy_iter.peek().map(|x| x.y()).unwrap_or(y + 1) {
+            if y < enemy_iter.peek().map(|x| x.y()).unwrap_or(y + 1)
+                && y < dead_enemy_iter.peek().map(|x| x.y()).unwrap_or(y + 1)
+            {
                 player_iter.next().unwrap().draw(system, debug);
                 continue;
             }
@@ -235,30 +240,30 @@ pub fn main() {
         Some(Default::default()),
     )];
     let mut enemies = vec![
-        Enemy::new(
-            &texture_creator,
-            &textures,
-            &enemy_texture,
-            &forced_enemy_surface,
-            0,
-            40,
-            2,
-            CharacterKind::Enemy,
-            enemy_surface.width() / 3,
-            enemy_surface.height() / 4,
-        ),
-        Enemy::new(
-            &texture_creator,
-            &textures,
-            &enemy_texture,
-            &forced_enemy_surface,
-            40,
-            0,
-            3,
-            CharacterKind::Enemy,
-            enemy_surface.width() / 3,
-            enemy_surface.height() / 4,
-        ),
+        // Enemy::new(
+        //     &texture_creator,
+        //     &textures,
+        //     &enemy_texture,
+        //     &forced_enemy_surface,
+        //     0,
+        //     40,
+        //     2,
+        //     CharacterKind::Enemy,
+        //     enemy_surface.width() / 3,
+        //     enemy_surface.height() / 4,
+        // ),
+        // Enemy::new(
+        //     &texture_creator,
+        //     &textures,
+        //     &enemy_texture,
+        //     &forced_enemy_surface,
+        //     40,
+        //     0,
+        //     3,
+        //     CharacterKind::Enemy,
+        //     enemy_surface.width() / 3,
+        //     enemy_surface.height() / 4,
+        // ),
     ];
 
     let mut dead_enemies: Vec<Enemy> = Vec::new();
@@ -393,22 +398,14 @@ pub fn main() {
         map.draw(&mut system);
         // TODO: put this whole thing somewhere else
         env.draw_rewards(&mut system, &rewards, &players[0], &textures);
-        draw_in_good_order(&mut system, env.debug, &mut players, &mut enemies, &mut dead_enemies);
-        // for enemy in enemies.iter_mut() {
-        //     enemy.draw(&mut system, env.debug);
-        // }
-        // for dead_enemy in dead_enemies.iter_mut() {
-        //     dead_enemy.draw(&mut system, false);
-        // }
-        // // TODO: make two layers for the map: one for the map and one for the vegetation/decor
-        // // Like that, if the player is "behind" a tree or a bush, you print the character first (so
-        // // the decor element is "on" the player).
-        // //
-        // // Actually, doing the opposite seems better: first draw the character, then the vegetation
-        // // unless the character is just under the vegetation.
-        // for player in players.iter_mut() {
-        //     player.draw(&mut system, env.debug);
-        // }
+        draw_in_good_order(
+            &mut system,
+            env.debug,
+            &mut players,
+            &mut enemies,
+            &mut dead_enemies,
+        );
+        map.draw_layer(&mut system);
         hud.draw(&players[0], &mut system);
 
         env.draw(&mut system);
