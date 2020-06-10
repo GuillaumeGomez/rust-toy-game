@@ -48,7 +48,7 @@ mod traits;
 mod weapon;
 mod window;
 
-use character::CharacterKind;
+use character::{Character, CharacterKind};
 use enemy::Enemy;
 use env::Env;
 use health_bar::HealthBar;
@@ -88,6 +88,40 @@ macro_rules! load_font {
             .load_font("resources/kreon-regular.ttf", $size)
             .expect("failed to load `resources/kreon-regular.ttf`")
     }};
+}
+
+pub fn draw_in_good_order(
+    system: &mut System,
+    debug: bool,
+    players: &mut Vec<Player>,
+    enemies: &mut Vec<Enemy>,
+    dead_enemies: &mut Vec<Enemy>,
+) {
+    players.sort_unstable_by(|c1, c2| c1.y().cmp(&c2.y()));
+    enemies.sort_unstable_by(|c1, c2| c1.y().cmp(&c2.y()));
+    dead_enemies.sort_unstable_by(|c1, c2| c1.y().cmp(&c2.y()));
+
+    let mut player_iter = players.iter_mut().peekable();
+    let mut enemy_iter = enemies.iter_mut().peekable();
+    let mut dead_enemy_iter = dead_enemies.iter_mut().peekable();
+
+    while player_iter.peek().is_some() || enemy_iter.peek().is_some() || dead_enemy_iter.peek().is_some() {
+        if let Some(ref player) = player_iter.peek() {
+            let y = player.y();
+            if y < enemy_iter.peek().map(|x| x.y()).unwrap_or(y + 1) && y < dead_enemy_iter.peek().map(|x| x.y()).unwrap_or(y + 1) {
+                player_iter.next().unwrap().draw(system, debug);
+                continue;
+            }
+        }
+        if let Some(ref enemy) = enemy_iter.peek() {
+            let y = enemy.y();
+            if y < dead_enemy_iter.peek().map(|x| x.y()).unwrap_or(y + 1) {
+                enemy_iter.next().unwrap().draw(system, debug);
+                continue;
+            }
+        }
+        dead_enemy_iter.next().unwrap().draw(system, false);
+    }
 }
 
 pub fn main() {
@@ -359,21 +393,22 @@ pub fn main() {
         map.draw(&mut system);
         // TODO: put this whole thing somewhere else
         env.draw_rewards(&mut system, &rewards, &players[0], &textures);
-        for enemy in enemies.iter_mut() {
-            enemy.draw(&mut system, env.debug);
-        }
-        for dead_enemy in dead_enemies.iter_mut() {
-            dead_enemy.draw(&mut system, false);
-        }
-        // TODO: make two layers for the map: one for the map and one for the vegetation/decor
-        // Like that, if the player is "behind" a tree or a bush, you print the character first (so
-        // the decor element is "on" the player).
-        //
-        // Actually, doing the opposite seems better: first draw the character, then the vegetation
-        // unless the character is just under the vegetation.
-        for player in players.iter_mut() {
-            player.draw(&mut system, env.debug);
-        }
+        draw_in_good_order(&mut system, env.debug, &mut players, &mut enemies, &mut dead_enemies);
+        // for enemy in enemies.iter_mut() {
+        //     enemy.draw(&mut system, env.debug);
+        // }
+        // for dead_enemy in dead_enemies.iter_mut() {
+        //     dead_enemy.draw(&mut system, false);
+        // }
+        // // TODO: make two layers for the map: one for the map and one for the vegetation/decor
+        // // Like that, if the player is "behind" a tree or a bush, you print the character first (so
+        // // the decor element is "on" the player).
+        // //
+        // // Actually, doing the opposite seems better: first draw the character, then the vegetation
+        // // unless the character is just under the vegetation.
+        // for player in players.iter_mut() {
+        //     player.draw(&mut system, env.debug);
+        // }
         hud.draw(&players[0], &mut system);
 
         env.draw(&mut system);
