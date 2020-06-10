@@ -227,6 +227,9 @@ pub struct Character<'a> {
     /// (x, y, delay)
     pub effect: RefCell<Option<(i64, i64, u64)>>,
     pub animations: Vec<Animation<'a>>,
+    /// When moving, only the feet should be taken into account, not the head. So this is hitbox
+    /// containing width and height based on the bottom of the texture.
+    pub move_hitbox: (u32, u32),
 }
 
 impl<'a> Character<'a> {
@@ -253,19 +256,21 @@ impl<'a> Character<'a> {
         map_data: &[u8],
         dir_to_check: Direction,
     ) -> bool {
-        let initial_x = new_x / MAP_CASE_SIZE;
-        let initial_y = new_y / MAP_CASE_SIZE;
         let dimension = self
             .action
             .get_specific_dimension(&self.texture_handler, dir_to_check);
-        let width = dimension.width() as i64 / MAP_CASE_SIZE;
-        let height = dimension.height() as i64 / MAP_CASE_SIZE;
+        let new_x = new_x + (dimension.width() / 2 - self.move_hitbox.0 / 2) as i64;
+        let new_y = new_y + (dimension.height() - self.move_hitbox.1) as i64;
+        let initial_x = new_x / MAP_CASE_SIZE;
+        let initial_y = new_y / MAP_CASE_SIZE;
+        let width = ::std::cmp::max(1, self.move_hitbox.0 / MAP_CASE_SIZE as u32) as i64;
+        let height = ::std::cmp::max(1, self.move_hitbox.1 / MAP_CASE_SIZE as u32) as i64;
 
         match dir_to_check {
             Direction::Down => {
-                let y = (height - 1 + initial_y) * MAP_SIZE as i64;
+                let y = (height + initial_y) * MAP_SIZE as i64;
                 for ix in 0..width {
-                    let map_pos = y + initial_x + ix;
+                    let map_pos = y + initial_x + ix as i64;
                     if map_pos < 0 || map_data.get(map_pos as usize).unwrap_or(&1) != &0 {
                         return false;
                     }
@@ -274,23 +279,23 @@ impl<'a> Character<'a> {
             Direction::Up => {
                 let y = initial_y * MAP_SIZE as i64;
                 for ix in 0..width {
-                    let map_pos = y + initial_x + ix;
+                    let map_pos = y + initial_x + ix as i64;
                     if map_pos < 0 || map_data.get(map_pos as usize).unwrap_or(&1) != &0 {
                         return false;
                     }
                 }
             }
             Direction::Right => {
-                for iy in 1..height {
-                    let map_pos = (initial_y + iy) * MAP_SIZE as i64 + initial_x + width - 1;
+                for iy in 0..height {
+                    let map_pos = (initial_y + iy as i64) * MAP_SIZE as i64 + initial_x + width + 1;
                     if map_pos < 0 || map_data.get(map_pos as usize).unwrap_or(&1) != &0 {
                         return false;
                     }
                 }
             }
             Direction::Left => {
-                for iy in 1..height {
-                    let map_pos = (initial_y + iy) * MAP_SIZE as i64 + initial_x;
+                for iy in 0..height {
+                    let map_pos = (initial_y + iy as i64) * MAP_SIZE as i64 + initial_x - 1;
                     if map_pos < 0 || map_data.get(map_pos as usize).unwrap_or(&1) != &0 {
                         return false;
                     }
@@ -301,11 +306,22 @@ impl<'a> Character<'a> {
     }
 
     fn check_character_move(&self, x: i64, y: i64, character: &Character) -> bool {
-        character.id == self.id
-            || !(self.width() as i64 + x >= character.x
-                && x <= character.x + character.width() as i64
-                && self.height() as i64 + y >= character.y
-                && y <= character.y + character.height() as i64)
+        if character.id == self.id {
+            return true;
+        }
+        let self_width = self.move_hitbox.0;
+        let self_height = self.move_hitbox.1;
+        let self_x = x + (self.width() / 2 - self_width / 2) as i64;
+        let self_y = y + (self.height() - self_height) as i64;
+        let other_width = character.move_hitbox.0;
+        let other_height = character.move_hitbox.1;
+        let other_x = character.x() + (character.width() / 2 - other_width / 2) as i64;
+        let other_y = character.y() + (character.height() - other_height) as i64;
+
+        !(self_x + self_width as i64 >= other_x
+            && self_x <= other_x + other_width as i64
+            && self_y + self_height as i64 >= other_y
+            && self_y <= other_y + other_height as i64)
     }
 
     pub fn check_map_pos(
@@ -318,13 +334,12 @@ impl<'a> Character<'a> {
         new_y: i64,
         ignore_id: Option<Id>,
     ) -> Obstacle {
-        let initial_x = (new_x - map.x) / MAP_CASE_SIZE;
-        let initial_y = (new_y - map.y) / MAP_CASE_SIZE;
-        let dimension = self
-            .action
-            .get_specific_dimension(&self.texture_handler, direction);
-        let width = (dimension.width() / MAP_CASE_SIZE as u32) as i64;
-        let height = (dimension.height() / MAP_CASE_SIZE as u32) as i64;
+        let initial_x =
+            (new_x + (self.width() / 2 - self.move_hitbox.0 / 2) as i64 - map.x) / MAP_CASE_SIZE;
+        let initial_y =
+            (new_y + (self.height() - self.move_hitbox.1) as i64 - map.y) / MAP_CASE_SIZE;
+        let width = (self.move_hitbox.0 / MAP_CASE_SIZE as u32) as i64;
+        let height = (self.move_hitbox.1 / MAP_CASE_SIZE as u32) as i64;
 
         for y in 0..height {
             let y = (y + initial_y) * MAP_SIZE as i64;
@@ -385,54 +400,85 @@ impl<'a> Character<'a> {
         fn call(
             self_id: Id,
             c: &Character,
+            move_hitbox: &(u32, u32),
             x: i64,
             y: i64,
-            width: i64,
-            height: i64,
+            width: u32,
+            height: u32,
             direction: Direction,
         ) -> bool {
-            self_id == c.id
-                || !match direction {
-                    Direction::Down => {
-                        width + x >= c.x
-                            && x <= c.x + c.width() as i64
-                            && y + height - 1 >= c.y
-                            && y + height <= c.y + c.height() as i64
-                    }
-                    Direction::Up => {
-                        width + x >= c.x
-                            && x <= c.x + c.width() as i64
-                            && y >= c.y
-                            && y + 1 <= c.y + c.height() as i64
-                    }
-                    Direction::Right => {
-                        x + width - 1 >= c.x
-                            && x + width <= c.x + c.width() as i64
-                            && y + height >= c.y
-                            && y <= c.y + c.height() as i64
-                    }
-                    Direction::Left => {
-                        x >= c.x
-                            && x + 1 <= c.x + c.width() as i64
-                            && y + height >= c.y
-                            && y <= c.y + c.height() as i64
-                    }
+            if self_id == c.id {
+                return true;
+            }
+            let self_x = x + (width / 2 - move_hitbox.0 / 2) as i64;
+            let self_y = y + (height - move_hitbox.1) as i64;
+            let other_width = c.move_hitbox.0;
+            let other_height = c.move_hitbox.1;
+            let other_x = c.x() + (c.width() / 2 - other_width / 2) as i64;
+            let other_y = c.y() + (c.height() - other_height) as i64;
+
+            let width = move_hitbox.0 as i64;
+            let height = move_hitbox.1 as i64;
+
+            !match direction {
+                Direction::Down => {
+                    self_x + width >= other_x
+                        && self_x <= other_x + other_width as i64
+                        && self_y + height + 1 >= other_y
+                        && self_y + height <= other_y + other_height as i64
                 }
+                Direction::Up => {
+                    self_x + width >= other_x
+                        && self_x <= other_x + other_width as i64
+                        && self_y >= other_y
+                        && self_y - 1 <= other_y + other_height as i64
+                }
+                Direction::Right => {
+                    self_x + width + 1 >= other_x
+                        && self_x + width <= other_x + other_width as i64
+                        && self_y + height >= other_y
+                        && self_y <= other_y + other_height as i64
+                }
+                Direction::Left => {
+                    self_x >= other_x
+                        && self_x - 1 <= other_x + other_width as i64
+                        && self_y + height >= other_y
+                        && self_y <= other_y + other_height as i64
+                }
+            }
         }
 
         let self_x = x + x_add;
         let self_y = y + y_add;
-        let width = self.width() as i64;
-        let height = self.height() as i64;
         // NPC moves are a bit more restricted than players'.
         if if self.kind.is_player() {
+            let width = self.width();
+            let height = self.height();
             self.check_hitbox(self_x - map.x, self_y - map.y, &map.data, direction)
-                && npcs
-                    .iter()
-                    .all(|n| call(self.id, &n, self_x, self_y, width, height, direction))
-                && players
-                    .iter()
-                    .all(|p| call(self.id, &p, self_x, self_y, width, height, direction))
+                && npcs.iter().all(|n| {
+                    call(
+                        self.id,
+                        &n,
+                        &self.move_hitbox,
+                        self_x,
+                        self_y,
+                        width,
+                        height,
+                        direction,
+                    )
+                })
+                && players.iter().all(|p| {
+                    call(
+                        self.id,
+                        &p,
+                        &self.move_hitbox,
+                        self_x,
+                        self_y,
+                        width,
+                        height,
+                        direction,
+                    )
+                })
         } else {
             self.check_hitbox(self_x - map.x, self_y - map.y, &map.data, direction)
                 && npcs
@@ -542,6 +588,15 @@ impl<'a> Character<'a> {
             system
                 .canvas
                 .draw_rect(Rect::new(x, y, draw_width, draw_height))
+                .unwrap();
+            system
+                .canvas
+                .draw_rect(Rect::new(
+                    x + (self.width() / 2 - self.move_hitbox.0 / 2) as i32,
+                    y + (self.height() - self.move_hitbox.1) as i32,
+                    self.move_hitbox.0,
+                    self.move_hitbox.1,
+                ))
                 .unwrap();
         }
         if let Some(ref weapon) = self.weapon {

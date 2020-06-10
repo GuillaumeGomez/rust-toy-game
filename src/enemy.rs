@@ -229,6 +229,7 @@ impl<'a> Enemy<'a> {
                 effect: RefCell::new(None),
                 level: 1,
                 animations: Vec::new(),
+                move_hitbox: (16, 8),
             },
             action: RefCell::new(EnemyAction::None),
             start_x: x,

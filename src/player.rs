@@ -15,7 +15,7 @@ use crate::texture_handler::{Dimension, TextureHandler};
 use crate::weapon::Sword;
 use crate::{GetDimension, GetPos, Id, ONE_SECOND};
 
-pub fn create_right_actions<'a>(
+pub fn get_player<'a>(
     texture_creator: &'a TextureCreator<WindowContext>,
     actions_standing: &[Dimension],
 ) -> (Texture<'a>, Surface<'a>) {
@@ -27,30 +27,6 @@ pub fn create_right_actions<'a>(
             .convert_format(PixelFormatEnum::RGBA8888)
             .expect("failed to convert surface to RGBA8888");
     }
-
-    let width = surface.width();
-    let block_size = surface.pitch() / width;
-
-    surface.with_lock_mut(|data| {
-        let left = &actions_standing[Direction::Left as usize];
-        let (src_x, src_y) = (left.x, left.y);
-        let right = &actions_standing[Direction::Right as usize];
-        let (dest_x, dest_y) = (right.x, right.y);
-
-        for y in 0..left.height() {
-            for x in 0..left.width() {
-                for tmp in 0..block_size {
-                    let dest = tmp
-                        + (left.width() - x + dest_x as u32 - 3) * block_size
-                        + (y + dest_y as u32) * width * block_size;
-                    let src = tmp
-                        + (x + src_x as u32) * block_size
-                        + (y + src_y as u32) * width * block_size;
-                    data[dest as usize] = data[src as usize];
-                }
-            }
-        }
-    });
 
     (
         texture_creator
@@ -66,17 +42,28 @@ pub struct Player<'a> {
     pub stats: Option<RefCell<PlayerStats>>,
 }
 
+const MARGIN_STANDING: u32 = 4;
+
 impl<'a> Player<'a> {
-    pub const tile_width: u32 = 23;
-    pub const tile_height: u32 = 23;
+    pub const tile_width: u32 = 22;
+    pub const tile_height: u32 = 22;
 
     pub fn get_actions_standing() -> Vec<Dimension> {
         vec![
-            Dimension::new(Rect::new(15, 8, Self::tile_width - 3, Self::tile_height), 0),
-            Dimension::new(Rect::new(78, 8, Self::tile_width - 3, Self::tile_height), 0),
-            Dimension::new(Rect::new(51, 8, Self::tile_width - 3, Self::tile_height), 0),
             Dimension::new(
-                Rect::new(100, 8, Self::tile_width - 2, Self::tile_height),
+                Rect::new(0, 0, Self::tile_width - MARGIN_STANDING, Self::tile_height),
+                0,
+            ),
+            Dimension::new(
+                Rect::new(18, 0, Self::tile_width - MARGIN_STANDING, Self::tile_height),
+                0,
+            ),
+            Dimension::new(
+                Rect::new(36, 0, Self::tile_width - MARGIN_STANDING, Self::tile_height),
+                0,
+            ),
+            Dimension::new(
+                Rect::new(54, 0, Self::tile_width - MARGIN_STANDING, Self::tile_height),
                 0,
             ),
         ]
@@ -146,6 +133,7 @@ impl<'a> Player<'a> {
                 effect: RefCell::new(None),
                 level: 1,
                 animations: Vec::new(),
+                move_hitbox: (Self::tile_width - MARGIN_STANDING, 6),
             },
             is_run_pressed: false,
             stats: stats.map(|s| RefCell::new(s)),
