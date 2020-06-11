@@ -34,15 +34,49 @@ fn check_pixels_for_pos(x: u32, y: u32, surface: &Surface) -> bool {
     false
 }
 
+fn get_vec_bits(rect: Rect, surface: &Surface, value: u8) -> Vec<Vec<u8>> {
+    let y_extra = if rect.height() as u32 % MAP_CASE_SIZE as u32 != 0 {
+        1
+    } else {
+        0
+    };
+    let x_extra = if rect.width() as u32 % MAP_CASE_SIZE as u32 != 0 {
+        1
+    } else {
+        0
+    };
+    let mut v = Vec::with_capacity((rect.height() / MAP_CASE_SIZE as u32 + y_extra) as usize);
+
+    for y in 0..rect.height() / MAP_CASE_SIZE as u32 + y_extra {
+        let mut line =
+            Vec::with_capacity((rect.width() / MAP_CASE_SIZE as u32 + x_extra as u32) as usize);
+        for x in 0..rect.width() / MAP_CASE_SIZE as u32 + x_extra {
+            line.push(
+                if check_pixels_for_pos(
+                    x * MAP_CASE_SIZE as u32 + rect.x as u32,
+                    y * MAP_CASE_SIZE as u32 + rect.y as u32,
+                    surface,
+                ) {
+                    value
+                } else {
+                    0
+                },
+            );
+        }
+        v.push(line);
+    }
+    v
+}
+
 fn draw_in_map(
     map: &mut [u8],
     surface_map: &mut Surface,
     surface_map_layer: &mut Surface,
     surface: &Surface,
     rng: &mut ChaCha8Rng,
-    value: u8,
     real_size: Option<Rect>,
     top_layer: Option<Rect>,
+    replacement_vec: &[Vec<u8>],
 ) -> bool {
     let pos: u32 = rng.gen::<u32>() % (MAP_SIZE * MAP_SIZE - 1);
     let pos_x = pos % MAP_SIZE;
@@ -54,31 +88,25 @@ fn draw_in_map(
     };
 
     // First we check there is nothing there...
-    for y in 0..height / MAP_CASE_SIZE as u32 {
-        let y = (y + pos_y) * MAP_SIZE;
-        for x in 0..width / MAP_CASE_SIZE as u32 {
-            let i = pos_x + x + y;
+    for (y_pos, line) in replacement_vec.iter().enumerate() {
+        let y_pos = (y_pos as u32 + pos_y) * MAP_SIZE;
+        for (x_pos, _) in line.iter().enumerate() {
+            let i = pos_x + x_pos as u32 + y_pos;
             if i < MAP_SIZE * MAP_SIZE && map[i as usize] != 0 {
                 return false;
             }
         }
     }
 
-    for iy in 0..height / MAP_CASE_SIZE as u32 {
-        for ix in 0..width / MAP_CASE_SIZE as u32 {
-            // First, we need to check if there is actually a pixel in the surface at this position.
-            if check_pixels_for_pos(
-                x as u32 + ix * MAP_CASE_SIZE as u32,
-                y as u32 + iy * MAP_CASE_SIZE as u32,
-                &surface,
-            ) {
-                if real_size.is_some() {
-                    println!("toudoum! ({} {})", pos_x + x as u32, iy + pos_y);
-                }
-                let i = pos_x + x as u32 + (iy + pos_y) * MAP_SIZE;
-                if i < MAP_SIZE * MAP_SIZE {
-                    map[i as usize] = value;
-                }
+    for (y_pos, line) in replacement_vec.iter().enumerate() {
+        let y_pos = (y_pos as u32 + pos_y) * MAP_SIZE;
+        for (x_pos, value) in line.iter().enumerate() {
+            if *value == 0 {
+                continue;
+            }
+            let i = pos_x + x_pos as u32 + y_pos;
+            if i < MAP_SIZE * MAP_SIZE {
+                map[i as usize] = *value;
             }
         }
     }
@@ -126,20 +154,6 @@ impl<'a> Map<'a> {
         x: i64,
         y: i64,
     ) -> Map<'a> {
-        let mut tree = Surface::from_file("resources/trees.png")
-            .expect("failed to load `resources/trees.png`");
-        if tree.pixel_format_enum() != PixelFormatEnum::RGBA8888 {
-            tree = tree
-                .convert_format(PixelFormatEnum::RGBA8888)
-                .expect("failed to convert tree to RGBA8888");
-        }
-        let mut bush =
-            Surface::from_file("resources/bush.png").expect("failed to load `resources/bush.png`");
-        if tree.pixel_format_enum() != PixelFormatEnum::RGBA8888 {
-            bush = bush
-                .convert_format(PixelFormatEnum::RGBA8888)
-                .expect("failed to convert bush to RGBA8888");
-        }
         let mut surface_map = Surface::new(
             MAP_SIZE * MAP_CASE_SIZE as u32,
             MAP_SIZE * MAP_CASE_SIZE as u32,
@@ -161,6 +175,16 @@ impl<'a> Map<'a> {
         let mut map = vec![0; (MAP_SIZE * MAP_SIZE) as usize];
 
         // We first create trees
+        let mut tree = Surface::from_file("resources/trees.png")
+            .expect("failed to load `resources/trees.png`");
+        if tree.pixel_format_enum() != PixelFormatEnum::RGBA8888 {
+            tree = tree
+                .convert_format(PixelFormatEnum::RGBA8888)
+                .expect("failed to convert tree to RGBA8888");
+        }
+
+        let r = Rect::new(184, 100, 60, 26);
+        let byte_vec = get_vec_bits(r, &tree, 1);
         for _ in 0..200 {
             loop {
                 if draw_in_map(
@@ -169,15 +193,24 @@ impl<'a> Map<'a> {
                     &mut surface_map_layer,
                     &tree,
                     rng,
-                    1,
-                    Some(Rect::new(184, 99, 60, 27)),
-                    Some(Rect::new(170, 0, 72, 99)),
+                    Some(r),
+                    Some(Rect::new(170, 0, 72, 100)),
+                    &byte_vec,
                 ) {
                     break;
                 }
             }
         }
         // We then create bushes
+        // TODO: Maybe not create bushes if they're hidden by another element?
+        let mut bush =
+            Surface::from_file("resources/bush.png").expect("failed to load `resources/bush.png`");
+        if bush.pixel_format_enum() != PixelFormatEnum::RGBA8888 {
+            bush = bush
+                .convert_format(PixelFormatEnum::RGBA8888)
+                .expect("failed to convert bush to RGBA8888");
+        }
+        let byte_vec = get_vec_bits(Rect::new(0, 0, bush.width(), bush.height()), &bush, 2);
         for _ in 0..500 {
             loop {
                 if draw_in_map(
@@ -186,9 +219,9 @@ impl<'a> Map<'a> {
                     &mut surface_map_layer,
                     &bush,
                     rng,
-                    2,
                     None,
                     None,
+                    &byte_vec,
                 ) {
                     break;
                 }
