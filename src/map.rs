@@ -175,6 +175,8 @@ impl<'a> Map<'a> {
         let mut map = vec![0; (MAP_SIZE * MAP_SIZE) as usize];
 
         // We first create trees
+        // TODO: if a tree with a bigger y already exist, it should go above! To fix this issue,
+        // generate all trees into a map and then draw them from top to bottom!
         let mut tree = Surface::from_file("resources/trees.png")
             .expect("failed to load `resources/trees.png`");
         if tree.pixel_format_enum() != PixelFormatEnum::RGBA8888 {

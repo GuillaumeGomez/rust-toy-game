@@ -245,6 +245,8 @@ pub struct Env<'a> {
     pub need_sort_rewards: bool,
     pub closest_reward: Option<(i32, usize)>,
     pub game_controller_subsystem: &'a GameControllerSubsystem,
+    // TODO: Put windows' references into a Vec and draw them on that order (the newest should be
+    // the last)
     pub inventory_window: Window<'a>,
     controller: Option<GamePad>,
     // pressed_keys: Vec<Event>,
