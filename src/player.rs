@@ -17,7 +17,6 @@ use crate::{GetDimension, GetPos, Id, ONE_SECOND};
 
 pub fn get_player<'a>(
     texture_creator: &'a TextureCreator<WindowContext>,
-    actions_standing: &[Dimension],
 ) -> (Texture<'a>, Surface<'a>) {
     let mut surface =
         Surface::from_file("resources/zelda.png").expect("failed to load `resources/zelda.png`");
@@ -45,25 +44,25 @@ pub struct Player<'a> {
 const MARGIN_STANDING: u32 = 4;
 
 impl<'a> Player<'a> {
-    pub const tile_width: u32 = 22;
-    pub const tile_height: u32 = 22;
+    pub const TILE_WIDTH: u32 = 22;
+    pub const TILE_HEIGHT: u32 = 22;
 
     pub fn get_actions_standing() -> Vec<Dimension> {
         vec![
             Dimension::new(
-                Rect::new(0, 0, Self::tile_width - MARGIN_STANDING, Self::tile_height),
+                Rect::new(0, 0, Self::TILE_WIDTH - MARGIN_STANDING, Self::TILE_HEIGHT),
                 0,
             ),
             Dimension::new(
-                Rect::new(18, 0, Self::tile_width - MARGIN_STANDING, Self::tile_height),
+                Rect::new(18, 0, Self::TILE_WIDTH - MARGIN_STANDING, Self::TILE_HEIGHT),
                 0,
             ),
             Dimension::new(
-                Rect::new(36, 0, Self::tile_width - MARGIN_STANDING, Self::tile_height),
+                Rect::new(36, 0, Self::TILE_WIDTH - MARGIN_STANDING, Self::TILE_HEIGHT),
                 0,
             ),
             Dimension::new(
-                Rect::new(54, 0, Self::tile_width - MARGIN_STANDING, Self::tile_height),
+                Rect::new(54, 0, Self::TILE_WIDTH - MARGIN_STANDING, Self::TILE_HEIGHT),
                 0,
             ),
         ]
@@ -80,19 +79,19 @@ impl<'a> Player<'a> {
     ) -> Player<'a> {
         let mut actions_moving = Vec::with_capacity(4);
         actions_moving.push((
-            Dimension::new(Rect::new(15, 77, Self::tile_width, Self::tile_height), 32),
+            Dimension::new(Rect::new(15, 77, Self::TILE_WIDTH, Self::TILE_HEIGHT), 32),
             10,
         ));
         actions_moving.push((
-            Dimension::new(Rect::new(683, 77, Self::tile_width, Self::tile_height), 32),
+            Dimension::new(Rect::new(683, 77, Self::TILE_WIDTH, Self::TILE_HEIGHT), 32),
             10,
         ));
         actions_moving.push((
-            Dimension::new(Rect::new(350, 77, Self::tile_width, Self::tile_height), 32),
+            Dimension::new(Rect::new(350, 77, Self::TILE_WIDTH, Self::TILE_HEIGHT), 32),
             10,
         ));
         actions_moving.push((
-            Dimension::new(Rect::new(346, 44, Self::tile_width, Self::tile_height), 32),
+            Dimension::new(Rect::new(346, 44, Self::TILE_WIDTH, Self::TILE_HEIGHT), 32),
             10,
         ));
         let texture_handler = TextureHandler::new(
@@ -133,7 +132,7 @@ impl<'a> Player<'a> {
                 effect: RefCell::new(None),
                 level: 1,
                 animations: Vec::new(),
-                move_hitbox: (Self::tile_width - MARGIN_STANDING, 6),
+                move_hitbox: (Self::TILE_WIDTH - MARGIN_STANDING, 6),
             },
             is_run_pressed: false,
             stats: stats.map(|s| RefCell::new(s)),

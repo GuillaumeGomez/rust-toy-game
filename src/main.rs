@@ -14,15 +14,6 @@ use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::time::{Duration, Instant};
 
-macro_rules! return_if_none {
-    ($x:expr) => {{
-        match $x {
-            Some(x) => x,
-            None => return,
-        }
-    }};
-}
-
 #[macro_use]
 mod utils;
 
@@ -48,7 +39,7 @@ mod traits;
 mod weapon;
 mod window;
 
-use character::{Character, CharacterKind};
+use character::CharacterKind;
 use enemy::Enemy;
 use env::Env;
 use health_bar::HealthBar;
@@ -76,8 +67,6 @@ pub const PIXELS_TO_METERS: i64 = 8 * 4;
 /// Just an alias to `PIXELS_TO_METERS`, to make usage more clear in the code.
 pub const ONE_METER: i64 = PIXELS_TO_METERS;
 pub const MAX_DISTANCE_WANDERING: i32 = ONE_METER as i32 * 15;
-
-const FPS_REFRESH: u32 = 5;
 
 /// Just for code clarity.
 pub type Id = usize;
@@ -177,8 +166,7 @@ pub fn main() {
     system.create_new_font_map(&texture_creator, &font_16, 16, Color::RGB(255, 255, 255));
     system.create_new_font_map(&texture_creator, &font_16, 16, Color::RGB(74, 138, 221));
 
-    let (player_texture, player_surface) =
-        player::get_player(&texture_creator, &Player::get_actions_standing());
+    let (player_texture, player_surface) = player::get_player(&texture_creator);
     let mut enemy_surface = Surface::from_file("resources/skeleton.png")
         .expect("failed to load `resources/skeleton.png`");
     if enemy_surface.pixel_format_enum() != PixelFormatEnum::RGBA8888 {
@@ -221,7 +209,6 @@ pub fn main() {
         &game_controller_subsystem,
         &texture_creator,
         &textures,
-        &font_16,
         WIDTH as u32,
         HEIGHT as u32,
     );
@@ -240,30 +227,30 @@ pub fn main() {
         Some(Default::default()),
     )];
     let mut enemies = vec![
-        // Enemy::new(
-        //     &texture_creator,
-        //     &textures,
-        //     &enemy_texture,
-        //     &forced_enemy_surface,
-        //     0,
-        //     40,
-        //     2,
-        //     CharacterKind::Enemy,
-        //     enemy_surface.width() / 3,
-        //     enemy_surface.height() / 4,
-        // ),
-        // Enemy::new(
-        //     &texture_creator,
-        //     &textures,
-        //     &enemy_texture,
-        //     &forced_enemy_surface,
-        //     40,
-        //     0,
-        //     3,
-        //     CharacterKind::Enemy,
-        //     enemy_surface.width() / 3,
-        //     enemy_surface.height() / 4,
-        // ),
+        Enemy::new(
+            &texture_creator,
+            &textures,
+            &enemy_texture,
+            &forced_enemy_surface,
+            0,
+            40,
+            2,
+            CharacterKind::Enemy,
+            enemy_surface.width() / 3,
+            enemy_surface.height() / 4,
+        ),
+        Enemy::new(
+            &texture_creator,
+            &textures,
+            &enemy_texture,
+            &forced_enemy_surface,
+            40,
+            0,
+            3,
+            CharacterKind::Enemy,
+            enemy_surface.width() / 3,
+            enemy_surface.height() / 4,
+        ),
     ];
 
     let mut dead_enemies: Vec<Enemy> = Vec::new();

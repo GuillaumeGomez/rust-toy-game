@@ -2,13 +2,11 @@ use sdl2::controller::{Axis, Button, GameController};
 use sdl2::event::Event;
 use sdl2::keyboard::{Keycode, Mod};
 use sdl2::render::TextureCreator;
-use sdl2::ttf::Font;
 use sdl2::video::WindowContext;
 use sdl2::EventPump;
 use sdl2::GameControllerSubsystem;
 
-use std::collections::{HashMap, LinkedList};
-use std::time::Instant;
+use std::collections::HashMap;
 
 use crate::character::Direction;
 use crate::debug_display::DebugDisplay;
@@ -19,7 +17,7 @@ use crate::system::System;
 use crate::texture_holder::TextureHolder;
 use crate::utils::compute_distance;
 use crate::window::{create_inventory_window, Window};
-use crate::{GetDimension, GetPos, FPS_REFRESH, ONE_SECOND};
+use crate::{GetDimension, GetPos, ONE_SECOND};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum EventKind {
@@ -176,7 +174,7 @@ impl GamePad {
                 timestamp,
                 axis,
                 value,
-                which,
+                ..
             } => match axis {
                 Axis::LeftX => update_axis!(
                     self.left_stick_last_event_x,
@@ -218,12 +216,12 @@ impl GamePad {
                     timestamp,
                     value
                 ),
-                _ => vec![Event::ControllerAxisMotion {
-                    axis,
-                    timestamp,
-                    value,
-                    which,
-                }],
+                // _ => vec![Event::ControllerAxisMotion {
+                //     axis,
+                //     timestamp,
+                //     value,
+                //     which,
+                // }],
             },
             Event::ControllerDeviceRemoved { which, timestamp }
             | Event::JoyDeviceRemoved { which, timestamp } => {
@@ -267,7 +265,6 @@ impl<'a> Env<'a> {
         game_controller_subsystem: &'a GameControllerSubsystem,
         texture_creator: &'a TextureCreator<WindowContext>,
         textures: &'a HashMap<&'static str, TextureHolder<'a>>,
-        font: &'a Font<'_, 'static>,
         width: u32,
         height: u32,
     ) -> Env<'a> {
@@ -277,7 +274,7 @@ impl<'a> Env<'a> {
             debug: false,
             fps_str: String::new(),
             debug_display: DebugDisplay::new(texture_creator, 16),
-            menu: Menu::new(texture_creator, font, width, height),
+            menu: Menu::new(texture_creator, width, height),
             need_sort_rewards: false,
             closest_reward: None,
             game_controller_subsystem,
@@ -294,7 +291,6 @@ impl<'a> Env<'a> {
                 ),
                 Window::new(
                     texture_creator,
-                    &*textures,
                     10,
                     height as i32 / 4,
                     WINDOW_WIDTH,
@@ -368,14 +364,19 @@ impl<'a> Env<'a> {
                                 continue;
                             }
                             Event::ControllerDeviceRemoved { which, .. } => {
-                                self.controller = None;
-                                println!("device removed!");
+                                if self
+                                    .controller
+                                    .as_ref()
+                                    .map(|c| c.controller.instance_id() == which)
+                                    .unwrap_or(false)
+                                {
+                                    self.controller = None;
+                                    println!("device removed!");
+                                }
                                 continue;
                             }
                             Event::ControllerButtonDown {
-                                button,
-                                which,
-                                timestamp,
+                                button, timestamp, ..
                             } => match button {
                                 Button::A => Event::KeyDown {
                                     keycode: Some(Keycode::Return),
@@ -421,11 +422,10 @@ impl<'a> Env<'a> {
                             println!("new device detected!");
                             self.update_controller();
                         }
-                        Event::ControllerDeviceRemoved { which, .. } => {
+                        Event::ControllerDeviceRemoved { .. } => {
                             self.controller = None;
-                            println!("device removed!");
                         }
-                        Event::ControllerButtonDown { button, which, .. } => match button {
+                        Event::ControllerButtonDown { button, .. } => match button {
                             Button::DPadUp => players[0].handle_move(Direction::Up),
                             Button::DPadDown => players[0].handle_move(Direction::Down),
                             Button::DPadLeft => players[0].handle_move(Direction::Left),
@@ -438,7 +438,7 @@ impl<'a> Env<'a> {
                             }
                             _ => {}
                         },
-                        Event::ControllerButtonUp { button, which, .. } => match button {
+                        Event::ControllerButtonUp { button, .. } => match button {
                             Button::DPadUp => players[0].handle_release(Direction::Up),
                             Button::DPadDown => players[0].handle_release(Direction::Down),
                             Button::DPadLeft => players[0].handle_release(Direction::Left),
@@ -536,7 +536,7 @@ impl<'a> Env<'a> {
                                 true
                             };
                             let mut i = self.windows.len() - 1;
-                            while i >= 0 {
+                            loop {
                                 {
                                     let w = &mut self.windows[i];
                                     if w.is_hidden() || !w.handle_event(&ev) {

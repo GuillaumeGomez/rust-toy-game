@@ -22,7 +22,7 @@ fn check_pixels_for_pos(x: u32, y: u32, surface: &Surface) -> bool {
         let y = (iy + y) * pitch;
         for ix in 0..MAP_CASE_SIZE as usize {
             let pos = y + (ix + x) * 4; // 4 is because the surfaces are always RGBA8888 so 4 bytes
-            if pos >= 0 && pos < max_len {
+            if pos < max_len {
                 let target_pixel = unsafe { *(pixels.add(pos as usize) as *const u32) };
                 let alpha = target_pixel & 255;
                 if alpha > 220 {

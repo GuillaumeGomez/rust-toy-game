@@ -4,7 +4,6 @@ use std::collections::{BinaryHeap, HashMap};
 use std::ops::{Deref, DerefMut};
 
 use rand::Rng;
-use sdl2::image::LoadSurface;
 use sdl2::rect::Rect;
 use sdl2::render::{Texture, TextureCreator};
 use sdl2::surface::Surface;
@@ -77,6 +76,7 @@ enum EnemyAction {
 }
 
 impl EnemyAction {
+    #[allow(dead_code)]
     fn is_move_to_player(&self) -> bool {
         match *self {
             Self::MoveToPlayer(_) => true,
@@ -160,7 +160,7 @@ impl<'a> Enemy<'a> {
                 0,
             ),
         ];
-        let mut actions_moving = vec![
+        let actions_moving = vec![
             // up
             (
                 Dimension::new(Rect::new(0, 0, tile_width, tile_height), tile_width as i32),
@@ -329,56 +329,26 @@ impl<'a> Enemy<'a> {
                 return Some(closed_list);
             } else {
                 let nodes = vec![
-                    (
-                        Node::new(node.x + step, node.y, node.cost + 1),
-                        [Direction::Right].into_iter(),
-                    ),
-                    (
-                        Node::new(node.x + step, node.y + step, node.cost + 1),
-                        [Direction::Right, Direction::Down].into_iter(),
-                    ),
-                    (
-                        Node::new(node.x, node.y + step, node.cost + 1),
-                        [Direction::Down].into_iter(),
-                    ),
-                    (
-                        Node::new(node.x - step, node.y + step, node.cost + 1),
-                        [Direction::Left, Direction::Down].into_iter(),
-                    ),
-                    (
-                        Node::new(node.x - step, node.y, node.cost + 1),
-                        [Direction::Left].into_iter(),
-                    ),
-                    (
-                        Node::new(node.x - step, node.y - step, node.cost + 1),
-                        [Direction::Left, Direction::Up].into_iter(),
-                    ),
-                    (
-                        Node::new(node.x, node.y - step, node.cost + 1),
-                        [Direction::Up].into_iter(),
-                    ),
-                    (
-                        Node::new(node.x + step, node.y - step, node.cost + 1),
-                        [Direction::Right, Direction::Up].into_iter(),
-                    ),
+                    Node::new(node.x + step, node.y, node.cost + 1),
+                    Node::new(node.x + step, node.y + step, node.cost + 1),
+                    Node::new(node.x, node.y + step, node.cost + 1),
+                    Node::new(node.x - step, node.y + step, node.cost + 1),
+                    Node::new(node.x - step, node.y, node.cost + 1),
+                    Node::new(node.x - step, node.y - step, node.cost + 1),
+                    Node::new(node.x, node.y - step, node.cost + 1),
+                    Node::new(node.x + step, node.y - step, node.cost + 1),
                 ]
                 .into_iter()
-                .filter_map(|(entry, mut directions)| {
-                    if directions.all(|dir| {
-                        self.character
-                            .check_map_pos(*dir, map, players, npcs, entry.x, entry.y, target_id)
-                            == Obstacle::None
-                    }) && !closed_list
-                        .iter()
-                        .any(|entry2| entry.x == entry2.0 && entry.y == entry2.1)
+                .filter(|entry| {
+                    self.character
+                        .check_map_pos(map, players, npcs, entry.x, entry.y, target_id)
+                        == Obstacle::None
+                        && !closed_list
+                            .iter()
+                            .any(|entry2| entry.x == entry2.0 && entry.y == entry2.1)
                         && !open_list.iter().any(|entry2: &Reverse<Node>| {
-                            entry == entry2.0 && entry.cost >= entry2.0.cost
+                            *entry == entry2.0 && entry.cost >= entry2.0.cost
                         })
-                    {
-                        Some(entry)
-                    } else {
-                        None
-                    }
                 })
                 .collect::<Vec<_>>();
                 for mut node in nodes {
@@ -466,7 +436,7 @@ impl<'a> Enemy<'a> {
     pub fn apply_move(
         &self,
         map: &Map,
-        elapsed: u64,
+        _elapsed: u64,
         players: &[Player],
         npcs: &[Enemy],
     ) -> (i64, i64) {
@@ -528,35 +498,17 @@ impl<'a> Enemy<'a> {
                 // a path.
                 if dist_x > weapon_height / 3 && dist_y > weapon_height / 2 {
                     debug_enemy!("[{}] Re-adjusting position v1!", self.id);
-                    if self.character.check_map_pos(
-                        if target_x > self_x {
-                            Direction::Right
-                        } else {
-                            Direction::Left
-                        },
-                        map,
-                        players,
-                        npcs,
-                        target_x,
-                        self_y,
-                        None,
-                    ) == Obstacle::None
+                    if self
+                        .character
+                        .check_map_pos(map, players, npcs, target_x, self_y, None)
+                        == Obstacle::None
                     {
                         debug_enemy!("[{}] we can move to player (on x)!", self.id);
                         Some(EnemyAction::MoveToPlayer(vec![(target_x, self_y)]))
-                    } else if self.character.check_map_pos(
-                        if target_y > self_y {
-                            Direction::Down
-                        } else {
-                            Direction::Up
-                        },
-                        map,
-                        players,
-                        npcs,
-                        self_x,
-                        target_y,
-                        None,
-                    ) == Obstacle::None
+                    } else if self
+                        .character
+                        .check_map_pos(map, players, npcs, self_x, target_y, None)
+                        == Obstacle::None
                     {
                         debug_enemy!("[{}] we can move to player (on y)!", self.id);
                         Some(EnemyAction::MoveToPlayer(vec![(self_x, target_y)]))
@@ -705,9 +657,7 @@ impl<'a> Enemy<'a> {
                     } else {
                         let (target_x, target_y) = nodes[nodes.len() - 1];
                         let (x_add, y_add) = self.compute_adds(target_x, target_y);
-                        let (dir, dir2) = self.get_directions(x_add, y_add);
                         match self.character.check_map_pos(
-                            dir,
                             map,
                             players,
                             npcs,
@@ -750,9 +700,7 @@ impl<'a> Enemy<'a> {
                 } else {
                     let (target_x, target_y) = nodes[nodes.len() - 1];
                     let (x_add, y_add) = self.compute_adds(target_x, target_y);
-                    let (dir, dir2) = self.get_directions(x_add, y_add);
                     match self.character.check_map_pos(
-                        dir,
                         map,
                         players,
                         npcs,

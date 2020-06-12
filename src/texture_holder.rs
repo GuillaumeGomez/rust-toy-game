@@ -17,7 +17,7 @@ pub struct TextureHolder<'a> {
 impl<'a> TextureHolder<'a> {
     pub fn surface_to_texture(
         texture_creator: &'a TextureCreator<WindowContext>,
-        mut surface: Surface,
+        surface: Surface,
     ) -> TextureHolder<'a> {
         let width = surface.width();
         let height = surface.height();

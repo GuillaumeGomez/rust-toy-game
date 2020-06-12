@@ -27,7 +27,7 @@ pub trait Widget: GetDimension {
 }
 
 #[derive(Clone, Copy, PartialEq)]
-enum EventAction {
+pub enum EventAction {
     None,
     Close,
 }
@@ -391,7 +391,6 @@ pub fn create_inventory_window<'a>(
 ) -> Window<'a> {
     let mut w = Window::new(
         texture_creator,
-        textures,
         x,
         y,
         width,
@@ -413,13 +412,14 @@ pub fn create_inventory_window<'a>(
 pub struct Window<'a> {
     title_bar_height: u32,
     pub title: &'static str,
+    #[allow(dead_code)]
     border_width: u32,
     texture: TextureHolder<'a>,
     x: i32,
     y: i32,
     is_hidden: bool,
     is_dragging_window: Option<(i32, i32)>,
-    widgets: Vec<Box<Widget + 'a>>,
+    widgets: Vec<Box<dyn Widget + 'a>>,
 }
 
 impl<'a> Window<'a> {
@@ -433,7 +433,6 @@ impl<'a> Window<'a> {
     }
     pub fn new(
         texture_creator: &'a TextureCreator<WindowContext>,
-        textures: &'a HashMap<&'static str, TextureHolder<'a>>,
         x: i32,
         y: i32,
         width: u32,

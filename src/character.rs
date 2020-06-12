@@ -1,7 +1,5 @@
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
-use sdl2::render::TextureCreator;
-use sdl2::video::WindowContext;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -326,7 +324,6 @@ impl<'a> Character<'a> {
 
     pub fn check_map_pos(
         &self,
-        direction: Direction,
         map: &Map,
         players: &[Player],
         npcs: &[Enemy],
@@ -760,7 +757,7 @@ impl<'a> Character<'a> {
         self.mana.refresh(elapsed);
         self.move_delay += elapsed;
         let effect = self.effect.borrow_mut().take();
-        if let Some(mut effect) = effect {
+        if let Some(effect) = effect {
             if effect.0 != 0 || effect.1 != 0 {
                 *self.effect.borrow_mut() = Some(effect);
             }
@@ -864,7 +861,7 @@ impl<'a> Character<'a> {
         {
             return 0;
         }
-        let (tile_x, tile_y, _, _, width, height) = self
+        let (_tile_x, _tile_y, _, _, width, height) = self
             .action
             .compute_current(self.is_running, &self.texture_handler);
         let w_biggest = ::std::cmp::max(weapon.height(), weapon.width()) as i64;

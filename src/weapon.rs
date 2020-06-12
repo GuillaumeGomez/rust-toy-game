@@ -86,12 +86,12 @@ impl<'a> Weapon<'a> {
             }
         }
     }
-    pub fn draw(&self, system: &mut System, debug: bool) {
+    pub fn draw(&self, system: &mut System, _debug: bool) {
         if let Some(direction) = self.blocking_direction {
             if let Some(texture) = self.get_texture() {
                 let x = self.x - system.x();
                 let y = self.y - system.y();
-                let (angle, x_add, y_add) = match direction {
+                let (angle, _, _) = match direction {
                     Direction::Up => (90, 0, self.height() as i32),
                     Direction::Right => (180, self.width() as i32, 0),
                     Direction::Down => (270, self.width() as i32, self.height() as i32),
