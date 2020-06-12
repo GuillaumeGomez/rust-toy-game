@@ -286,7 +286,7 @@ impl<'a> Env<'a> {
                 create_inventory_window(
                     texture_creator,
                     &*textures,
-                    width as i32 - 210,
+                    width as i32 - WINDOW_WIDTH as i32 - 10,
                     height as i32 / 4,
                     WINDOW_WIDTH,
                     height / 3,
@@ -295,7 +295,7 @@ impl<'a> Env<'a> {
                 Window::new(
                     texture_creator,
                     &*textures,
-                    width as i32 - 210,
+                    10,
                     height as i32 / 4,
                     WINDOW_WIDTH,
                     height / 3,
@@ -456,7 +456,9 @@ impl<'a> Env<'a> {
                         } => match x {
                             Keycode::Escape => {
                                 let mut all_hidden = true;
-                                for window in self.windows.iter_mut().filter(|w| !w.is_hidden()) {
+                                for window in
+                                    self.windows.iter_mut().rev().filter(|w| !w.is_hidden())
+                                {
                                     all_hidden = false;
                                     window.hide();
                                     break;
@@ -528,21 +530,28 @@ impl<'a> Env<'a> {
                             _ => {}
                         },
                         ev => {
+                            let take_focus = if let Event::MouseMotion { .. } = ev {
+                                false
+                            } else {
+                                true
+                            };
                             let mut i = self.windows.len() - 1;
                             while i >= 0 {
                                 {
                                     let w = &mut self.windows[i];
                                     if w.is_hidden() || !w.handle_event(&ev) {
-                                        if i > 1 {
+                                        if i > 0 {
                                             i -= 1;
                                             continue;
                                         }
                                         break;
                                     }
                                 }
-                                if i != self.windows.len() - 1 {
-                                    let tmp = self.windows.remove(i);
-                                    self.windows.push(tmp);
+                                if take_focus {
+                                    if i != self.windows.len() - 1 {
+                                        let tmp = self.windows.remove(i);
+                                        self.windows.push(tmp);
+                                    }
                                 }
                                 break;
                             }

@@ -532,6 +532,9 @@ impl<'a> Window<'a> {
                 y: mouse_y,
                 ..
             } => {
+                if !self.is_in(*mouse_x, *mouse_y) {
+                    return false;
+                }
                 // TODO: clean this up
                 let ev = Event::MouseButtonDown {
                     mouse_btn: MouseButton::Left,
@@ -551,10 +554,8 @@ impl<'a> Window<'a> {
                 // If we are in the titlebar, then we can drag the window.
                 if !actions && self.is_in_title_bar(*mouse_x, *mouse_y) {
                     self.is_dragging_window = Some((*mouse_x - self.x, *mouse_y - self.y));
-                    true
-                } else {
-                    actions
                 }
+                true
             }
             Event::MouseButtonUp {
                 mouse_btn: MouseButton::Left,
@@ -601,7 +602,6 @@ impl<'a> Window<'a> {
                     true
                 }
                 None => {
-                    let mut was_handled = false;
                     if self.is_in(*mouse_x, *mouse_y) {
                         // TODO: clean this up
                         let ev = Event::MouseMotion {
@@ -615,12 +615,12 @@ impl<'a> Window<'a> {
                             window_id: 0,
                         };
                         for widget in self.widgets.iter_mut() {
-                            if widget.handle_event(&ev, self.x, self.y).is_some() {
-                                was_handled = true;
-                            }
+                            widget.handle_event(&ev, self.x, self.y);
                         }
+                        true
+                    } else {
+                        false
                     }
-                    was_handled
                 }
             },
             _ => false,
