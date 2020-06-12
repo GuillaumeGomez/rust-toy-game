@@ -7,7 +7,7 @@ use sdl2::video::WindowContext;
 use sdl2::EventPump;
 use sdl2::GameControllerSubsystem;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, LinkedList};
 use std::time::Instant;
 
 use crate::character::Direction;
@@ -18,7 +18,7 @@ use crate::reward::Reward;
 use crate::system::System;
 use crate::texture_holder::TextureHolder;
 use crate::utils::compute_distance;
-use crate::window::Window;
+use crate::window::{create_inventory_window, Window};
 use crate::{GetDimension, GetPos, FPS_REFRESH, ONE_SECOND};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -245,9 +245,7 @@ pub struct Env<'a> {
     pub need_sort_rewards: bool,
     pub closest_reward: Option<(i32, usize)>,
     pub game_controller_subsystem: &'a GameControllerSubsystem,
-    // TODO: Put windows' references into a Vec and draw them on that order (the newest should be
-    // the last)
-    pub inventory_window: Window<'a>,
+    pub windows: Vec<Window<'a>>,
     controller: Option<GamePad>,
     // pressed_keys: Vec<Event>,
 }
@@ -284,16 +282,27 @@ impl<'a> Env<'a> {
             closest_reward: None,
             game_controller_subsystem,
             controller: None,
-            inventory_window: Window::new(
-                texture_creator,
-                &*textures,
-                width as i32 - 210,
-                height as i32 / 4,
-                WINDOW_WIDTH,
-                height / 3,
-                "Inventory",
-                1,
-            ),
+            windows: vec![
+                create_inventory_window(
+                    texture_creator,
+                    &*textures,
+                    width as i32 - 210,
+                    height as i32 / 4,
+                    WINDOW_WIDTH,
+                    height / 3,
+                    1,
+                ),
+                Window::new(
+                    texture_creator,
+                    &*textures,
+                    width as i32 - 210,
+                    height as i32 / 4,
+                    WINDOW_WIDTH,
+                    height / 3,
+                    "Character",
+                    1,
+                ),
+            ],
         };
         env.update_controller();
         env
@@ -446,13 +455,17 @@ impl<'a> Env<'a> {
                             keycode: Some(x), ..
                         } => match x {
                             Keycode::Escape => {
-                                if self.inventory_window.is_hidden() {
+                                let mut all_hidden = true;
+                                for window in self.windows.iter_mut().filter(|w| !w.is_hidden()) {
+                                    all_hidden = false;
+                                    window.hide();
+                                    break;
+                                }
+                                if all_hidden {
                                     self.display_menu = true;
                                     self.menu.set_pause(textures);
                                     // To hover buttons in case the mouse is hovering one.
                                     self.menu.update(mouse_state.x(), mouse_state.y());
-                                } else {
-                                    self.inventory_window.hide();
                                 }
                             }
                             Keycode::Left | Keycode::Q => players[0].handle_move(Direction::Left),
@@ -477,13 +490,8 @@ impl<'a> Env<'a> {
                                 self.debug = self.debug == false;
                             }
                             Keycode::F5 => self.debug_display.switch_draw_grid(),
-                            Keycode::I => {
-                                if self.inventory_window.is_hidden() {
-                                    self.inventory_window.show();
-                                } else {
-                                    self.inventory_window.hide();
-                                }
-                            }
+                            Keycode::I => self.swith_window_state("Inventory"),
+                            Keycode::C => self.swith_window_state("Character"),
                             _ => {}
                         },
                         Event::KeyUp {
@@ -520,8 +528,23 @@ impl<'a> Env<'a> {
                             _ => {}
                         },
                         ev => {
-                            if !self.inventory_window.is_hidden() {
-                                self.inventory_window.handle_event(&ev);
+                            let mut i = self.windows.len() - 1;
+                            while i >= 0 {
+                                {
+                                    let w = &mut self.windows[i];
+                                    if w.is_hidden() || !w.handle_event(&ev) {
+                                        if i > 1 {
+                                            i -= 1;
+                                            continue;
+                                        }
+                                        break;
+                                    }
+                                }
+                                if i != self.windows.len() - 1 {
+                                    let tmp = self.windows.remove(i);
+                                    self.windows.push(tmp);
+                                }
+                                break;
                             }
                         }
                     }
@@ -529,6 +552,27 @@ impl<'a> Env<'a> {
             }
         }
         true
+    }
+
+    pub fn swith_window_state(&mut self, window_title: &str) {
+        for i in 0..self.windows.len() {
+            {
+                let w = &mut self.windows[i];
+                if w.title != window_title {
+                    continue;
+                }
+                if !w.is_hidden() {
+                    w.hide();
+                    continue;
+                }
+                w.show();
+            }
+            if i != self.windows.len() - 1 {
+                let tmp = self.windows.remove(i);
+                self.windows.push(tmp);
+            }
+            break;
+        }
     }
 
     pub fn show_death_screen(&mut self, textures: &'a HashMap<&'static str, TextureHolder<'a>>) {
@@ -684,7 +728,9 @@ impl<'a> Env<'a> {
     }
 
     pub fn draw(&mut self, system: &mut System) {
-        self.inventory_window.draw(system);
+        for window in self.windows.iter() {
+            window.draw(system);
+        }
         if self.display_menu {
             self.menu.draw(system);
         }

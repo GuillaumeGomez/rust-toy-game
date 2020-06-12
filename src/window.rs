@@ -26,6 +26,7 @@ pub trait Widget: GetDimension {
     fn handle_event(&mut self, ev: &Event, x_add: i32, y_add: i32) -> Option<EventAction>;
 }
 
+#[derive(Clone, Copy, PartialEq)]
 enum EventAction {
     None,
     Close,
@@ -379,9 +380,39 @@ impl<'a> Widget for InventoryCases<'a> {
     }
 }
 
+pub fn create_inventory_window<'a>(
+    texture_creator: &'a TextureCreator<WindowContext>,
+    textures: &'a HashMap<&'static str, TextureHolder<'a>>,
+    x: i32,
+    y: i32,
+    width: u32,
+    height: u32,
+    border_width: u32,
+) -> Window<'a> {
+    let mut w = Window::new(
+        texture_creator,
+        textures,
+        x,
+        y,
+        width,
+        height,
+        "Inventory",
+        border_width,
+    );
+    w.widgets.push(Box::new(InventoryCases::new(
+        textures,
+        texture_creator,
+        border_width as i32,
+        w.title_bar_height as i32,
+        width - border_width * 2,
+        height - w.title_bar_height - border_width,
+    )));
+    w
+}
+
 pub struct Window<'a> {
     title_bar_height: u32,
-    title: &'static str,
+    pub title: &'static str,
     border_width: u32,
     texture: TextureHolder<'a>,
     x: i32,
@@ -399,14 +430,6 @@ impl<'a> Window<'a> {
         border_width: u32,
     ) {
         InventoryCase::init_textures(texture_creator, textures, width - border_width * 2);
-    }
-    pub fn create_widgets_textures(
-        texture_creator: &'a TextureCreator<WindowContext>,
-        textures: &mut HashMap<&'static str, TextureHolder<'a>>,
-        width: u32,
-        height: u32,
-        border_width: u32,
-    ) {
     }
     pub fn new(
         texture_creator: &'a TextureCreator<WindowContext>,
@@ -443,22 +466,12 @@ impl<'a> Window<'a> {
             y,
             is_hidden: true,
             is_dragging_window: None,
-            widgets: vec![
-                Box::new(TitleBarButton::new(
-                    texture_creator,
-                    title_bar_height - 6,
-                    width as i32 - title_bar_height as i32 + 3,
-                    3,
-                )),
-                Box::new(InventoryCases::new(
-                    textures,
-                    texture_creator,
-                    border_width as i32,
-                    title_bar_height as i32,
-                    width - border_width * 2,
-                    height - title_bar_height - border_width,
-                )),
-            ],
+            widgets: vec![Box::new(TitleBarButton::new(
+                texture_creator,
+                title_bar_height - 6,
+                width as i32 - title_bar_height as i32 + 3,
+                3,
+            ))],
             title,
         }
     }
@@ -506,9 +519,11 @@ impl<'a> Window<'a> {
     fn is_in_title_bar(&self, x: i32, y: i32) -> bool {
         self.is_in(x, y) && y <= self.y + self.title_bar_height as i32
     }
-    pub fn handle_event(&mut self, ev: &Event) {
+    /// Returns `true` if the event has been handled by the window (i.e. if it affected itself or
+    /// one of its widgets).
+    pub fn handle_event(&mut self, ev: &Event) -> bool {
         if self.is_hidden || (!ev.is_mouse() && !ev.is_controller()) {
-            return;
+            return false;
         }
         match ev {
             Event::MouseButtonDown {
@@ -536,6 +551,9 @@ impl<'a> Window<'a> {
                 // If we are in the titlebar, then we can drag the window.
                 if !actions && self.is_in_title_bar(*mouse_x, *mouse_y) {
                     self.is_dragging_window = Some((*mouse_x - self.x, *mouse_y - self.y));
+                    true
+                } else {
+                    actions
                 }
             }
             Event::MouseButtonUp {
@@ -544,6 +562,7 @@ impl<'a> Window<'a> {
                 y: mouse_y,
                 ..
             } => {
+                let mut was_handled = self.is_dragging_window.is_some();
                 self.is_dragging_window = None;
                 if self.is_in(*mouse_x, *mouse_y) {
                     // TODO: clean this up
@@ -557,11 +576,18 @@ impl<'a> Window<'a> {
                         window_id: 0,
                     };
                     for widget in self.widgets.iter_mut() {
-                        if let Some(EventAction::Close) = widget.handle_event(&ev, self.x, self.y) {
-                            self.is_hidden = true;
+                        match widget.handle_event(&ev, self.x, self.y) {
+                            Some(e) => {
+                                if e == EventAction::Close {
+                                    self.is_hidden = true;
+                                }
+                                was_handled = true;
+                            }
+                            None => {}
                         }
                     }
                 }
+                was_handled
             }
             Event::MouseMotion {
                 x: mouse_x,
@@ -572,8 +598,10 @@ impl<'a> Window<'a> {
                 Some((x_add, y_add)) => {
                     self.x = *mouse_x - x_add;
                     self.y = *mouse_y - y_add;
+                    true
                 }
                 None => {
+                    let mut was_handled = false;
                     if self.is_in(*mouse_x, *mouse_y) {
                         // TODO: clean this up
                         let ev = Event::MouseMotion {
@@ -587,12 +615,15 @@ impl<'a> Window<'a> {
                             window_id: 0,
                         };
                         for widget in self.widgets.iter_mut() {
-                            widget.handle_event(&ev, self.x, self.y);
+                            if widget.handle_event(&ev, self.x, self.y).is_some() {
+                                was_handled = true;
+                            }
                         }
                     }
+                    was_handled
                 }
             },
-            _ => {}
+            _ => false,
         }
     }
 
