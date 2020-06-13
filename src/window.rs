@@ -380,6 +380,133 @@ impl<'a> Widget for InventoryCases<'a> {
     }
 }
 
+const LABEL_FONT_SIZE: u16 = 16;
+
+pub struct Label {
+    text: String,
+    x: i32,
+    y: i32,
+}
+
+impl GetDimension for Label {
+    fn width(&self) -> u32 {
+        0
+    }
+    fn height(&self) -> u32 {
+        LABEL_FONT_SIZE as u32
+    }
+}
+
+impl Widget for Label {
+    fn draw(&self, system: &mut System, x_add: i32, y_add: i32) {
+        system.draw_text(
+            &self.text,
+            LABEL_FONT_SIZE,
+            Color::RGB(255, 255, 255),
+            self.x + x_add,
+            self.y + y_add,
+            false,
+            false,
+        );
+    }
+    fn x(&self) -> i32 {
+        self.x
+    }
+    fn y(&self) -> i32 {
+        self.y
+    }
+    fn handle_event(&mut self, _ev: &Event, _x_add: i32, _y_add: i32) -> Option<EventAction> {
+        None
+    }
+}
+
+impl Label {
+    fn new(text: &str, x: i32, y: i32) -> Label {
+        Label {
+            text: text.to_owned(),
+            x,
+            y,
+        }
+    }
+}
+
+pub struct CharacterInfo {
+    // (ID, "display", value)
+    widgets: Vec<(&'static str, Label, Label)>,
+}
+
+impl CharacterInfo {
+    pub fn new(border_width: i32, y_start: i32, width: u32) -> CharacterInfo {
+        let widgets = ["Level", "Experience", "Health", "Mana"]
+            .iter()
+            .enumerate()
+            .map(|(pos, label)| {
+                let y = (LABEL_FONT_SIZE + 1) as i32 * pos as i32 + y_start;
+                (
+                    *label,
+                    Label::new(&format!("{}:", label), border_width, y),
+                    Label::new("", width as i32 / 2, y),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        CharacterInfo { widgets }
+    }
+}
+
+impl GetDimension for CharacterInfo {
+    fn width(&self) -> u32 {
+        0
+    }
+    fn height(&self) -> u32 {
+        self.widgets.len() as u32 * (LABEL_FONT_SIZE as u32 + 1)
+    }
+}
+
+impl Widget for CharacterInfo {
+    fn draw(&self, system: &mut System, x_add: i32, y_add: i32) {
+        for (_, w1, w2) in self.widgets.iter() {
+            w1.draw(system, x_add, y_add);
+            w2.draw(system, x_add, y_add);
+        }
+    }
+    fn x(&self) -> i32 {
+        0
+    }
+    fn y(&self) -> i32 {
+        0
+    }
+    fn handle_event(&mut self, _ev: &Event, _x_add: i32, _y_add: i32) -> Option<EventAction> {
+        None
+    }
+}
+
+pub fn create_character_window<'a>(
+    texture_creator: &'a TextureCreator<WindowContext>,
+    x: i32,
+    y: i32,
+    width: u32,
+    height: u32,
+    border_width: u32,
+) -> Window<'a> {
+    let mut w = Window::new_with_background(
+        texture_creator,
+        x,
+        y,
+        width,
+        height,
+        "Character",
+        border_width,
+        Color::RGB(20, 20, 20),
+    );
+    w.widgets.push(Box::new(CharacterInfo::new(
+        border_width as i32,
+        w.title_bar_height as i32,
+        width,
+    )));
+    w
+}
+
 pub fn create_inventory_window<'a>(
     texture_creator: &'a TextureCreator<WindowContext>,
     textures: &'a HashMap<&'static str, TextureHolder<'a>>,
@@ -431,7 +558,7 @@ impl<'a> Window<'a> {
     ) {
         InventoryCase::init_textures(texture_creator, textures, width - border_width * 2);
     }
-    pub fn new(
+    pub fn new_with_background(
         texture_creator: &'a TextureCreator<WindowContext>,
         x: i32,
         y: i32,
@@ -439,13 +566,14 @@ impl<'a> Window<'a> {
         height: u32,
         title: &'static str,
         border_width: u32,
+        background: Color,
     ) -> Window<'a> {
         let title_bar_height = 22;
         let mut window = Surface::new(width, height, texture_creator.default_pixel_format())
             .expect("Failed to create surface for font map");
         window
             .fill_rect(None, Color::RGB(110, 110, 110))
-            .expect("failed to create window background");
+            .expect("failed to create window borders");
         window
             .fill_rect(
                 Rect::new(
@@ -454,9 +582,9 @@ impl<'a> Window<'a> {
                     width - border_width * 2,
                     height - border_width - title_bar_height,
                 ),
-                Color::RGB(239, 239, 239),
+                background,
             )
-            .expect("failed to create title bar");
+            .expect("failed to create window background");
         Window {
             title_bar_height,
             border_width,
@@ -473,6 +601,26 @@ impl<'a> Window<'a> {
             ))],
             title,
         }
+    }
+    pub fn new(
+        texture_creator: &'a TextureCreator<WindowContext>,
+        x: i32,
+        y: i32,
+        width: u32,
+        height: u32,
+        title: &'static str,
+        border_width: u32,
+    ) -> Window<'a> {
+        Self::new_with_background(
+            texture_creator,
+            x,
+            y,
+            width,
+            height,
+            title,
+            border_width,
+            Color::RGB(239, 239, 239),
+        )
     }
 
     pub fn show(&mut self) {

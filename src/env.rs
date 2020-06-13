@@ -16,7 +16,7 @@ use crate::reward::Reward;
 use crate::system::System;
 use crate::texture_holder::TextureHolder;
 use crate::utils::compute_distance;
-use crate::window::{create_inventory_window, Window};
+use crate::window::{create_character_window, create_inventory_window, Window};
 use crate::{GetDimension, GetPos, ONE_SECOND};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -289,13 +289,12 @@ impl<'a> Env<'a> {
                     height / 3,
                     1,
                 ),
-                Window::new(
+                create_character_window(
                     texture_creator,
                     10,
                     height as i32 / 4,
                     WINDOW_WIDTH,
                     height / 3,
-                    "Character",
                     1,
                 ),
             ],

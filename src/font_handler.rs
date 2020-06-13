@@ -61,7 +61,12 @@ impl<'a> FontHandler<'a> {
                     .blit(
                         None,
                         &mut letters_surface,
-                        Rect::new(current_width as i32, 0, surface.width(), surface.height()),
+                        Rect::new(
+                            current_width as i32,
+                            max_height as i32 - surface.height() as i32,
+                            surface.width(),
+                            surface.height(),
+                        ),
                     )
                     .expect("failed to copy letter...");
                 let ret = CharInfo {
