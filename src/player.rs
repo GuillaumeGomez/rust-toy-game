@@ -9,10 +9,12 @@ use sdl2::surface::Surface;
 use sdl2::video::WindowContext;
 
 use crate::character::{Action, Character, CharacterKind, Direction};
+use crate::env::Env;
 use crate::player_stats::PlayerStats;
 use crate::stat::Stat;
 use crate::texture_handler::{Dimension, TextureHandler};
 use crate::weapon::Sword;
+use crate::window::UpdateKind;
 use crate::{GetDimension, GetPos, Id, ONE_SECOND};
 
 pub fn get_player<'a>(
@@ -76,6 +78,7 @@ impl<'a> Player<'a> {
         y: i64,
         id: Id,
         stats: Option<PlayerStats>,
+        env: Option<&mut Env>,
     ) -> Player<'a> {
         let mut actions_moving = Vec::with_capacity(4);
         actions_moving.push((
@@ -102,7 +105,7 @@ impl<'a> Player<'a> {
             None,
         );
 
-        Player {
+        let p = Player {
             character: Character {
                 action: Action {
                     direction: Direction::Up,
@@ -136,7 +139,21 @@ impl<'a> Player<'a> {
             },
             is_run_pressed: false,
             stats: stats.map(|s| RefCell::new(s)),
+        };
+        if let Some(env) = env {
+            env.add_character_update("Level", UpdateKind::Value(p.level as _));
+            env.add_character_update("Experience", UpdateKind::Both(p.xp, p.xp_to_next_level));
+            env.add_character_update(
+                "Stamina",
+                UpdateKind::Both(p.stamina.value(), p.stamina.max_value()),
+            );
+            env.add_character_update(
+                "Health",
+                UpdateKind::Both(p.health.value(), p.health.max_value()),
+            );
+            env.add_character_update("Mana", UpdateKind::Both(p.mana.value(), p.mana.max_value()));
         }
+        p
     }
 
     pub fn handle_move(&mut self, dir: Direction) {

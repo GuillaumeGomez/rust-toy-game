@@ -6,6 +6,7 @@ use std::collections::HashMap;
 
 use crate::animation::Animation;
 use crate::enemy::Enemy;
+use crate::env::Env;
 use crate::map::Map;
 use crate::player::Player;
 use crate::reward::RewardInfo;
@@ -15,6 +16,7 @@ use crate::system::System;
 use crate::texture_handler::{Dimension, TextureHandler};
 use crate::texture_holder::TextureHolder;
 use crate::weapon::Weapon;
+use crate::window::UpdateKind;
 use crate::{GetDimension, GetPos, Id, MAP_CASE_SIZE, MAP_SIZE, ONE_SECOND};
 
 #[derive(Hash, PartialEq, Eq, Clone, Copy, Debug)]
@@ -235,6 +237,7 @@ impl<'a> Character<'a> {
         &mut self,
         xp_to_add: u64,
         textures: &'a HashMap<&'static str, TextureHolder<'a>>,
+        env: Option<&mut Env>,
     ) {
         self.xp += xp_to_add;
         if self.xp >= self.xp_to_next_level {
@@ -244,6 +247,16 @@ impl<'a> Character<'a> {
             // TODO: increase health and other stats by a fixed amount (the same for every level).
             self.reset_stats();
             self.animations.push(Animation::new_level_up(textures));
+            if let Some(env) = env {
+                env.add_character_update(
+                    "Experience",
+                    UpdateKind::Both(self.xp, self.xp_to_next_level),
+                );
+            }
+        } else if xp_to_add != 0 {
+            if let Some(env) = env {
+                env.add_character_update("Experience", UpdateKind::Value(self.xp));
+            }
         }
     }
 
@@ -740,7 +753,7 @@ impl<'a> Character<'a> {
         (x, y)
     }
 
-    pub fn update(&mut self, elapsed: u64, x: i64, y: i64) {
+    pub fn update(&mut self, elapsed: u64, x: i64, y: i64, env: Option<&mut Env>) {
         if self.is_dead() {
             if let Some(ref mut death) = self.death_animation {
                 death.update(elapsed);
@@ -752,9 +765,20 @@ impl<'a> Character<'a> {
         // Since we might change direction, better update weapon in any case...
         self.set_weapon_pos();
 
-        self.stamina.refresh(elapsed);
-        self.health.refresh(elapsed);
-        self.mana.refresh(elapsed);
+        let env_stamina = self.stamina.refresh(elapsed);
+        let env_health = self.health.refresh(elapsed);
+        let env_mana = self.mana.refresh(elapsed);
+        if let Some(env) = env {
+            if env_stamina {
+                env.add_character_update("Stamina", UpdateKind::Value(self.stamina.value()));
+            }
+            if env_health {
+                env.add_character_update("Health", UpdateKind::Value(self.health.value()));
+            }
+            if env_mana {
+                env.add_character_update("Mana", UpdateKind::Value(self.mana.value()));
+            }
+        }
         self.move_delay += elapsed;
         let effect = self.effect.borrow_mut().take();
         if let Some(effect) = effect {

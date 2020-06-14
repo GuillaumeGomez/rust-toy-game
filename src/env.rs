@@ -16,7 +16,8 @@ use crate::reward::Reward;
 use crate::system::System;
 use crate::texture_holder::TextureHolder;
 use crate::utils::compute_distance;
-use crate::window::{create_character_window, create_inventory_window, Window};
+use crate::widgets::Widgets;
+use crate::window::{create_character_window, create_inventory_window, UpdateKind, Window};
 use crate::{GetDimension, GetPos, ONE_SECOND};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -244,8 +245,10 @@ pub struct Env<'a> {
     pub closest_reward: Option<(i32, usize)>,
     pub game_controller_subsystem: &'a GameControllerSubsystem,
     pub windows: Vec<Window<'a>>,
+    pub widgets: Widgets<'a>,
     controller: Option<GamePad>,
     // pressed_keys: Vec<Event>,
+    character_widget: usize,
 }
 
 const WINDOW_WIDTH: u32 = 200;
@@ -268,6 +271,29 @@ impl<'a> Env<'a> {
         width: u32,
         height: u32,
     ) -> Env<'a> {
+        let mut widgets = Widgets::new();
+        let (character_window, character_widget) = create_character_window(
+            texture_creator,
+            10,
+            height as i32 / 4,
+            WINDOW_WIDTH,
+            height / 3,
+            1,
+            &mut widgets,
+        );
+        let windows = vec![
+            create_inventory_window(
+                texture_creator,
+                &*textures,
+                width as i32 - WINDOW_WIDTH as i32 - 10,
+                height as i32 / 4,
+                WINDOW_WIDTH,
+                height / 3,
+                1,
+                &mut widgets,
+            ),
+            character_window,
+        ];
         let mut env = Env {
             display_menu: false,
             is_attack_pressed: false,
@@ -279,25 +305,9 @@ impl<'a> Env<'a> {
             closest_reward: None,
             game_controller_subsystem,
             controller: None,
-            windows: vec![
-                create_inventory_window(
-                    texture_creator,
-                    &*textures,
-                    width as i32 - WINDOW_WIDTH as i32 - 10,
-                    height as i32 / 4,
-                    WINDOW_WIDTH,
-                    height / 3,
-                    1,
-                ),
-                create_character_window(
-                    texture_creator,
-                    10,
-                    height as i32 / 4,
-                    WINDOW_WIDTH,
-                    height / 3,
-                    1,
-                ),
-            ],
+            windows,
+            widgets,
+            character_widget,
         };
         env.update_controller();
         env
@@ -538,7 +548,7 @@ impl<'a> Env<'a> {
                             loop {
                                 {
                                     let w = &mut self.windows[i];
-                                    if w.is_hidden() || !w.handle_event(&ev) {
+                                    if w.is_hidden() || !w.handle_event(&mut self.widgets, &ev) {
                                         if i > 0 {
                                             i -= 1;
                                             continue;
@@ -737,10 +747,17 @@ impl<'a> Env<'a> {
 
     pub fn draw(&mut self, system: &mut System) {
         for window in self.windows.iter() {
-            window.draw(system);
+            window.draw(system, &mut self.widgets);
         }
         if self.display_menu {
             self.menu.draw(system);
         }
+    }
+
+    pub fn add_character_update(&mut self, update_id: &str, kind: UpdateKind) {
+        // TODO: find another way to downcast it!
+        let widget: &mut Box<crate::window::CharacterInfo> =
+            unsafe { ::std::mem::transmute(&mut self.widgets[self.character_widget]) };
+        widget.update_label(update_id, kind);
     }
 }

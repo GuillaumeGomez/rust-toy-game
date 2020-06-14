@@ -53,14 +53,15 @@ impl Stat {
         (self.value * 100 / self.max_value) as u32
     }
 
-    pub fn refresh(&mut self, elapsed: u64) {
+    pub fn refresh(&mut self, elapsed: u64) -> bool {
         if self.value >= self.max_value {
-            return;
+            return false;
         }
         self.value += elapsed / (ONE_SECOND / 1_000) * self.regen_rate / 1_000;
         if self.value > self.max_value {
             self.value = self.max_value;
         }
+        true
     }
 
     /// Put back the stat at the max.

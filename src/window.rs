@@ -10,6 +10,7 @@ use std::collections::HashMap;
 
 use crate::system::System;
 use crate::texture_holder::TextureHolder;
+use crate::widgets::Widgets;
 use crate::GetDimension;
 
 pub trait Widget: GetDimension {
@@ -380,10 +381,19 @@ impl<'a> Widget for InventoryCases<'a> {
     }
 }
 
-const LABEL_FONT_SIZE: u16 = 16;
+const LABEL_FONT_SIZE: u16 = 14;
+
+pub enum UpdateKind {
+    Value(u64),
+    MaxValue(u64),
+    Both(u64, u64),
+}
 
 pub struct Label {
     text: String,
+    current: u64,
+    max: u64,
+    has_max: bool,
     x: i32,
     y: i32,
 }
@@ -421,11 +431,42 @@ impl Widget for Label {
 }
 
 impl Label {
-    fn new(text: &str, x: i32, y: i32) -> Label {
+    fn new(text: &str, x: i32, y: i32, has_max: bool) -> Label {
         Label {
             text: text.to_owned(),
+            current: 0,
+            max: 0,
+            has_max,
             x,
             y,
+        }
+    }
+    fn update_with(&mut self, update: UpdateKind) {
+        match update {
+            UpdateKind::Value(x) => {
+                if x == self.current {
+                    return;
+                }
+                self.current = x;
+            }
+            UpdateKind::MaxValue(y) => {
+                if y == self.max {
+                    return;
+                }
+                self.max = y;
+            }
+            UpdateKind::Both(x, y) => {
+                if x == self.current && y == self.max {
+                    return;
+                }
+                self.current = x;
+                self.max = y;
+            }
+        }
+        if self.has_max {
+            self.text = format!("{} / {}", self.current, self.max);
+        } else {
+            self.text = format!("{}", self.current);
         }
     }
 }
@@ -437,15 +478,15 @@ pub struct CharacterInfo {
 
 impl CharacterInfo {
     pub fn new(border_width: i32, y_start: i32, width: u32) -> CharacterInfo {
-        let widgets = ["Level", "Experience", "Health", "Mana"]
+        let widgets = ["Level", "Experience", "Health", "Stamina", "Mana"]
             .iter()
             .enumerate()
             .map(|(pos, label)| {
                 let y = (LABEL_FONT_SIZE + 1) as i32 * pos as i32 + y_start;
                 (
                     *label,
-                    Label::new(&format!("{}:", label), border_width, y),
-                    Label::new("", width as i32 / 2, y),
+                    Label::new(&format!("{}:", label), border_width, y, false),
+                    Label::new("", width as i32 / 2, y, *label != "Level"),
                 )
             })
             .collect::<Vec<_>>();
@@ -481,6 +522,20 @@ impl Widget for CharacterInfo {
     }
 }
 
+impl CharacterInfo {
+    pub fn update_label(&mut self, update_id: &str, kind: UpdateKind) {
+        for (_, _, widget) in self
+            .widgets
+            .iter_mut()
+            .filter(|(title, _, _)| *title == update_id)
+        {
+            widget.update_with(kind);
+            return;
+        }
+        eprintln!("No label found with id `{}`", update_id);
+    }
+}
+
 pub fn create_character_window<'a>(
     texture_creator: &'a TextureCreator<WindowContext>,
     x: i32,
@@ -488,7 +543,8 @@ pub fn create_character_window<'a>(
     width: u32,
     height: u32,
     border_width: u32,
-) -> Window<'a> {
+    widgets: &mut Widgets<'a>,
+) -> (Window<'a>, usize) {
     let mut w = Window::new_with_background(
         texture_creator,
         x,
@@ -498,13 +554,13 @@ pub fn create_character_window<'a>(
         "Character",
         border_width,
         Color::RGB(20, 20, 20),
+        widgets,
     );
-    w.widgets.push(Box::new(CharacterInfo::new(
-        border_width as i32,
-        w.title_bar_height as i32,
-        width,
-    )));
-    w
+    let id = w.add_widget(
+        widgets,
+        CharacterInfo::new(border_width as i32, w.title_bar_height as i32, width),
+    );
+    (w, id)
 }
 
 pub fn create_inventory_window<'a>(
@@ -515,6 +571,7 @@ pub fn create_inventory_window<'a>(
     width: u32,
     height: u32,
     border_width: u32,
+    widgets: &mut Widgets<'a>,
 ) -> Window<'a> {
     let mut w = Window::new(
         texture_creator,
@@ -524,15 +581,19 @@ pub fn create_inventory_window<'a>(
         height,
         "Inventory",
         border_width,
+        widgets,
     );
-    w.widgets.push(Box::new(InventoryCases::new(
-        textures,
-        texture_creator,
-        border_width as i32,
-        w.title_bar_height as i32,
-        width - border_width * 2,
-        height - w.title_bar_height - border_width,
-    )));
+    w.add_widget(
+        widgets,
+        InventoryCases::new(
+            textures,
+            texture_creator,
+            border_width as i32,
+            w.title_bar_height as i32,
+            width - border_width * 2,
+            height - w.title_bar_height - border_width,
+        ),
+    );
     w
 }
 
@@ -546,7 +607,7 @@ pub struct Window<'a> {
     y: i32,
     is_hidden: bool,
     is_dragging_window: Option<(i32, i32)>,
-    widgets: Vec<Box<dyn Widget + 'a>>,
+    widgets: Vec<usize>,
 }
 
 impl<'a> Window<'a> {
@@ -567,6 +628,7 @@ impl<'a> Window<'a> {
         title: &'static str,
         border_width: u32,
         background: Color,
+        widgets: &mut Widgets<'a>,
     ) -> Window<'a> {
         let title_bar_height = 22;
         let mut window = Surface::new(width, height, texture_creator.default_pixel_format())
@@ -585,6 +647,12 @@ impl<'a> Window<'a> {
                 background,
             )
             .expect("failed to create window background");
+        let id = widgets.push(TitleBarButton::new(
+            texture_creator,
+            title_bar_height - 6,
+            width as i32 - title_bar_height as i32 + 3,
+            3,
+        ));
         Window {
             title_bar_height,
             border_width,
@@ -593,12 +661,7 @@ impl<'a> Window<'a> {
             y,
             is_hidden: true,
             is_dragging_window: None,
-            widgets: vec![Box::new(TitleBarButton::new(
-                texture_creator,
-                title_bar_height - 6,
-                width as i32 - title_bar_height as i32 + 3,
-                3,
-            ))],
+            widgets: vec![id],
             title,
         }
     }
@@ -610,6 +673,7 @@ impl<'a> Window<'a> {
         height: u32,
         title: &'static str,
         border_width: u32,
+        widgets: &mut Widgets<'a>,
     ) -> Window<'a> {
         Self::new_with_background(
             texture_creator,
@@ -620,19 +684,22 @@ impl<'a> Window<'a> {
             title,
             border_width,
             Color::RGB(239, 239, 239),
+            widgets,
         )
     }
-
+    pub fn add_widget<T: Widget + 'a>(&mut self, widgets: &mut Widgets<'a>, widget: T) -> usize {
+        let id = widgets.push(widget);
+        self.widgets.push(id);
+        id
+    }
     pub fn show(&mut self) {
         self.is_hidden = false;
     }
-
     pub fn hide(&mut self) {
         self.is_hidden = true;
         self.is_dragging_window = None;
     }
-
-    pub fn draw(&self, system: &mut System) {
+    pub fn draw(&self, system: &mut System, widgets: &mut Widgets) {
         if self.is_hidden() {
             return;
         }
@@ -645,7 +712,7 @@ impl<'a> Window<'a> {
             )
             .expect("failed to draw window");
         for widget in self.widgets.iter() {
-            widget.draw(system, self.x, self.y);
+            widgets[*widget].draw(system, self.x, self.y);
         }
         system.draw_text(
             self.title,
@@ -668,7 +735,7 @@ impl<'a> Window<'a> {
     }
     /// Returns `true` if the event has been handled by the window (i.e. if it affected itself or
     /// one of its widgets).
-    pub fn handle_event(&mut self, ev: &Event) -> bool {
+    pub fn handle_event(&mut self, widgets: &mut Widgets, ev: &Event) -> bool {
         if self.is_hidden || (!ev.is_mouse() && !ev.is_controller()) {
             return false;
         }
@@ -693,8 +760,8 @@ impl<'a> Window<'a> {
                     window_id: 0,
                 };
                 let mut actions = false;
-                for widget in self.widgets.iter_mut() {
-                    if widget.handle_event(&ev, self.x, self.y).is_some() {
+                for widget in self.widgets.iter() {
+                    if widgets[*widget].handle_event(&ev, self.x, self.y).is_some() {
                         actions = true;
                     }
                 }
@@ -723,8 +790,8 @@ impl<'a> Window<'a> {
                         clicks: 0,
                         window_id: 0,
                     };
-                    for widget in self.widgets.iter_mut() {
-                        match widget.handle_event(&ev, self.x, self.y) {
+                    for widget in self.widgets.iter() {
+                        match widgets[*widget].handle_event(&ev, self.x, self.y) {
                             Some(e) => {
                                 if e == EventAction::Close {
                                     self.is_hidden = true;
@@ -761,8 +828,8 @@ impl<'a> Window<'a> {
                             mousestate: *mousestate,
                             window_id: 0,
                         };
-                        for widget in self.widgets.iter_mut() {
-                            widget.handle_event(&ev, self.x, self.y);
+                        for widget in self.widgets.iter() {
+                            widgets[*widget].handle_event(&ev, self.x, self.y);
                         }
                         true
                     } else {
@@ -773,7 +840,6 @@ impl<'a> Window<'a> {
             _ => false,
         }
     }
-
     pub fn is_hidden(&self) -> bool {
         self.is_hidden
     }

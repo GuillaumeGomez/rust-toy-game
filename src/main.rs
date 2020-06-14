@@ -37,6 +37,7 @@ mod texture_handler;
 mod texture_holder;
 mod traits;
 mod weapon;
+mod widgets;
 mod window;
 
 use character::CharacterKind;
@@ -163,6 +164,7 @@ pub fn main() {
     let font_16 = load_font!(ttf_context, 16);
 
     system.create_new_font_map(&texture_creator, &font_14, 14, Color::RGB(255, 0, 0));
+    system.create_new_font_map(&texture_creator, &font_14, 14, Color::RGB(255, 255, 255));
     system.create_new_font_map(&texture_creator, &font_16, 16, Color::RGB(255, 255, 255));
     system.create_new_font_map(&texture_creator, &font_16, 16, Color::RGB(74, 138, 221));
 
@@ -225,6 +227,7 @@ pub fn main() {
         0,
         1,
         Some(Default::default()),
+        Some(&mut env),
     )];
     let mut enemies = vec![
         Enemy::new(
@@ -297,7 +300,12 @@ pub fn main() {
                 if let Some(ref stats) = players[i].stats {
                     stats.borrow_mut().total_walked += ::std::cmp::max(x.abs(), y.abs()) as u64;
                 }
-                players[i].update(update_elapsed, x, y);
+                players[i].update(
+                    update_elapsed,
+                    x,
+                    y,
+                    if i == 0 { Some(&mut env) } else { None },
+                );
                 if players[i].is_attacking() {
                     let id = players[i].id;
                     let dir = players[i].get_direction();
@@ -345,7 +353,11 @@ pub fn main() {
                         }
                     }
                     if xp_to_add > 0 {
-                        players[i].increase_xp(xp_to_add, &textures);
+                        players[i].increase_xp(
+                            xp_to_add,
+                            &textures,
+                            if i == 0 { Some(&mut env) } else { None },
+                        );
                     }
                 }
             }

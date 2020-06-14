@@ -843,7 +843,7 @@ impl<'a> Enemy<'a> {
                 }
             }
         }
-        self.character.update(elapsed, x, y)
+        self.character.update(elapsed, x, y, None)
     }
 
     pub fn draw(&mut self, system: &mut crate::system::System, debug: bool) {
