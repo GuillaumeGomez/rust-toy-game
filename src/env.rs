@@ -275,8 +275,8 @@ impl<'a> Env<'a> {
         let (character_window, character_widget) = create_character_window(
             texture_creator,
             10,
-            height as i32 / 4,
-            WINDOW_WIDTH,
+            height as i32 / 2,
+            WINDOW_WIDTH + 100,
             height / 3,
             1,
             &mut widgets,

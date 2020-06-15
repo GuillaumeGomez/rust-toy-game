@@ -381,7 +381,7 @@ impl<'a> Widget for InventoryCases<'a> {
     }
 }
 
-const LABEL_FONT_SIZE: u16 = 14;
+const LABEL_FONT_SIZE: u16 = 12;
 
 pub enum UpdateKind {
     Value(u64),
