@@ -1,5 +1,3 @@
-extern crate sdl2;
-
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 use sdl2::image::{self, LoadSurface};

@@ -6,9 +6,38 @@ use sdl2::rect::Rect;
 use sdl2::render::{Texture, TextureCreator};
 use sdl2::surface::Surface;
 use sdl2::video::WindowContext;
+use serde_cbor;
+use serde_derive::{Deserialize, Serialize};
+
+use std::fs::{self, File, OpenOptions};
 
 use crate::system::System;
 use crate::{MAP_CASE_SIZE, MAP_SIZE};
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[repr(u8)]
+pub enum AssetKind {
+    Tree = 1,
+    Bush = 2,
+}
+
+// impl Serialize for AssetKind {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: Serializer,
+//     {
+//         serializer.serialize_u16(*self as u16)
+//     }
+// }
+
+// impl Deserialize for AssetKind {
+//     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+//     where
+//         D: Deserializer<'de>,
+//     {
+//         deserializer.deserialize_u16()
+//     }
+// }
 
 fn check_pixels_for_pos(x: u32, y: u32, surface: &Surface) -> bool {
     let x = x as usize;
@@ -68,36 +97,7 @@ fn get_vec_bits(rect: Rect, surface: &Surface, value: u8) -> Vec<Vec<u8>> {
     v
 }
 
-fn draw_in_map(
-    map: &mut [u8],
-    surface_map: &mut Surface,
-    surface_map_layer: &mut Surface,
-    surface: &Surface,
-    rng: &mut ChaCha8Rng,
-    real_size: Option<Rect>,
-    top_layer: Option<Rect>,
-    replacement_vec: &[Vec<u8>],
-) -> bool {
-    let pos: u32 = rng.gen::<u32>() % (MAP_SIZE * MAP_SIZE - 1);
-    let pos_x = pos % MAP_SIZE;
-    let pos_y = pos / MAP_SIZE;
-
-    let (x, y, width, height) = match real_size {
-        Some(r) => (r.x, r.y, r.width(), r.height()),
-        None => (0, 0, surface.width(), surface.height()),
-    };
-
-    // First we check there is nothing there...
-    for (y_pos, line) in replacement_vec.iter().enumerate() {
-        let y_pos = (y_pos as u32 + pos_y) * MAP_SIZE;
-        for (x_pos, _) in line.iter().enumerate() {
-            let i = pos_x + x_pos as u32 + y_pos;
-            if i < MAP_SIZE * MAP_SIZE && map[i as usize] != 0 {
-                return false;
-            }
-        }
-    }
-
+fn write_in_map(map: &mut [u8], pos_x: u32, pos_y: u32, replacement_vec: &[Vec<u8>]) {
     for (y_pos, line) in replacement_vec.iter().enumerate() {
         let y_pos = (y_pos as u32 + pos_y) * MAP_SIZE;
         for (x_pos, value) in line.iter().enumerate() {
@@ -110,33 +110,71 @@ fn draw_in_map(
             }
         }
     }
-    surface
-        .blit(
-            Rect::new(x, y, width, height),
-            surface_map,
-            Rect::new(
-                pos_x as i32 * MAP_CASE_SIZE as i32,
-                pos_y as i32 * MAP_CASE_SIZE as i32,
-                width,
-                height,
-            ),
-        )
-        .expect("failed to blit");
-    if let Some(top_layer) = top_layer {
+}
+
+fn generate_in_map(
+    map: &mut [u8],
+    rng: &mut ChaCha8Rng,
+    replacement_vec: &[Vec<u8>],
+) -> Option<(u16, u16)> {
+    let pos: u32 = rng.gen::<u32>() % (MAP_SIZE * MAP_SIZE - 1);
+    let pos_x = pos % MAP_SIZE;
+    let pos_y = pos / MAP_SIZE;
+
+    // First we check there is nothing there...
+    for (y_pos, line) in replacement_vec.iter().enumerate() {
+        let y_pos = (y_pos as u32 + pos_y) * MAP_SIZE;
+        for (x_pos, _) in line.iter().enumerate() {
+            let i = pos_x + x_pos as u32 + y_pos;
+            if i < MAP_SIZE * MAP_SIZE && map[i as usize] != 0 {
+                return None;
+            }
+        }
+    }
+    write_in_map(map, pos_x, pos_y, replacement_vec);
+    Some((pos_x as u16, pos_y as u16))
+}
+
+pub fn create_texture(
+    surface_map: &mut Surface,
+    surface_map_layer: &mut Surface,
+    // (surface, real_size, top_layer)
+    surfaces: &[(Surface, Option<Rect>, Option<Rect>)],
+    data: &[(u16, u16, AssetKind)],
+) {
+    for (pos_x, pos_y, asset_kind) in data {
+        let (surface, r, top_layer) = &surfaces[*asset_kind as u8 as usize - 1];
+        let (x, y, width, height) = match r {
+            Some(r) => (r.x, r.y, r.width(), r.height()),
+            None => (0, 0, surface.width(), surface.height()),
+        };
         surface
             .blit(
-                top_layer,
-                surface_map_layer,
+                Rect::new(x as _, y as _, width, height),
+                surface_map,
                 Rect::new(
-                    pos_x as i32 * MAP_CASE_SIZE as i32 - (x - top_layer.x),
-                    pos_y as i32 * MAP_CASE_SIZE as i32 - top_layer.height() as i32,
-                    top_layer.width(),
-                    top_layer.height(),
+                    x * MAP_CASE_SIZE as i32,
+                    y * MAP_CASE_SIZE as i32,
+                    width,
+                    height,
                 ),
             )
             .expect("failed to blit");
+        if let Some(ref top_layer) = top_layer {
+            surface
+                .blit(
+                    *top_layer,
+                    surface_map_layer,
+                    Rect::new(
+                        *pos_x as i32 * MAP_CASE_SIZE as i32 - (x - top_layer.x),
+                        *pos_y as i32 * MAP_CASE_SIZE as i32 - top_layer.height() as i32,
+                        top_layer.width(),
+                        top_layer.height(),
+                    ),
+                )
+                .expect("failed to blit");
+        }
     }
-    true
 }
 
 pub struct Map<'a> {
@@ -147,6 +185,32 @@ pub struct Map<'a> {
     pub top_layer_texture: Texture<'a>,
 }
 
+macro_rules! load_surface {
+    ($file_name:expr) => {{
+        let mut s =
+            Surface::from_file($file_name).expect(concat!("failed to load `", $file_name, "`"));
+        if s.pixel_format_enum() != PixelFormatEnum::RGBA8888 {
+            s = s
+                .convert_format(PixelFormatEnum::RGBA8888)
+                .expect("failed to convert asset to RGBA8888");
+        }
+        s
+    }};
+}
+
+macro_rules! load_asset {
+    ($file_name:expr, $kind:expr) => {{
+        let s = load_surface!($file_name);
+        let byte_vec = get_vec_bits(Rect::new(0, 0, s.width(), s.height()), &s, $kind as u8);
+        (s, byte_vec)
+    }};
+    ($file_name:expr, $kind:expr, $rect:expr) => {{
+        let s = load_surface!($file_name);
+        let byte_vec = get_vec_bits($rect, &s, $kind as u8);
+        (s, byte_vec)
+    }};
+}
+
 impl<'a> Map<'a> {
     pub fn new(
         texture_creator: &'a TextureCreator<WindowContext>,
@@ -154,6 +218,10 @@ impl<'a> Map<'a> {
         x: i64,
         y: i64,
     ) -> Map<'a> {
+        let tree_r = Rect::new(184, 100, 60, 26);
+        let (tree, tree_byte_vec) = load_asset!("resources/trees.png", AssetKind::Tree, tree_r);
+        let (bush, bush_byte_vec) = load_asset!("resources/bush.png", AssetKind::Bush);
+
         let mut surface_map = Surface::new(
             MAP_SIZE * MAP_CASE_SIZE as u32,
             MAP_SIZE * MAP_CASE_SIZE as u32,
@@ -174,61 +242,59 @@ impl<'a> Map<'a> {
 
         let mut map = vec![0; (MAP_SIZE * MAP_SIZE) as usize];
 
-        // We first create trees
-        // TODO: if a tree with a bigger y already exist, it should go above! To fix this issue,
-        // generate all trees into a map and then draw them from top to bottom!
-        let mut tree = Surface::from_file("resources/trees.png")
-            .expect("failed to load `resources/trees.png`");
-        if tree.pixel_format_enum() != PixelFormatEnum::RGBA8888 {
-            tree = tree
-                .convert_format(PixelFormatEnum::RGBA8888)
-                .expect("failed to convert tree to RGBA8888");
-        }
+        let map_file = format!("data/{}_{}.map", x / MAP_SIZE as i64, y / MAP_SIZE as i64);
+        let all_assets = if let Ok(f) = File::open(&map_file) {
+            let all_assets: Vec<(u16, u16, AssetKind)> =
+                serde_cbor::from_reader(f).expect("failed to read map data");
+            all_assets
+        } else {
+            // We first create trees
+            // TODO: if a tree with a bigger y already exist, it should go above! To fix this issue,
+            // generate all trees into a map and then draw them from top to bottom!
+            // TODO: only load the trees and bushes once and for all!
 
-        let r = Rect::new(184, 100, 60, 26);
-        let byte_vec = get_vec_bits(r, &tree, 1);
-        for _ in 0..200 {
-            loop {
-                if draw_in_map(
-                    &mut map,
-                    &mut surface_map,
-                    &mut surface_map_layer,
-                    &tree,
-                    rng,
-                    Some(r),
-                    Some(Rect::new(170, 0, 72, 100)),
-                    &byte_vec,
-                ) {
-                    break;
+            let nb_trees = 200;
+            let nb_bushes = 500;
+            let mut all_assets = Vec::with_capacity(nb_trees + nb_bushes);
+
+            for _ in 0..nb_trees {
+                loop {
+                    if let Some((x, y)) = generate_in_map(&mut map, rng, &tree_byte_vec) {
+                        all_assets.push((x, y, AssetKind::Tree));
+                        break;
+                    }
                 }
             }
-        }
-        // We then create bushes
-        // TODO: Maybe not create bushes if they're hidden by another element?
-        let mut bush =
-            Surface::from_file("resources/bush.png").expect("failed to load `resources/bush.png`");
-        if bush.pixel_format_enum() != PixelFormatEnum::RGBA8888 {
-            bush = bush
-                .convert_format(PixelFormatEnum::RGBA8888)
-                .expect("failed to convert bush to RGBA8888");
-        }
-        let byte_vec = get_vec_bits(Rect::new(0, 0, bush.width(), bush.height()), &bush, 2);
-        for _ in 0..500 {
-            loop {
-                if draw_in_map(
-                    &mut map,
-                    &mut surface_map,
-                    &mut surface_map_layer,
-                    &bush,
-                    rng,
-                    None,
-                    None,
-                    &byte_vec,
-                ) {
-                    break;
+            // We then create bushes
+            // TODO: Maybe not create bushes if they're hidden by another element?
+            for _ in 0..nb_bushes {
+                loop {
+                    if let Some((x, y)) = generate_in_map(&mut map, rng, &bush_byte_vec) {
+                        all_assets.push((x, y, AssetKind::Bush));
+                        break;
+                    }
                 }
             }
-        }
+            // TODO: do that in thread to prevent blocking the main loop.
+            // let _ = fs::create_dir("data");
+            // let f = OpenOptions::new()
+            //     .write(true)
+            //     .create(true)
+            //     .open(&map_file)
+            //     .expect("failed to create map file");
+            // serde_cbor::to_writer(f, &all_assets).expect("failed to write into map file");
+
+            all_assets
+        };
+        create_texture(
+            &mut surface_map,
+            &mut surface_map_layer,
+            &[
+                (tree, Some(tree_r), Some(Rect::new(170, 0, 72, 100))),
+                (bush, None, None),
+            ],
+            &all_assets,
+        );
 
         Map {
             data: map,
