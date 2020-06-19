@@ -153,8 +153,8 @@ pub fn create_texture(
                 Rect::new(x as _, y as _, width, height),
                 surface_map,
                 Rect::new(
-                    x * MAP_CASE_SIZE as i32,
-                    y * MAP_CASE_SIZE as i32,
+                    *pos_x as i32 * MAP_CASE_SIZE as i32,
+                    *pos_y as i32 * MAP_CASE_SIZE as i32,
                     width,
                     height,
                 ),
@@ -246,6 +246,15 @@ impl<'a> Map<'a> {
         let all_assets = if let Ok(f) = File::open(&map_file) {
             let all_assets: Vec<(u16, u16, AssetKind)> =
                 serde_cbor::from_reader(f).expect("failed to read map data");
+            let replacements = &[&tree_byte_vec, &bush_byte_vec];
+            for (x, y, asset_kind) in all_assets.iter() {
+                write_in_map(
+                    &mut map,
+                    *x as u32,
+                    *y as u32,
+                    &replacements[*asset_kind as u8 as usize - 1],
+                );
+            }
             all_assets
         } else {
             // We first create trees
@@ -276,13 +285,13 @@ impl<'a> Map<'a> {
                 }
             }
             // TODO: do that in thread to prevent blocking the main loop.
-            // let _ = fs::create_dir("data");
-            // let f = OpenOptions::new()
-            //     .write(true)
-            //     .create(true)
-            //     .open(&map_file)
-            //     .expect("failed to create map file");
-            // serde_cbor::to_writer(f, &all_assets).expect("failed to write into map file");
+            let _ = fs::create_dir("data");
+            let f = OpenOptions::new()
+                .write(true)
+                .create(true)
+                .open(&map_file)
+                .expect("failed to create map file");
+            serde_cbor::to_writer(f, &all_assets).expect("failed to write into map file");
 
             all_assets
         };
