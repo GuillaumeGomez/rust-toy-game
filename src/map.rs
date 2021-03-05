@@ -285,13 +285,13 @@ impl<'a> Map<'a> {
                 }
             }
             // TODO: do that in thread to prevent blocking the main loop.
-            let _ = fs::create_dir("data");
-            let f = OpenOptions::new()
-                .write(true)
-                .create(true)
-                .open(&map_file)
-                .expect("failed to create map file");
-            serde_cbor::to_writer(f, &all_assets).expect("failed to write into map file");
+            // let _ = fs::create_dir("data");
+            // let f = OpenOptions::new()
+            //     .write(true)
+            //     .create(true)
+            //     .open(&map_file)
+            //     .expect("failed to create map file");
+            // serde_cbor::to_writer(f, &all_assets).expect("failed to write into map file");
 
             all_assets
         };

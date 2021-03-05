@@ -133,8 +133,20 @@ pub fn main() {
     let ttf_context = ttf::init().expect("failed to init SDL TTF");
     let video_subsystem = sdl_context.video().expect("failed to get video context");
 
+    let (mut width, mut height) = match video_subsystem.current_display_mode(0) {
+        Ok(info) => {
+            let h = info.h as u32 / 2;
+            (h * 4 / 3, h)
+        }
+        Err(_) => (WIDTH as u32, HEIGHT as u32),
+    };
+    if width < WIDTH as u32 || height < HEIGHT as u32 {
+        width = WIDTH as u32;
+        height = HEIGHT as u32;
+    }
+
     let window = video_subsystem
-        .window("toy game", WIDTH as u32, HEIGHT as u32)
+        .window("toy game", width, height)
         .position_centered()
         .build()
         .expect("failed to build window");
@@ -145,9 +157,12 @@ pub fn main() {
         .build()
         .expect("failed to build window's canvas");
     canvas.set_draw_color(Color::RGB(0, 0, 0));
+    if width != WIDTH as _ || height != HEIGHT as _ {
+        canvas.set_logical_size(WIDTH as _, HEIGHT as _).expect("failed to set logical size");
+    }
     let texture_creator = canvas.texture_creator();
     let health_bar = HealthBar::new(&texture_creator, 30, 5);
-    let mut system = System::new(canvas, WIDTH as u32, HEIGHT as u32, &health_bar);
+    let mut system = System::new(canvas, WIDTH as _, HEIGHT as _, &health_bar);
 
     let mut event_pump = sdl_context.event_pump().expect("failed to get event pump");
     let map = Map::new(
