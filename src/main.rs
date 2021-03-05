@@ -148,6 +148,7 @@ pub fn main() {
     let window = video_subsystem
         .window("toy game", width, height)
         .position_centered()
+        .resizable()
         .build()
         .expect("failed to build window");
 
@@ -157,9 +158,8 @@ pub fn main() {
         .build()
         .expect("failed to build window's canvas");
     canvas.set_draw_color(Color::RGB(0, 0, 0));
-    if width != WIDTH as _ || height != HEIGHT as _ {
-        canvas.set_logical_size(WIDTH as _, HEIGHT as _).expect("failed to set logical size");
-    }
+    // Very important in case the window is resized and isn't 4/3 ratio anymore!
+    canvas.set_logical_size(WIDTH as _, HEIGHT as _).expect("failed to set logical size");
     let texture_creator = canvas.texture_creator();
     let health_bar = HealthBar::new(&texture_creator, 30, 5);
     let mut system = System::new(canvas, WIDTH as _, HEIGHT as _, &health_bar);
