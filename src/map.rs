@@ -6,38 +6,16 @@ use sdl2::rect::Rect;
 use sdl2::render::{Texture, TextureCreator};
 use sdl2::surface::Surface;
 use sdl2::video::WindowContext;
-use serde_cbor;
-use serde_derive::{Deserialize, Serialize};
-
-use std::fs::{self, File, OpenOptions};
 
 use crate::system::System;
 use crate::{MAP_CASE_SIZE, MAP_SIZE};
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug)]
 #[repr(u8)]
 pub enum AssetKind {
     Tree = 1,
     Bush = 2,
 }
-
-// impl Serialize for AssetKind {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//     where
-//         S: Serializer,
-//     {
-//         serializer.serialize_u16(*self as u16)
-//     }
-// }
-
-// impl Deserialize for AssetKind {
-//     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-//     where
-//         D: Deserializer<'de>,
-//     {
-//         deserializer.deserialize_u16()
-//     }
-// }
 
 fn check_pixels_for_pos(x: u32, y: u32, surface: &Surface) -> bool {
     let x = x as usize;
@@ -243,58 +221,34 @@ impl<'a> Map<'a> {
         let mut map = vec![0; (MAP_SIZE * MAP_SIZE) as usize];
 
         let map_file = format!("data/{}_{}.map", x / MAP_SIZE as i64, y / MAP_SIZE as i64);
-        let all_assets = if let Ok(f) = File::open(&map_file) {
-            let all_assets: Vec<(u16, u16, AssetKind)> =
-                serde_cbor::from_reader(f).expect("failed to read map data");
-            let replacements = &[&tree_byte_vec, &bush_byte_vec];
-            for (x, y, asset_kind) in all_assets.iter() {
-                write_in_map(
-                    &mut map,
-                    *x as u32,
-                    *y as u32,
-                    &replacements[*asset_kind as u8 as usize - 1],
-                );
-            }
-            all_assets
-        } else {
-            // We first create trees
-            // TODO: if a tree with a bigger y already exist, it should go above! To fix this issue,
-            // generate all trees into a map and then draw them from top to bottom!
-            // TODO: only load the trees and bushes once and for all!
+        // We first create trees
+        // TODO: if a tree with a bigger y already exist, it should go above! To fix this issue,
+        // generate all trees into a map and then draw them from top to bottom!
+        // TODO: only load the trees and bushes once and for all!
 
-            let nb_trees = 200;
-            let nb_bushes = 500;
-            let mut all_assets = Vec::with_capacity(nb_trees + nb_bushes);
+        let nb_trees = 200;
+        let nb_bushes = 500;
+        let mut all_assets = Vec::with_capacity(nb_trees + nb_bushes);
 
-            for _ in 0..nb_trees {
-                loop {
-                    if let Some((x, y)) = generate_in_map(&mut map, rng, &tree_byte_vec) {
-                        all_assets.push((x, y, AssetKind::Tree));
-                        break;
-                    }
+        for _ in 0..nb_trees {
+            loop {
+                if let Some((x, y)) = generate_in_map(&mut map, rng, &tree_byte_vec) {
+                    all_assets.push((x, y, AssetKind::Tree));
+                    break;
                 }
             }
-            // We then create bushes
-            // TODO: Maybe not create bushes if they're hidden by another element?
-            for _ in 0..nb_bushes {
-                loop {
-                    if let Some((x, y)) = generate_in_map(&mut map, rng, &bush_byte_vec) {
-                        all_assets.push((x, y, AssetKind::Bush));
-                        break;
-                    }
+        }
+        // We then create bushes
+        // TODO: Maybe not create bushes if they're hidden by another element?
+        for _ in 0..nb_bushes {
+            loop {
+                if let Some((x, y)) = generate_in_map(&mut map, rng, &bush_byte_vec) {
+                    all_assets.push((x, y, AssetKind::Bush));
+                    break;
                 }
             }
-            // TODO: do that in thread to prevent blocking the main loop.
-            // let _ = fs::create_dir("data");
-            // let f = OpenOptions::new()
-            //     .write(true)
-            //     .create(true)
-            //     .open(&map_file)
-            //     .expect("failed to create map file");
-            // serde_cbor::to_writer(f, &all_assets).expect("failed to write into map file");
+        }
 
-            all_assets
-        };
         create_texture(
             &mut surface_map,
             &mut surface_map_layer,
