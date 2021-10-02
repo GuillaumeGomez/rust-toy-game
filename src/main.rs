@@ -84,10 +84,13 @@ pub fn draw_in_good_order(
     players: &mut Vec<Player>,
     enemies: &mut Vec<Enemy>,
     dead_enemies: &mut Vec<Enemy>,
+    sort: bool,
 ) {
-    players.sort_unstable_by(|c1, c2| c1.y().cmp(&c2.y()));
-    enemies.sort_unstable_by(|c1, c2| c1.y().cmp(&c2.y()));
-    dead_enemies.sort_unstable_by(|c1, c2| c1.y().cmp(&c2.y()));
+    if sort {
+        players.sort_unstable_by(|c1, c2| c1.y().cmp(&c2.y()));
+        enemies.sort_unstable_by(|c1, c2| c1.y().cmp(&c2.y()));
+        dead_enemies.sort_unstable_by(|c1, c2| c1.y().cmp(&c2.y()));
+    }
 
     let mut player_iter = players.iter_mut().peekable();
     let mut enemy_iter = enemies.iter_mut().peekable();
@@ -148,13 +151,14 @@ pub fn main() {
     let window = video_subsystem
         .window("toy game", width, height)
         .position_centered()
-        .resizable()
+        .opengl()
         .build()
         .expect("failed to build window");
 
     let mut canvas: Canvas<Window> = window
         .into_canvas()
         .present_vsync()
+        .accelerated()
         .build()
         .expect("failed to build window's canvas");
     canvas.set_draw_color(Color::RGB(0, 0, 0));
@@ -271,6 +275,7 @@ pub fn main() {
     ];
 
     let mut dead_enemies: Vec<Enemy> = Vec::new();
+    let mut sort_update = 0u8;
 
     loop {
         if !env.handle_events(&mut event_pump, &mut players, &mut rewards, &textures) {
@@ -417,6 +422,7 @@ pub fn main() {
             &mut players,
             &mut enemies,
             &mut dead_enemies,
+            sort_update == 10,
         );
         map.draw_layer(&mut system);
         hud.draw(&players[0], &mut system);
@@ -436,5 +442,9 @@ pub fn main() {
         // TODO: use `update_elapsed` instead of `loop_timer` for the FPS count!
         env.debug_draw(&mut system, &players[0], micro_elapsed);
         loop_timer = Instant::now();
+        sort_update += 1;
+        if sort_update >= 10 {
+            sort_update = 0;
+        }
     }
 }
