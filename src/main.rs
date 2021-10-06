@@ -488,25 +488,25 @@ pub fn main() {
                     ui.end_row();
                 });
             });
-        }
 
-        let (egui_output, paint_cmds) = egui_ctx.end_frame();
-        let paint_jobs = egui_ctx.tessellate(paint_cmds);
+            let (egui_output, paint_cmds) = egui_ctx.end_frame();
+            let paint_jobs = egui_ctx.tessellate(paint_cmds);
 
-        //Note: passing a bg_color to paint_jobs will clear any previously drawn stuff.
-        //Use this only if egui is being used for all drawing and you aren't mixing your own Open GL
-        //drawing calls with it.
-        //Since we are custom drawing an OpenGL Triangle we don't need egui to clear the background.
-        unsafe {
-            gl::PixelStorei(gl::UNPACK_ROW_LENGTH, 0);
-            gl::PixelStorei(gl::UNPACK_ALIGNMENT, 4);
+            //Note: passing a bg_color to paint_jobs will clear any previously drawn stuff.
+            //Use this only if egui is being used for all drawing and you aren't mixing your own Open GL
+            //drawing calls with it.
+            //Since we are custom drawing an OpenGL Triangle we don't need egui to clear the background.
+            unsafe {
+                gl::PixelStorei(gl::UNPACK_ROW_LENGTH, 0);
+                gl::PixelStorei(gl::UNPACK_ALIGNMENT, 4);
+            }
+            painter.paint_jobs(
+                None,
+                paint_jobs,
+                &egui_ctx.texture(),
+                native_pixels_per_point,
+            );
         }
-        painter.paint_jobs(
-            None,
-            paint_jobs,
-            &egui_ctx.texture(),
-            native_pixels_per_point,
-        );
 
         system.clear();
         let elapsed_time = loop_timer.elapsed();
