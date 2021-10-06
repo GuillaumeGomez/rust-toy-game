@@ -1,9 +1,9 @@
-use sdl2::pixels::Color;
-use sdl2::rect::Rect;
-use sdl2::render::{BlendMode, TextureCreator};
-use sdl2::surface::Surface;
-use sdl2::ttf::Font;
-use sdl2::video::WindowContext;
+use crate::sdl2::pixels::Color;
+use crate::sdl2::rect::Rect;
+use crate::sdl2::render::{BlendMode, TextureCreator};
+use crate::sdl2::surface::Surface;
+use crate::sdl2::ttf::Font;
+use crate::sdl2::video::WindowContext;
 
 use crate::system::System;
 use crate::texture_holder::TextureHolder;

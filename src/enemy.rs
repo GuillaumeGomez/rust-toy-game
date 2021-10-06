@@ -4,10 +4,10 @@ use std::collections::{BinaryHeap, HashMap};
 use std::ops::{Deref, DerefMut};
 
 use rand::Rng;
-use sdl2::rect::Rect;
-use sdl2::render::{Texture, TextureCreator};
-use sdl2::surface::Surface;
-use sdl2::video::WindowContext;
+use crate::sdl2::rect::Rect;
+use crate::sdl2::render::{Texture, TextureCreator};
+use crate::sdl2::surface::Surface;
+use crate::sdl2::video::WindowContext;
 
 use crate::animation::Animation;
 use crate::character::{Action, Character, CharacterKind, Direction, Obstacle};
@@ -847,7 +847,7 @@ impl<'a> Enemy<'a> {
     }
 
     pub fn draw(&mut self, system: &mut crate::system::System, debug: bool) {
-        use sdl2::rect::Point;
+        use crate::sdl2::rect::Point;
         if debug {
             match &*self.action.borrow() {
                 EnemyAction::MoveTo(ref nodes) | EnemyAction::MoveToPlayer(ref nodes) => {

@@ -1,10 +1,10 @@
-use sdl2::image::LoadSurface;
-use sdl2::pixels::{Color, PixelFormatEnum};
-use sdl2::rect::Rect;
-use sdl2::render::{Texture, TextureCreator};
-use sdl2::surface::Surface;
-use sdl2::ttf::Font;
-use sdl2::video::WindowContext;
+use crate::sdl2::image::LoadSurface;
+use crate::sdl2::pixels::{Color, PixelFormatEnum};
+use crate::sdl2::rect::Rect;
+use crate::sdl2::render::{Texture, TextureCreator};
+use crate::sdl2::surface::Surface;
+use crate::sdl2::ttf::Font;
+use crate::sdl2::video::WindowContext;
 
 use crate::system::System;
 

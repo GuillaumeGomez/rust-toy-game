@@ -1,4 +1,4 @@
-use sdl2::rect::Rect;
+use crate::sdl2::rect::Rect;
 
 use crate::system::System;
 use crate::texture_holder::TextureHolder;

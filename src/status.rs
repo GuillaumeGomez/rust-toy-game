@@ -1,4 +1,4 @@
-use sdl2::pixels::Color;
+use crate::sdl2::pixels::Color;
 
 use crate::system::System;
 use crate::ONE_SECOND;

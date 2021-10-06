@@ -1,11 +1,11 @@
-use sdl2::event::Event;
-use sdl2::keyboard::Keycode;
-use sdl2::mouse::MouseButton;
-use sdl2::pixels::{Color, PixelFormatEnum};
-use sdl2::rect::Rect;
-use sdl2::render::{Texture, TextureCreator};
-use sdl2::surface::Surface;
-use sdl2::video::WindowContext;
+use crate::sdl2::event::Event;
+use crate::sdl2::keyboard::Keycode;
+use crate::sdl2::mouse::MouseButton;
+use crate::sdl2::pixels::{Color, PixelFormatEnum};
+use crate::sdl2::rect::Rect;
+use crate::sdl2::render::{Texture, TextureCreator};
+use crate::sdl2::surface::Surface;
+use crate::sdl2::video::WindowContext;
 
 use std::collections::HashMap;
 

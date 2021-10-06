@@ -1,5 +1,5 @@
-use sdl2::pixels::Color;
-use sdl2::rect::Rect;
+use crate::sdl2::pixels::Color;
+use crate::sdl2::rect::Rect;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -16,7 +16,7 @@ use crate::system::System;
 use crate::texture_handler::{Dimension, TextureHandler};
 use crate::texture_holder::TextureHolder;
 use crate::weapon::Weapon;
-use crate::window::UpdateKind;
+// use crate::window::UpdateKind;
 use crate::{GetDimension, GetPos, Id, MAP_CASE_SIZE, MAP_SIZE, ONE_SECOND};
 
 #[derive(Hash, PartialEq, Eq, Clone, Copy, Debug)]
@@ -247,16 +247,16 @@ impl<'a> Character<'a> {
             // TODO: increase health and other stats by a fixed amount (the same for every level).
             self.reset_stats();
             self.animations.push(Animation::new_level_up(textures));
-            if let Some(env) = env {
-                env.add_character_update(
-                    "Experience",
-                    UpdateKind::Both(self.xp, self.xp_to_next_level),
-                );
-            }
-        } else if xp_to_add != 0 {
-            if let Some(env) = env {
-                env.add_character_update("Experience", UpdateKind::Value(self.xp));
-            }
+            // if let Some(env) = env {
+            //     env.add_character_update(
+            //         "Experience",
+            //         UpdateKind::Both(self.xp, self.xp_to_next_level),
+            //     );
+            // }
+        // } else if xp_to_add != 0 {
+        //     if let Some(env) = env {
+        //         env.add_character_update("Experience", UpdateKind::Value(self.xp));
+        //     }
         }
     }
 
@@ -768,17 +768,17 @@ impl<'a> Character<'a> {
         let env_stamina = self.stamina.refresh(elapsed);
         let env_health = self.health.refresh(elapsed);
         let env_mana = self.mana.refresh(elapsed);
-        if let Some(env) = env {
-            if env_stamina {
-                env.add_character_update("Stamina", UpdateKind::Value(self.stamina.value()));
-            }
-            if env_health {
-                env.add_character_update("Health", UpdateKind::Value(self.health.value()));
-            }
-            if env_mana {
-                env.add_character_update("Mana", UpdateKind::Value(self.mana.value()));
-            }
-        }
+        // if let Some(env) = env {
+        //     if env_stamina {
+        //         env.add_character_update("Stamina", UpdateKind::Value(self.stamina.value()));
+        //     }
+        //     if env_health {
+        //         env.add_character_update("Health", UpdateKind::Value(self.health.value()));
+        //     }
+        //     if env_mana {
+        //         env.add_character_update("Mana", UpdateKind::Value(self.mana.value()));
+        //     }
+        // }
         self.move_delay += elapsed;
         let effect = self.effect.borrow_mut().take();
         if let Some(effect) = effect {

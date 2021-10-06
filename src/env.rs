@@ -1,10 +1,10 @@
-use sdl2::controller::{Axis, Button, GameController};
-use sdl2::event::Event;
-use sdl2::keyboard::{Keycode, Mod};
-use sdl2::render::TextureCreator;
-use sdl2::video::WindowContext;
-use sdl2::EventPump;
-use sdl2::GameControllerSubsystem;
+use crate::sdl2::controller::{Axis, Button, GameController};
+use crate::sdl2::event::Event;
+use crate::sdl2::keyboard::{Keycode, Mod};
+use crate::sdl2::render::TextureCreator;
+use crate::sdl2::video::WindowContext;
+use crate::sdl2::EventPump;
+use crate::sdl2::GameControllerSubsystem;
 
 use std::collections::HashMap;
 
@@ -16,8 +16,6 @@ use crate::reward::Reward;
 use crate::system::System;
 use crate::texture_holder::TextureHolder;
 use crate::utils::compute_distance;
-use crate::widgets::Widgets;
-use crate::window::{create_character_window, create_inventory_window, UpdateKind, Window};
 use crate::{GetDimension, GetPos, ONE_SECOND};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -234,6 +232,12 @@ impl GamePad {
     }
 }
 
+#[derive(Default)]
+pub struct EguiWindow {
+    pub has_focus: bool,
+    pub is_displayed: bool,
+}
+
 pub struct Env<'a> {
     pub display_menu: bool,
     pub is_attack_pressed: bool,
@@ -244,11 +248,10 @@ pub struct Env<'a> {
     pub need_sort_rewards: bool,
     pub closest_reward: Option<(i32, usize)>,
     pub game_controller_subsystem: &'a GameControllerSubsystem,
-    pub windows: Vec<Window<'a>>,
-    pub widgets: Widgets<'a>,
     controller: Option<GamePad>,
     // pressed_keys: Vec<Event>,
-    character_widget: usize,
+    pub character_window: EguiWindow,
+    pub inventory_window: EguiWindow,
 }
 
 const WINDOW_WIDTH: u32 = 200;
@@ -261,7 +264,7 @@ impl<'a> Env<'a> {
         height: u32,
     ) {
         Menu::init_button_textures(texture_creator, textures, width, height);
-        Window::init_textures(texture_creator, textures, WINDOW_WIDTH, 1);
+        // Window::init_textures(texture_creator, textures, WINDOW_WIDTH, 1);
     }
 
     pub fn new(
@@ -271,29 +274,6 @@ impl<'a> Env<'a> {
         width: u32,
         height: u32,
     ) -> Env<'a> {
-        let mut widgets = Widgets::new();
-        let (character_window, character_widget) = create_character_window(
-            texture_creator,
-            10,
-            height as i32 / 2,
-            WINDOW_WIDTH + 100,
-            height / 3,
-            1,
-            &mut widgets,
-        );
-        let windows = vec![
-            create_inventory_window(
-                texture_creator,
-                &*textures,
-                width as i32 - WINDOW_WIDTH as i32 - 10,
-                height as i32 / 4,
-                WINDOW_WIDTH,
-                height / 3,
-                1,
-                &mut widgets,
-            ),
-            character_window,
-        ];
         let mut env = Env {
             display_menu: false,
             is_attack_pressed: false,
@@ -305,9 +285,8 @@ impl<'a> Env<'a> {
             closest_reward: None,
             game_controller_subsystem,
             controller: None,
-            windows,
-            widgets,
-            character_widget,
+            character_window: Default::default(),
+            inventory_window: Default::default(),
         };
         env.update_controller();
         env
@@ -356,6 +335,7 @@ impl<'a> Env<'a> {
         players: &mut [Player],
         rewards: &mut Vec<Reward>,
         textures: &'a HashMap<&'static str, TextureHolder<'a>>,
+        egui_input_state: &mut egui_sdl2_gl::EguiInputState,
     ) -> bool {
         let mouse_state = event_pump.mouse_state();
         for event in event_pump.poll_iter() {
@@ -464,19 +444,16 @@ impl<'a> Env<'a> {
                             keycode: Some(x), ..
                         } => match x {
                             Keycode::Escape => {
-                                let mut all_hidden = true;
-                                for window in
-                                    self.windows.iter_mut().rev().filter(|w| !w.is_hidden())
-                                {
-                                    all_hidden = false;
-                                    window.hide();
-                                    break;
-                                }
+                                let mut all_hidden = !self.character_window.is_displayed && !self.inventory_window.is_displayed;
                                 if all_hidden {
                                     self.display_menu = true;
                                     self.menu.set_pause(textures);
                                     // To hover buttons in case the mouse is hovering one.
                                     self.menu.update(mouse_state.x(), mouse_state.y());
+                                } else if self.character_window.is_displayed {
+                                    self.character_window.is_displayed = false;
+                                } else if self.inventory_window.is_displayed {
+                                    self.inventory_window.is_displayed = false;
                                 }
                             }
                             Keycode::Left | Keycode::Q => players[0].handle_move(Direction::Left),
@@ -501,8 +478,8 @@ impl<'a> Env<'a> {
                                 self.debug = self.debug == false;
                             }
                             Keycode::F5 => self.debug_display.switch_draw_grid(),
-                            Keycode::I => self.swith_window_state("Inventory"),
-                            Keycode::C => self.swith_window_state("Character"),
+                            Keycode::I => self.inventory_window.is_displayed = !self.inventory_window.is_displayed,
+                            Keycode::C => self.character_window.is_displayed = !self.character_window.is_displayed,
                             _ => {}
                         },
                         Event::KeyUp {
@@ -539,58 +516,38 @@ impl<'a> Env<'a> {
                             _ => {}
                         },
                         ev => {
-                            let take_focus = if let Event::MouseMotion { .. } = ev {
-                                false
-                            } else {
-                                true
-                            };
-                            let mut i = self.windows.len() - 1;
-                            loop {
-                                {
-                                    let w = &mut self.windows[i];
-                                    if w.is_hidden() || !w.handle_event(&mut self.widgets, &ev) {
-                                        if i > 0 {
-                                            i -= 1;
-                                            continue;
-                                        }
-                                        break;
-                                    }
-                                }
-                                if take_focus {
-                                    if i != self.windows.len() - 1 {
-                                        let tmp = self.windows.remove(i);
-                                        self.windows.push(tmp);
-                                    }
-                                }
-                                break;
-                            }
+                            egui_sdl2_gl::input_to_egui(ev, egui_input_state);
+                            // let take_focus = if let Event::MouseMotion { .. } = ev {
+                            //     false
+                            // } else {
+                            //     true
+                            // };
+                            // let mut i = self.windows.len() - 1;
+                            // loop {
+                            //     {
+                            //         let w = &mut self.windows[i];
+                            //         if w.is_hidden() || !w.handle_event(&mut self.widgets, &ev) {
+                            //             if i > 0 {
+                            //                 i -= 1;
+                            //                 continue;
+                            //             }
+                            //             break;
+                            //         }
+                            //     }
+                            //     if take_focus {
+                            //         if i != self.windows.len() - 1 {
+                            //             let tmp = self.windows.remove(i);
+                            //             self.windows.push(tmp);
+                            //         }
+                            //     }
+                            //     break;
+                            // }
                         }
                     }
                 }
             }
         }
         true
-    }
-
-    pub fn swith_window_state(&mut self, window_title: &str) {
-        for i in 0..self.windows.len() {
-            {
-                let w = &mut self.windows[i];
-                if w.title != window_title {
-                    continue;
-                }
-                if !w.is_hidden() {
-                    w.hide();
-                    continue;
-                }
-                w.show();
-            }
-            if i != self.windows.len() - 1 {
-                let tmp = self.windows.remove(i);
-                self.windows.push(tmp);
-            }
-            break;
-        }
     }
 
     pub fn show_death_screen(&mut self, textures: &'a HashMap<&'static str, TextureHolder<'a>>) {
@@ -746,18 +703,8 @@ impl<'a> Env<'a> {
     }
 
     pub fn draw(&mut self, system: &mut System) {
-        for window in self.windows.iter() {
-            window.draw(system, &mut self.widgets);
-        }
         if self.display_menu {
             self.menu.draw(system);
         }
-    }
-
-    pub fn add_character_update(&mut self, update_id: &str, kind: UpdateKind) {
-        // TODO: find another way to downcast it!
-        let widget: &mut Box<crate::window::CharacterInfo> =
-            unsafe { ::std::mem::transmute(&mut self.widgets[self.character_widget]) };
-        widget.update_label(update_id, kind);
     }
 }

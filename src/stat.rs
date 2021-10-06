@@ -68,4 +68,8 @@ impl Stat {
     pub fn reset(&mut self) {
         self.value = self.max_value;
     }
+
+    pub fn to_string(&self) -> String {
+        format!("{} / {}", self.value, self.max_value)
+    }
 }

@@ -1,12 +1,12 @@
 use std::cell::RefCell;
 use std::ops::{Deref, DerefMut};
 
-use sdl2::image::LoadSurface;
-use sdl2::pixels::PixelFormatEnum;
-use sdl2::rect::Rect;
-use sdl2::render::{Texture, TextureCreator};
-use sdl2::surface::Surface;
-use sdl2::video::WindowContext;
+use crate::sdl2::image::LoadSurface;
+use crate::sdl2::pixels::PixelFormatEnum;
+use crate::sdl2::rect::Rect;
+use crate::sdl2::render::{Texture, TextureCreator};
+use crate::sdl2::surface::Surface;
+use crate::sdl2::video::WindowContext;
 
 use crate::character::{Action, Character, CharacterKind, Direction};
 use crate::env::Env;
@@ -14,7 +14,7 @@ use crate::player_stats::PlayerStats;
 use crate::stat::Stat;
 use crate::texture_handler::{Dimension, TextureHandler};
 use crate::weapon::Sword;
-use crate::window::UpdateKind;
+// use crate::window::UpdateKind;
 use crate::{GetDimension, GetPos, Id, ONE_SECOND};
 
 pub fn get_player<'a>(
@@ -140,19 +140,19 @@ impl<'a> Player<'a> {
             is_run_pressed: false,
             stats: stats.map(|s| RefCell::new(s)),
         };
-        if let Some(env) = env {
-            env.add_character_update("Level", UpdateKind::Value(p.level as _));
-            env.add_character_update("Experience", UpdateKind::Both(p.xp, p.xp_to_next_level));
-            env.add_character_update(
-                "Stamina",
-                UpdateKind::Both(p.stamina.value(), p.stamina.max_value()),
-            );
-            env.add_character_update(
-                "Health",
-                UpdateKind::Both(p.health.value(), p.health.max_value()),
-            );
-            env.add_character_update("Mana", UpdateKind::Both(p.mana.value(), p.mana.max_value()));
-        }
+        // if let Some(env) = env {
+        //     env.add_character_update("Level", UpdateKind::Value(p.level as _));
+        //     env.add_character_update("Experience", UpdateKind::Both(p.xp, p.xp_to_next_level));
+        //     env.add_character_update(
+        //         "Stamina",
+        //         UpdateKind::Both(p.stamina.value(), p.stamina.max_value()),
+        //     );
+        //     env.add_character_update(
+        //         "Health",
+        //         UpdateKind::Both(p.health.value(), p.health.max_value()),
+        //     );
+        //     env.add_character_update("Mana", UpdateKind::Both(p.mana.value(), p.mana.max_value()));
+        // }
         p
     }
 

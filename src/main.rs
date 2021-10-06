@@ -1,11 +1,14 @@
+pub use egui_sdl2_gl::{egui, gl, sdl2};
+
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
+
 use sdl2::image::{self, LoadSurface};
 use sdl2::pixels::{Color, PixelFormatEnum};
 use sdl2::render::Canvas;
 use sdl2::surface::Surface;
 use sdl2::ttf;
-use sdl2::video::Window;
+use sdl2::video::{GLProfile, Window};
 
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
@@ -35,8 +38,6 @@ mod texture_handler;
 mod texture_holder;
 mod traits;
 mod weapon;
-mod widgets;
-mod window;
 
 use character::CharacterKind;
 use enemy::Enemy;
@@ -136,6 +137,12 @@ pub fn main() {
     let ttf_context = ttf::init().expect("failed to init SDL TTF");
     let video_subsystem = sdl_context.video().expect("failed to get video context");
 
+    let gl_attr = video_subsystem.gl_attr();
+    gl_attr.set_context_profile(GLProfile::Core);
+
+    // OpenGL 3.2 is the minimum that we will support.
+    gl_attr.set_context_version(3, 2);
+
     let (mut width, mut height) = match video_subsystem.current_display_mode(0) {
         Ok(info) => {
             let h = info.h as u32 / 2;
@@ -157,7 +164,7 @@ pub fn main() {
 
     let mut canvas: Canvas<Window> = window
         .into_canvas()
-        .present_vsync()
+        // .present_vsync()
         .accelerated()
         .build()
         .expect("failed to build window's canvas");
@@ -166,6 +173,19 @@ pub fn main() {
     canvas.set_logical_size(WIDTH as _, HEIGHT as _).expect("failed to set logical size");
     let texture_creator = canvas.texture_creator();
     let health_bar = HealthBar::new(&texture_creator, 30, 5);
+
+    let native_pixels_per_point = 150f32 / video_subsystem.display_dpi(0).unwrap().0;
+    let mut painter = egui_sdl2_gl::Painter::new(&video_subsystem, WIDTH as _, HEIGHT as _);
+    let mut egui_ctx = egui::CtxRef::default();
+    let mut egui_input_state = egui_sdl2_gl::EguiInputState::new(egui::RawInput {
+        screen_rect: Some(egui::Rect::from_min_size(
+            egui::Pos2::new(0f32, 0f32),
+            egui::vec2(width as f32, height as f32) / native_pixels_per_point,
+        )),
+        pixels_per_point: Some(native_pixels_per_point),
+        ..Default::default()
+    });
+
     let mut system = System::new(canvas, WIDTH as _, HEIGHT as _, &health_bar);
 
     let mut event_pump = sdl_context.event_pump().expect("failed to get event pump");
@@ -276,9 +296,14 @@ pub fn main() {
 
     let mut dead_enemies: Vec<Enemy> = Vec::new();
     let mut sort_update = 0u8;
+    let mut start_time = Instant::now();
 
     loop {
-        if !env.handle_events(&mut event_pump, &mut players, &mut rewards, &textures) {
+        egui_input_state.input.time = Some(start_time.elapsed().as_secs_f64());
+        egui_ctx.begin_frame(egui_input_state.input.take());
+        egui_input_state.input.pixels_per_point = Some(native_pixels_per_point);
+
+        if !env.handle_events(&mut event_pump, &mut players, &mut rewards, &textures, &mut egui_input_state) {
             break;
         }
 
@@ -405,7 +430,6 @@ pub fn main() {
             }
         }
 
-        system.clear();
         // TODO: instead of having draw methods on each drawable objects, maybe create a Screen
         // type which will get position, size and texture and perform the checks itself? Might be
         // a bit complicated in case an object contains objects to draw though... It could be
@@ -429,6 +453,62 @@ pub fn main() {
 
         env.draw(&mut system);
 
+        // TODO: use `update_elapsed` instead of `loop_timer` for the FPS count!
+        // env.debug_draw(&mut system, &players[0], micro_elapsed);
+
+        // Needed to make all SDL opengl calls.
+        unsafe { system.canvas.render_flush() };
+
+        if env.character_window.is_displayed {
+            egui::Window::new("Character").collapsible(false).show(&egui_ctx, |ui| {
+                let player = &players[0];
+
+                ui.label("Character imperio");
+                ui.separator();
+
+                egui::Grid::new("chracter_infos").show(ui, |ui| {
+                    ui.label("Level");
+                    ui.label(&player.level.to_string());
+                    ui.end_row();
+
+                    ui.label("Experience");
+                    ui.label(&format!("{} / {}", player.xp, player.xp_to_next_level));
+                    ui.end_row();
+
+                    ui.label("Health");
+                    ui.label(&player.health.to_string());
+                    ui.end_row();
+
+                    ui.label("Stamina");
+                    ui.label(&player.stamina.to_string());
+                    ui.end_row();
+
+                    ui.label("Mana");
+                    ui.label(&player.mana.to_string());
+                    ui.end_row();
+                });
+            });
+        }
+
+        let (egui_output, paint_cmds) = egui_ctx.end_frame();
+        let paint_jobs = egui_ctx.tessellate(paint_cmds);
+
+        //Note: passing a bg_color to paint_jobs will clear any previously drawn stuff.
+        //Use this only if egui is being used for all drawing and you aren't mixing your own Open GL
+        //drawing calls with it.
+        //Since we are custom drawing an OpenGL Triangle we don't need egui to clear the background.
+        unsafe {
+            gl::PixelStorei(gl::UNPACK_ROW_LENGTH, 0);
+            gl::PixelStorei(gl::UNPACK_ALIGNMENT, 4);
+        }
+        painter.paint_jobs(
+            None,
+            paint_jobs,
+            &egui_ctx.texture(),
+            native_pixels_per_point,
+        );
+
+        system.clear();
         let elapsed_time = loop_timer.elapsed();
 
         let micro_elapsed = elapsed_time.as_micros() as u64;
@@ -439,8 +519,7 @@ pub fn main() {
         } else {
             micro_elapsed
         } as u64;
-        // TODO: use `update_elapsed` instead of `loop_timer` for the FPS count!
-        env.debug_draw(&mut system, &players[0], micro_elapsed);
+
         loop_timer = Instant::now();
         sort_update += 1;
         if sort_update >= 10 {

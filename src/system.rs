@@ -1,7 +1,7 @@
-use sdl2::pixels::Color;
-use sdl2::render::{Canvas, TextureCreator};
-use sdl2::ttf::Font;
-use sdl2::video::{Window, WindowContext};
+use crate::sdl2::pixels::Color;
+use crate::sdl2::render::{Canvas, TextureCreator};
+use crate::sdl2::ttf::Font;
+use crate::sdl2::video::{Window, WindowContext};
 
 use crate::font_handler::FontHandler;
 use crate::health_bar::HealthBar;
@@ -75,7 +75,7 @@ impl<'a> System<'a> {
     }
 
     pub fn clear(&mut self) {
-        self.canvas.present();
+        self.canvas.window().gl_swap_window();
         self.canvas.clear();
     }
 
@@ -104,7 +104,7 @@ impl<'a> System<'a> {
 
     /// The purpose is just to display the font map.
     pub fn full_draw_text(&mut self, x: i32, y: i32) {
-        use sdl2::rect::Rect;
+        use crate::sdl2::rect::Rect;
         self.canvas
             .copy(
                 &self.font_maps[1].texture.texture,
