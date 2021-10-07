@@ -170,7 +170,9 @@ pub fn main() {
         .expect("failed to build window's canvas");
     canvas.set_draw_color(Color::RGB(0, 0, 0));
     // Very important in case the window is resized and isn't 4/3 ratio anymore!
-    canvas.set_logical_size(WIDTH as _, HEIGHT as _).expect("failed to set logical size");
+    canvas
+        .set_logical_size(WIDTH as _, HEIGHT as _)
+        .expect("failed to set logical size");
     let texture_creator = canvas.texture_creator();
     let health_bar = HealthBar::new(&texture_creator, 30, 5);
 
@@ -303,7 +305,13 @@ pub fn main() {
         egui_ctx.begin_frame(egui_input_state.input.take());
         egui_input_state.input.pixels_per_point = Some(native_pixels_per_point);
 
-        if !env.handle_events(&mut event_pump, &mut players, &mut rewards, &textures, &mut egui_input_state) {
+        if !env.handle_events(
+            &mut event_pump,
+            &mut players,
+            &mut rewards,
+            &textures,
+            &mut egui_input_state,
+        ) {
             break;
         }
 
@@ -460,35 +468,99 @@ pub fn main() {
         unsafe { system.canvas.render_flush() };
 
         if env.character_window.is_displayed {
-            egui::Window::new("Character").collapsible(false).show(&egui_ctx, |ui| {
-                let player = &players[0];
+            egui::Window::new("Character information")
+                .collapsible(false)
+                .show(&egui_ctx, |ui| {
+                    let player = &players[0].character;
 
-                ui.label("Character imperio");
-                ui.separator();
+                    ui.vertical_centered_justified(|ui| {
+                        ui.label("Player imperio");
+                    });
+                    ui.separator();
 
-                egui::Grid::new("chracter_infos").show(ui, |ui| {
-                    ui.label("Level");
-                    ui.label(&player.level.to_string());
-                    ui.end_row();
+                    egui::Grid::new("character_infos").show(ui, |ui| {
+                        ui.label("Level");
+                        ui.label(&player.level.to_string());
+                        ui.end_row();
 
-                    ui.label("Experience");
-                    ui.label(&format!("{} / {}", player.xp, player.xp_to_next_level));
-                    ui.end_row();
+                        ui.label("Experience");
+                        ui.label(&format!("{} / {}", player.xp, player.xp_to_next_level));
+                        ui.end_row();
 
-                    ui.label("Health");
-                    ui.label(&player.health.to_string());
-                    ui.end_row();
+                        let stats = &player.stats;
 
-                    ui.label("Stamina");
-                    ui.label(&player.stamina.to_string());
-                    ui.end_row();
+                        ui.label("Health");
+                        ui.label(&stats.health.to_string());
+                        ui.end_row();
 
-                    ui.label("Mana");
-                    ui.label(&player.mana.to_string());
-                    ui.end_row();
+                        ui.label("Stamina");
+                        ui.label(&stats.stamina.to_string());
+                        ui.end_row();
+
+                        ui.label("Mana");
+                        ui.label(&stats.mana.to_string());
+                        ui.end_row();
+
+                        ui.label("Attack");
+                        ui.label(&stats.attack.to_string());
+                        ui.end_row();
+
+                        ui.label("Defense");
+                        ui.label(&stats.defense.to_string());
+                        ui.end_row();
+
+                        ui.label("Magical attack");
+                        ui.label(&stats.magical_attack.to_string());
+                        ui.end_row();
+
+                        ui.label("Magical defense");
+                        ui.label(&stats.magical_defense.to_string());
+                        ui.end_row();
+                    });
+                    ui.separator();
+
+                    egui::Grid::new("character_points").show(ui, |ui| {
+                        let points = &player.points;
+
+                        ui.label("Strength");
+                        ui.label(&points.strength.to_string());
+                        ui.end_row();
+
+                        ui.label("Constitution");
+                        ui.label(&points.constitution.to_string());
+                        ui.end_row();
+
+                        ui.label("Intelligence");
+                        ui.label(&points.intelligence.to_string());
+                        ui.end_row();
+
+                        ui.label("Wisdom");
+                        ui.label(&points.wisdom.to_string());
+                        ui.end_row();
+
+                        ui.label("Stamina");
+                        ui.label(&points.stamina.to_string());
+                        ui.end_row();
+
+                        ui.label("Agility");
+                        ui.label(&points.agility.to_string());
+                        ui.end_row();
+
+                        ui.label("Dexterity");
+                        ui.label(&points.dexterity.to_string());
+                        ui.end_row();
+                    });
                 });
-            });
+        }
+        if env.inventory_window.is_displayed {
+            egui::Window::new("Inventory")
+                .collapsible(false)
+                .show(&egui_ctx, |ui| {
+                    egui::Grid::new("inventory").show(ui, |ui| {});
+                });
+        }
 
+        if env.character_window.is_displayed || env.inventory_window.is_displayed {
             let (egui_output, paint_cmds) = egui_ctx.end_frame();
             let paint_jobs = egui_ctx.tessellate(paint_cmds);
 

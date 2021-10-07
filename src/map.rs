@@ -1,11 +1,11 @@
-use rand::Rng;
-use rand_chacha::ChaCha8Rng;
 use crate::sdl2::image::LoadSurface;
 use crate::sdl2::pixels::{Color, PixelFormatEnum};
 use crate::sdl2::rect::Rect;
 use crate::sdl2::render::{Texture, TextureCreator};
 use crate::sdl2::surface::Surface;
 use crate::sdl2::video::WindowContext;
+use rand::Rng;
+use rand_chacha::ChaCha8Rng;
 
 use crate::system::System;
 use crate::{MAP_CASE_SIZE, MAP_SIZE};

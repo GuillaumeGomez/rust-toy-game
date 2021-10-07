@@ -198,17 +198,85 @@ pub enum Obstacle {
     None,
 }
 
+pub struct CharacterStats {
+    pub health: Stat,
+    pub mana: Stat,
+    pub stamina: Stat,
+    pub defense: u32,
+    pub attack: u32,
+    // FIXME: this isn't used at the moment.
+    pub attack_speed: u32,
+    pub magical_attack: u32,
+    pub magical_defense: u32,
+    /// It also takes into account the opponent level, agility and dexterity.
+    pub dodge_change: u32,
+    /// It also takes into account the opponent level, agility and dexterity.
+    pub critical_attack_chance: u32,
+    // FIXME: speed should be here!
+}
+
+pub struct CharacterPoints {
+    pub strength: u32,
+    pub constitution: u32,
+    pub intelligence: u32,
+    pub wisdom: u32,
+    pub stamina: u32,
+    pub agility: u32,
+    pub dexterity: u32,
+}
+
+impl CharacterPoints {
+    pub fn generate_stats(&self, level: u16) -> CharacterStats {
+        // character points
+        //
+        // At each level, health and mana raise a bit
+        //
+        // strength -> raises attack (and health a bit, defense a bit)
+        // constitution -> raises health and life regen (and attack a bit, and defense a bit)
+        // intelligence -> raises mana (and magical attack/defense a bit, and mana regen a bit)
+        // wisdom -> raise magical attack/defense (and mana a bit, and mana regen a bit)
+        // stamina -> raises endurance (and health a bit, and defense a bit, and endurance regen a bit)
+        // agility -> raises attack speed a bit x 2, dodge change a bit, critical hit a bit, move speed a bit
+        // dexterity -> raises critical hit a bit x 2, attack a bit, attack speed a bit
+
+        let level = level as u32;
+        // We start with 100 HP (95 + 5 * 1).
+        let total_health =
+            95 + 5 * level + 10 * self.constitution + 2 * self.strength + 2 * self.stamina;
+        let health_regen_speed = 1. + 1. * (self.constitution as f32);
+        // We start with 20 MP (16 + 4 * 1).
+        let total_mana = 16 + 4 * level + 10 * self.intelligence + 4 * self.wisdom;
+        let mana_regen_speed = 0.5 + 0.5 * (self.intelligence as f32) + 0.5 * (self.wisdom as f32);
+        // We start with 50 SP.
+        let total_stamina = 50 + 5 * self.stamina;
+        let stamina_regen_speed = 30. + 1. * (self.stamina as f32);
+        CharacterStats {
+            health: Stat::new(health_regen_speed, total_health as _),
+            mana: Stat::new(mana_regen_speed, total_mana as _),
+            stamina: Stat::new(stamina_regen_speed, total_stamina as _),
+            defense: 2 * self.constitution + 1 * self.stamina,
+            attack: level + 5 * self.strength + self.constitution / 2 + self.dexterity / 2,
+            // FIXME: for now this is useless.
+            attack_speed: 1 + 2 * self.agility + self.dexterity,
+            magical_attack: level + 2 * self.wisdom + self.intelligence,
+            magical_defense: level / 2 + self.wisdom + self.intelligence / 2,
+            dodge_change: level + self.agility,
+            critical_attack_chance: level + 2 * self.dexterity + self.agility,
+        }
+    }
+}
+
 pub struct Character<'a> {
     pub action: Action,
     pub x: i64,
     pub y: i64,
     pub kind: CharacterKind,
-    pub health: Stat,
-    pub mana: Stat,
-    pub stamina: Stat,
     pub xp_to_next_level: u64,
     pub xp: u64,
     pub level: u16,
+    pub stats: CharacterStats,
+    pub points: CharacterPoints,
+    pub unused_points: u32,
     // TODO: Instead of creating a new TextureHandler every time, might be better to use references!
     pub texture_handler: TextureHandler<'a>,
     pub weapon: Option<Weapon<'a>>,
@@ -253,10 +321,10 @@ impl<'a> Character<'a> {
             //         UpdateKind::Both(self.xp, self.xp_to_next_level),
             //     );
             // }
-        // } else if xp_to_add != 0 {
-        //     if let Some(env) = env {
-        //         env.add_character_update("Experience", UpdateKind::Value(self.xp));
-        //     }
+            // } else if xp_to_add != 0 {
+            //     if let Some(env) = env {
+            //         env.add_character_update("Experience", UpdateKind::Value(self.xp));
+            //     }
         }
     }
 
@@ -618,11 +686,11 @@ impl<'a> Character<'a> {
             weapon.draw(system, self.id == 1);
         }
 
-        if self.show_health_bar && !self.health.is_full() {
+        if self.show_health_bar && !self.stats.health.is_full() {
             system.health_bar.draw(
                 self.x + (draw_width as i32 - system.health_bar.width as i32) as i64 / 2,
                 self.y - (system.health_bar.height + 2) as i64,
-                self.health.pourcent(),
+                self.stats.health.pourcent(),
                 system,
             );
         }
@@ -638,7 +706,7 @@ impl<'a> Character<'a> {
 
     // TODO: add stamina consumption when attacking, depending on the weight of the weapon!
     pub fn attack(&mut self) {
-        let remaining_stamina = self.stamina.value();
+        let remaining_stamina = self.stats.stamina.value();
         let to_subtract = match self.weapon {
             Some(ref mut weapon) if remaining_stamina >= weapon.weight() as u64 => {
                 weapon.use_it(self.action.direction);
@@ -648,7 +716,7 @@ impl<'a> Character<'a> {
         };
         if to_subtract != 0 {
             self.set_weapon_pos();
-            self.stamina.subtract(to_subtract);
+            self.stats.stamina.subtract(to_subtract);
         }
     }
 
@@ -676,7 +744,7 @@ impl<'a> Character<'a> {
             return (0, 0);
         }
         let mut tmp = self.move_delay + elapsed;
-        let mut stamina = self.stamina.clone();
+        let mut stamina = self.stats.stamina.clone();
         let mut x = 0;
         let mut y = 0;
 
@@ -765,9 +833,9 @@ impl<'a> Character<'a> {
         // Since we might change direction, better update weapon in any case...
         self.set_weapon_pos();
 
-        let env_stamina = self.stamina.refresh(elapsed);
-        let env_health = self.health.refresh(elapsed);
-        let env_mana = self.mana.refresh(elapsed);
+        let env_stamina = self.stats.stamina.refresh(elapsed);
+        let env_health = self.stats.health.refresh(elapsed);
+        let env_mana = self.stats.mana.refresh(elapsed);
         // if let Some(env) = env {
         //     if env_stamina {
         //         env.add_character_update("Stamina", UpdateKind::Value(self.stamina.value()));
@@ -791,9 +859,9 @@ impl<'a> Character<'a> {
                 if let Some(ref mut pos) = self.action.movement {
                     *pos += 1;
                 }
-                let stamina_value = self.stamina.value();
+                let stamina_value = self.stats.stamina.value();
                 if self.is_running && stamina_value > 0 {
-                    self.stamina.subtract(1);
+                    self.stats.stamina.subtract(1);
                     self.is_running = stamina_value - 1 > 0;
                 }
                 self.move_delay -= self.speed;
@@ -953,14 +1021,14 @@ impl<'a> Character<'a> {
                         weapon.attack
                     };
                     let attack = if attack == 0 { 1 } else { attack };
-                    self.health.subtract(attack as u64);
+                    self.stats.health.subtract(attack as u64);
                     attack
                 } else {
-                    self.health.add((weapon.attack * -1) as u64);
+                    self.stats.health.add((weapon.attack * -1) as u64);
                     weapon.attack
                 };
                 // TODO: not the same display if attack is negative (meaning you gain back health!).
-                if !self.health.is_empty() {
+                if !self.stats.health.is_empty() {
                     self.invincible_against
                         .push(InvincibleAgainst::new(attacker_id, weapon.total_time));
                     // TODO: add defense on characters and make computation here (also add dodge
@@ -975,7 +1043,7 @@ impl<'a> Character<'a> {
     }
 
     pub fn is_dead(&self) -> bool {
-        self.health.is_empty()
+        self.stats.health.is_empty()
     }
 
     pub fn get_reward(&self) -> Option<RewardInfo> {
@@ -1020,9 +1088,9 @@ impl<'a> Character<'a> {
     }
 
     pub fn reset_stats(&mut self) {
-        self.health.reset();
-        self.mana.reset();
-        self.stamina.reset();
+        self.stats.health.reset();
+        self.stats.mana.reset();
+        self.stats.stamina.reset();
     }
 
     pub fn resurrect(&mut self) {

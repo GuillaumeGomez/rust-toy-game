@@ -444,7 +444,8 @@ impl<'a> Env<'a> {
                             keycode: Some(x), ..
                         } => match x {
                             Keycode::Escape => {
-                                let mut all_hidden = !self.character_window.is_displayed && !self.inventory_window.is_displayed;
+                                let mut all_hidden = !self.character_window.is_displayed
+                                    && !self.inventory_window.is_displayed;
                                 if all_hidden {
                                     self.display_menu = true;
                                     self.menu.set_pause(textures);
@@ -478,8 +479,14 @@ impl<'a> Env<'a> {
                                 self.debug = self.debug == false;
                             }
                             Keycode::F5 => self.debug_display.switch_draw_grid(),
-                            Keycode::I => self.inventory_window.is_displayed = !self.inventory_window.is_displayed,
-                            Keycode::C => self.character_window.is_displayed = !self.character_window.is_displayed,
+                            Keycode::I => {
+                                self.inventory_window.is_displayed =
+                                    !self.inventory_window.is_displayed
+                            }
+                            Keycode::C => {
+                                self.character_window.is_displayed =
+                                    !self.character_window.is_displayed
+                            }
                             _ => {}
                         },
                         Event::KeyUp {

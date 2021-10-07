@@ -98,23 +98,24 @@ impl<'a> HUD<'a> {
             .expect("copy hud failed");
         self.draw_bar(
             system,
-            144 * player.character.health.value() as u32
-                / player.character.health.max_value() as u32,
+            144 * player.character.stats.health.value() as u32
+                / player.character.stats.health.max_value() as u32,
             4,
             2,
             &self.health_bar,
         );
         self.draw_bar(
             system,
-            144 * player.character.mana.value() as u32 / player.character.mana.max_value() as u32,
+            144 * player.character.stats.mana.value() as u32
+                / player.character.stats.mana.max_value() as u32,
             4,
             8,
             &self.mana_bar,
         );
         self.draw_bar(
             system,
-            144 * player.character.stamina.value() as u32
-                / player.character.stamina.max_value() as u32,
+            144 * player.character.stats.stamina.value() as u32
+                / player.character.stats.stamina.max_value() as u32,
             4,
             14,
             &self.stamina_bar,

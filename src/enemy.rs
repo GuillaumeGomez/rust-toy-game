@@ -3,14 +3,14 @@ use std::cmp::{Ordering, Reverse};
 use std::collections::{BinaryHeap, HashMap};
 use std::ops::{Deref, DerefMut};
 
-use rand::Rng;
 use crate::sdl2::rect::Rect;
 use crate::sdl2::render::{Texture, TextureCreator};
 use crate::sdl2::surface::Surface;
 use crate::sdl2::video::WindowContext;
+use rand::Rng;
 
 use crate::animation::Animation;
-use crate::character::{Action, Character, CharacterKind, Direction, Obstacle};
+use crate::character::{Action, Character, CharacterKind, CharacterPoints, Direction, Obstacle};
 use crate::map::Map;
 use crate::player::Player;
 use crate::stat::Stat;
@@ -201,6 +201,25 @@ impl<'a> Enemy<'a> {
             Some((24, 24)),
         );
 
+        // CharacterStats {
+        //     health: Stat::new(1., 100),
+        //     mana: Stat::new(1., 100),
+        //     stamina: Stat::new(10., 200),
+        //     xp_to_next_level: 1000,
+        //     xp: 100,
+        //     level: 1,
+        // }
+        let level = 1;
+        let points = CharacterPoints {
+            strength: 1,
+            constitution: 1,
+            intelligence: 1,
+            wisdom: 1,
+            stamina: 1,
+            agility: 1,
+            dexterity: 1,
+        };
+        let stats = points.generate_stats(level);
         Enemy {
             character: Character {
                 action: Action {
@@ -210,11 +229,12 @@ impl<'a> Enemy<'a> {
                 },
                 x,
                 y,
-                health: Stat::new(1., 100),
-                mana: Stat::new(1., 100),
-                stamina: Stat::new(10., 200),
+                level,
+                points,
+                stats,
                 xp_to_next_level: 1000,
-                xp: 100,
+                xp: 0,
+                unused_points: 0,
                 texture_handler,
                 weapon: Some(Sword::new(texture_creator, 10)),
                 is_running: false,
@@ -227,7 +247,6 @@ impl<'a> Enemy<'a> {
                 death_animation: Some(Animation::new_death(textures)),
                 kind,
                 effect: RefCell::new(None),
-                level: 1,
                 animations: Vec::new(),
                 move_hitbox: (16, 8),
             },

@@ -8,7 +8,7 @@ use crate::sdl2::render::{Texture, TextureCreator};
 use crate::sdl2::surface::Surface;
 use crate::sdl2::video::WindowContext;
 
-use crate::character::{Action, Character, CharacterKind, Direction};
+use crate::character::{Action, Character, CharacterKind, CharacterPoints, Direction};
 use crate::env::Env;
 use crate::player_stats::PlayerStats;
 use crate::stat::Stat;
@@ -105,6 +105,20 @@ impl<'a> Player<'a> {
             None,
         );
 
+        // health: Stat::new(1., 100000),
+        // mana: Stat::new(1., 100),
+        // stamina: Stat::new(30., 200),
+        let level = 1;
+        let points = CharacterPoints {
+            strength: 1,
+            constitution: 100,
+            intelligence: 1,
+            wisdom: 1,
+            stamina: 10,
+            agility: 10,
+            dexterity: 1,
+        };
+        let p_stats = points.generate_stats(level);
         let p = Player {
             character: Character {
                 action: Action {
@@ -114,11 +128,12 @@ impl<'a> Player<'a> {
                 },
                 x,
                 y,
-                health: Stat::new(1., 100000),
-                mana: Stat::new(1., 100),
-                stamina: Stat::new(30., 200),
+                points,
+                stats: p_stats,
                 xp_to_next_level: 1000,
                 xp: 990,
+                level,
+                unused_points: 0,
                 texture_handler,
                 weapon: Some(Sword::new(texture_creator, 10)),
                 is_running: false,
@@ -133,7 +148,6 @@ impl<'a> Player<'a> {
                 death_animation: None,
                 kind: CharacterKind::Player,
                 effect: RefCell::new(None),
-                level: 1,
                 animations: Vec::new(),
                 move_hitbox: (Self::TILE_WIDTH - MARGIN_STANDING, 6),
             },
@@ -163,7 +177,8 @@ impl<'a> Player<'a> {
             }
             self.character.action.direction = dir;
             self.character.action.movement = Some(0);
-            self.character.is_running = self.is_run_pressed && self.character.stamina.value() > 0;
+            self.character.is_running =
+                self.is_run_pressed && self.character.stats.stamina.value() > 0;
         } else if self.character.action.secondary.is_none()
             && dir != self.character.action.direction
         {
