@@ -444,7 +444,7 @@ impl<'a> Env<'a> {
                             keycode: Some(x), ..
                         } => match x {
                             Keycode::Escape => {
-                                let mut all_hidden = !self.character_window.is_displayed
+                                let all_hidden = !self.character_window.is_displayed
                                     && !self.inventory_window.is_displayed;
                                 if all_hidden {
                                     self.display_menu = true;

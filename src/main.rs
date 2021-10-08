@@ -461,17 +461,15 @@ pub fn main() {
 
         env.draw(&mut system);
 
-        // TODO: use `update_elapsed` instead of `loop_timer` for the FPS count!
-        // env.debug_draw(&mut system, &players[0], micro_elapsed);
-
         // Needed to make all SDL opengl calls.
         unsafe { system.canvas.render_flush() };
 
         if env.character_window.is_displayed {
             egui::Window::new("Character information")
                 .collapsible(false)
+                .open(&mut env.character_window.is_displayed)
                 .show(&egui_ctx, |ui| {
-                    let player = &players[0].character;
+                    let player = &mut players[0].character;
 
                     ui.vertical_centered_justified(|ui| {
                         ui.label("Player imperio");
@@ -520,34 +518,44 @@ pub fn main() {
                     ui.separator();
 
                     egui::Grid::new("character_points").show(ui, |ui| {
-                        let points = &player.points;
+                        let entries = [
+                            ("Strength", &mut player.points.strength),
+                            ("Constitution", &mut player.points.constitution),
+                            ("Intelligence", &mut player.points.intelligence),
+                            ("Wisdom", &mut player.points.wisdom),
+                            ("Stamina", &mut player.points.stamina),
+                            ("Agility", &mut player.points.agility),
+                            ("Dexterity", &mut player.points.dexterity),
+                        ];
 
-                        ui.label("Strength");
-                        ui.label(&points.strength.to_string());
-                        ui.end_row();
+                        if player.unused_points == 0 {
+                            for (label, value) in entries {
+                                ui.label(label);
+                                ui.label(&value.to_string());
+                                ui.end_row();
+                            }
+                        } else {
+                            let mut need_to_use_points = false;
+                            for (label, value) in entries {
+                                ui.label(label);
+                                ui.horizontal(|ui| {
+                                    ui.label(&value.to_string());
+                                    ui.with_layout(egui::Layout::right_to_left(), |ui| {
+                                        if ui.button("+").clicked() {
+                                            *value += 1;
+                                            need_to_use_points = true;
+                                        }
+                                    });
+                                });
+                                ui.end_row();
+                            }
+                            if need_to_use_points {
+                                player.use_stat_point();
+                            }
+                        }
 
-                        ui.label("Constitution");
-                        ui.label(&points.constitution.to_string());
-                        ui.end_row();
-
-                        ui.label("Intelligence");
-                        ui.label(&points.intelligence.to_string());
-                        ui.end_row();
-
-                        ui.label("Wisdom");
-                        ui.label(&points.wisdom.to_string());
-                        ui.end_row();
-
-                        ui.label("Stamina");
-                        ui.label(&points.stamina.to_string());
-                        ui.end_row();
-
-                        ui.label("Agility");
-                        ui.label(&points.agility.to_string());
-                        ui.end_row();
-
-                        ui.label("Dexterity");
-                        ui.label(&points.dexterity.to_string());
+                        ui.label("Points available");
+                        ui.label(&player.unused_points.to_string());
                         ui.end_row();
                     });
                 });
@@ -555,6 +563,7 @@ pub fn main() {
         if env.inventory_window.is_displayed {
             egui::Window::new("Inventory")
                 .collapsible(false)
+                .open(&mut env.inventory_window.is_displayed)
                 .show(&egui_ctx, |ui| {
                     egui::Grid::new("inventory").show(ui, |ui| {});
                 });
@@ -579,11 +588,14 @@ pub fn main() {
                 native_pixels_per_point,
             );
         }
-
-        system.clear();
         let elapsed_time = loop_timer.elapsed();
 
         let micro_elapsed = elapsed_time.as_micros() as u64;
+
+        // TODO: use `update_elapsed` instead of `loop_timer` for the FPS count!
+        // env.debug_draw(&mut system, &players[0], micro_elapsed);
+
+        system.clear();
         update_elapsed = if micro_elapsed < FRAME_DELAY {
             let tmp = FRAME_DELAY - micro_elapsed;
             ::std::thread::sleep(Duration::from_micros(tmp));

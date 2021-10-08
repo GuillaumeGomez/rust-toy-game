@@ -233,7 +233,7 @@ impl<'a> Enemy<'a> {
                 points,
                 stats,
                 xp_to_next_level: 1000,
-                xp: 0,
+                xp: 100,
                 unused_points: 0,
                 texture_handler,
                 weapon: Some(Sword::new(texture_creator, 10)),

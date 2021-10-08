@@ -19,6 +19,8 @@ use crate::weapon::Weapon;
 // use crate::window::UpdateKind;
 use crate::{GetDimension, GetPos, Id, MAP_CASE_SIZE, MAP_SIZE, ONE_SECOND};
 
+const STAT_POINTS_PER_LEVEL: u32 = 3;
+
 #[derive(Hash, PartialEq, Eq, Clone, Copy, Debug)]
 pub enum CharacterKind {
     Player,
@@ -226,6 +228,17 @@ pub struct CharacterPoints {
 }
 
 impl CharacterPoints {
+    fn assigned_points(&self) -> u32 {
+        // All fields should be listed here.
+        self.strength
+            + self.constitution
+            + self.intelligence
+            + self.wisdom
+            + self.stamina
+            + self.agility
+            + self.dexterity
+    }
+
     pub fn generate_stats(&self, level: u16) -> CharacterStats {
         // character points
         //
@@ -312,20 +325,20 @@ impl<'a> Character<'a> {
             self.level += 1;
             self.xp = self.xp - self.xp_to_next_level;
             self.xp_to_next_level = self.xp_to_next_level + self.xp_to_next_level / 2;
-            // TODO: increase health and other stats by a fixed amount (the same for every level).
             self.reset_stats();
+            self.stats = self.points.generate_stats(self.level);
+            self.unused_points += STAT_POINTS_PER_LEVEL;
             self.animations.push(Animation::new_level_up(textures));
-            // if let Some(env) = env {
-            //     env.add_character_update(
-            //         "Experience",
-            //         UpdateKind::Both(self.xp, self.xp_to_next_level),
-            //     );
-            // }
-            // } else if xp_to_add != 0 {
-            //     if let Some(env) = env {
-            //         env.add_character_update("Experience", UpdateKind::Value(self.xp));
-            //     }
         }
+    }
+
+    pub fn use_stat_point(&mut self) {
+        // FIXME: save the new character status on disk?
+        self.unused_points = self.level as u32
+            * STAT_POINTS_PER_LEVEL
+                .checked_sub(self.points.assigned_points())
+                .unwrap_or(0);
+        self.stats = self.points.generate_stats(self.level);
     }
 
     pub fn check_hitbox(
