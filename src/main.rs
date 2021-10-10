@@ -168,7 +168,7 @@ pub fn main() {
         .accelerated()
         .build()
         .expect("failed to build window's canvas");
-    canvas.set_draw_color(Color::RGB(0, 0, 0));
+    canvas.set_draw_color(Color::BLACK);
     // Very important in case the window is resized and isn't 4/3 ratio anymore!
     canvas
         .set_logical_size(WIDTH as _, HEIGHT as _)
@@ -298,7 +298,7 @@ pub fn main() {
 
     let mut dead_enemies: Vec<Enemy> = Vec::new();
     let mut sort_update = 0u8;
-    let mut start_time = Instant::now();
+    let start_time = Instant::now();
 
     loop {
         egui_input_state.input.time = Some(start_time.elapsed().as_secs_f64());
@@ -461,6 +461,12 @@ pub fn main() {
 
         env.draw(&mut system);
 
+        let elapsed_time = loop_timer.elapsed();
+        let micro_elapsed = elapsed_time.as_micros() as u64;
+
+        // TODO: use `update_elapsed` instead of `loop_timer` for the FPS count!
+        env.debug_draw(&mut system, &players[0], micro_elapsed);
+
         // Needed to make all SDL opengl calls.
         unsafe { system.canvas.render_flush() };
 
@@ -588,25 +594,18 @@ pub fn main() {
                 native_pixels_per_point,
             );
         }
-        let elapsed_time = loop_timer.elapsed();
-
-        let micro_elapsed = elapsed_time.as_micros() as u64;
-
-        // TODO: use `update_elapsed` instead of `loop_timer` for the FPS count!
-        // env.debug_draw(&mut system, &players[0], micro_elapsed);
 
         system.clear();
         update_elapsed = if micro_elapsed < FRAME_DELAY {
-            let tmp = FRAME_DELAY - micro_elapsed;
-            ::std::thread::sleep(Duration::from_micros(tmp));
-            tmp
+            ::std::thread::sleep(Duration::from_micros(FRAME_DELAY - micro_elapsed));
+            FRAME_DELAY
         } else {
             micro_elapsed
         } as u64;
 
         loop_timer = Instant::now();
         sort_update += 1;
-        if sort_update >= 10 {
+        if sort_update > 10 {
             sort_update = 0;
         }
     }

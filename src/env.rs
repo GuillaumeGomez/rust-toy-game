@@ -254,8 +254,6 @@ pub struct Env<'a> {
     pub inventory_window: EguiWindow,
 }
 
-const WINDOW_WIDTH: u32 = 200;
-
 impl<'a> Env<'a> {
     pub fn init_textures(
         textures: &mut HashMap<&'static str, TextureHolder<'a>>,
