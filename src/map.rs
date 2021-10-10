@@ -14,7 +14,8 @@ use crate::{MAP_CASE_SIZE, MAP_SIZE};
 #[repr(u8)]
 pub enum AssetKind {
     Tree = 1,
-    Bush = 2,
+    Bush,
+    House,
 }
 
 fn check_pixels_for_pos(x: u32, y: u32, surface: &Surface) -> bool {
@@ -199,6 +200,7 @@ impl<'a> Map<'a> {
         let tree_r = Rect::new(184, 100, 60, 26);
         let (tree, tree_byte_vec) = load_asset!("resources/trees.png", AssetKind::Tree, tree_r);
         let (bush, bush_byte_vec) = load_asset!("resources/bush.png", AssetKind::Bush);
+        let (house, house_byte_vec) = load_asset!("resources/house.png", AssetKind::House);
 
         let mut surface_map = Surface::new(
             MAP_SIZE * MAP_CASE_SIZE as u32,
@@ -220,7 +222,7 @@ impl<'a> Map<'a> {
 
         let mut map = vec![0; (MAP_SIZE * MAP_SIZE) as usize];
 
-        let map_file = format!("data/{}_{}.map", x / MAP_SIZE as i64, y / MAP_SIZE as i64);
+        // let map_file = format!("data/{}_{}.map", x / MAP_SIZE as i64, y / MAP_SIZE as i64);
         // We first create trees
         // TODO: if a tree with a bigger y already exist, it should go above! To fix this issue,
         // generate all trees into a map and then draw them from top to bottom!
@@ -228,7 +230,11 @@ impl<'a> Map<'a> {
 
         let nb_trees = 200;
         let nb_bushes = 500;
-        let mut all_assets = Vec::with_capacity(nb_trees + nb_bushes);
+        let mut all_assets = Vec::with_capacity(nb_trees + nb_bushes + 1);
+
+        let pos = MAP_SIZE / 2 + 50;
+        write_in_map(&mut map, pos, pos, &house_byte_vec);
+        all_assets.push((pos as _, pos as _, AssetKind::House));
 
         for _ in 0..nb_trees {
             loop {
@@ -255,6 +261,7 @@ impl<'a> Map<'a> {
             &[
                 (tree, Some(tree_r), Some(Rect::new(170, 0, 72, 100))),
                 (bush, None, None),
+                (house, None, None),
             ],
             &all_assets,
         );
