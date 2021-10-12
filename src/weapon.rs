@@ -9,11 +9,12 @@ use crate::sdl2::video::WindowContext;
 
 use crate::character::Direction;
 use crate::system::System;
+use crate::texture_holder::{TextureHolder, TextureId, Textures};
 use crate::{GetDimension, GetPos, ONE_SECOND};
 
 #[allow(dead_code)]
-pub enum WeaponKind<'a> {
-    Sword(Sword<'a>),
+pub enum WeaponKind {
+    Sword(Sword),
     LongSword,
     Axe,
     Arc,
@@ -24,27 +25,28 @@ pub enum WeaponKind<'a> {
     Wand,
 }
 
-pub struct Weapon<'a> {
+pub struct Weapon {
     pub x: i64,
     pub y: i64,
     action: Option<WeaponAction>,
     blocking_direction: Option<Direction>,
-    pub kind: WeaponKind<'a>,
-    // TODO: optimize memory usage by putting 8 pixels into one
-    data: Vec<u8>,
+    pub kind: WeaponKind,
+    data_id: &'static str,
     /// Total time required for this weapon to perform its action.
     pub total_time: u64,
     pub attack: i32,
 }
 
-impl<'a> Weapon<'a> {
+impl Weapon {
     /// Returns a vec of positions to check.
-    pub fn compute_angle(&self) -> Option<Vec<(i64, i64)>> {
+    // FIXME: This whole thing is terrible performance-wise...
+    pub fn compute_angle(&self, textures: &Textures<'_>) -> Option<Vec<(i64, i64)>> {
         let action = self.get_action()?;
         let height = self.height() as i64;
         let width = self.width() as i64;
         let half_width = width / 2;
-        let mut matrix = Vec::with_capacity(self.data.len());
+        let data = textures.get_data(self.data_id);
+        let mut matrix = Vec::with_capacity(data.len());
 
         let radian_angle = action.angle as f32 * 0.0174533;
         let radian_sin = radian_angle.sin();
@@ -55,7 +57,7 @@ impl<'a> Weapon<'a> {
             let rad_sin_y = y_f32 * radian_sin;
             let rad_cos_y = y_f32 * radian_cos;
             for x in 0..width {
-                if self.data[y * width as usize + x as usize] == 0 {
+                if unsafe { *data.get_unchecked(y * width as usize + x as usize) } == 0 {
                     continue;
                 }
                 let x = x - half_width;
@@ -97,35 +99,29 @@ impl<'a> Weapon<'a> {
                     Direction::Down => (270, self.width() as i32, self.height() as i32),
                     Direction::Left => (0, 0, 0),
                 };
-                system
-                    .canvas
-                    .copy_ex(
-                        texture,
-                        None,
-                        Rect::new(x as i32, y as i32, self.width(), self.height()),
-                        angle as f64,
-                        None,
-                        false,
-                        false,
-                    )
-                    .expect("failed to copy blocking sword");
+                system.copy_ex_to_canvas(
+                    texture,
+                    None,
+                    Rect::new(x as i32, y as i32, self.width(), self.height()),
+                    angle as f64,
+                    None,
+                    false,
+                    false,
+                );
             }
         } else if let Some(ref action) = self.action {
             if let Some(texture) = self.get_texture() {
                 let x = self.x - system.x();
                 let y = self.y - system.y();
-                system
-                    .canvas
-                    .copy_ex(
-                        texture,
-                        None,
-                        Rect::new(x as i32, y as i32, self.width(), self.height()),
-                        action.angle as f64,
-                        Some((action.x_add, action.y_add).into()),
-                        false,
-                        false,
-                    )
-                    .expect("failed to copy sword");
+                system.copy_ex_to_canvas(
+                    texture,
+                    None,
+                    Rect::new(x as i32, y as i32, self.width(), self.height()),
+                    action.angle as f64,
+                    Some((action.x_add, action.y_add).into()),
+                    false,
+                    false,
+                );
             }
         }
     }
@@ -154,7 +150,7 @@ impl<'a> Weapon<'a> {
     }
 }
 
-impl<'a> GetPos for Weapon<'a> {
+impl GetPos for Weapon {
     fn x(&self) -> i64 {
         self.x
     }
@@ -163,7 +159,7 @@ impl<'a> GetPos for Weapon<'a> {
     }
 }
 
-impl<'a> GetDimension for Weapon<'a> {
+impl GetDimension for Weapon {
     fn width(&self) -> u32 {
         self.kind.width()
     }
@@ -172,21 +168,21 @@ impl<'a> GetDimension for Weapon<'a> {
     }
 }
 
-impl<'a> Deref for Weapon<'a> {
-    type Target = WeaponKind<'a>;
+impl Deref for Weapon {
+    type Target = WeaponKind;
 
     fn deref(&self) -> &Self::Target {
         &self.kind
     }
 }
 
-impl<'a> DerefMut for Weapon<'a> {
+impl DerefMut for Weapon {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.kind
     }
 }
 
-impl<'a> WeaponKind<'a> {
+impl WeaponKind {
     fn use_it(&mut self, direction: Direction) -> Option<WeaponAction> {
         match *self {
             Self::Sword(ref mut s) => s.use_it(direction),
@@ -199,7 +195,7 @@ impl<'a> WeaponKind<'a> {
             _ => 0,
         }
     }
-    pub fn get_texture(&self) -> Option<&Texture<'a>> {
+    pub fn get_texture(&self) -> Option<TextureId> {
         match *self {
             Self::Sword(ref s) => Some(s.get_texture()),
             _ => None,
@@ -207,7 +203,7 @@ impl<'a> WeaponKind<'a> {
     }
 }
 
-impl<'a> GetDimension for WeaponKind<'a> {
+impl GetDimension for WeaponKind {
     fn width(&self) -> u32 {
         match *self {
             Self::Sword(ref s) => s.width(),
@@ -232,10 +228,8 @@ pub struct WeaponAction {
     y_add: i32,
 }
 
-pub struct Sword<'a> {
-    texture: Texture<'a>,
-    width: u32,
-    height: u32,
+pub struct Sword {
+    texture: TextureId,
 }
 
 fn get_surface_data(surface: &Surface<'_>) -> Vec<u8> {
@@ -254,8 +248,11 @@ fn get_surface_data(surface: &Surface<'_>) -> Vec<u8> {
     data
 }
 
-impl<'a> Sword<'a> {
-    pub fn new(texture_creator: &'a TextureCreator<WindowContext>, attack: i32) -> Weapon<'a> {
+impl Sword {
+    pub fn init_textures<'a>(
+        texture_creator: &'a TextureCreator<WindowContext>,
+        textures: &mut Textures<'a>,
+    ) {
         let mut surface = Surface::from_file("resources/weapon.png")
             .expect("failed to load `resources/weapon.png`");
 
@@ -266,18 +263,22 @@ impl<'a> Sword<'a> {
         }
 
         let data = get_surface_data(&surface);
+        textures.add_surface_data("sword", data);
+        textures.add_named_texture(
+            "sword",
+            TextureHolder::surface_into_texture(texture_creator, surface),
+        );
+    }
+
+    pub fn new(textures: &Textures<'_>, attack: i32) -> Weapon {
         Weapon {
             x: 0,
             y: 0,
             action: None,
-            data,
+            data_id: "sword",
             total_time: ONE_SECOND / 4,
             kind: WeaponKind::Sword(Sword {
-                width: surface.width(),
-                height: surface.height(),
-                texture: texture_creator
-                    .create_texture_from_surface(surface)
-                    .expect("failed to build weapon texture from surface"),
+                texture: textures.get_texture_id_from_name("sword"),
             }),
             attack,
             blocking_direction: None,
@@ -302,16 +303,16 @@ impl<'a> Sword<'a> {
     pub fn weight(&self) -> u32 {
         10
     }
-    pub fn get_texture(&self) -> &Texture<'a> {
-        &self.texture
+    pub fn get_texture(&self) -> TextureId {
+        self.texture
     }
 }
 
-impl<'a> GetDimension for Sword<'a> {
+impl GetDimension for Sword {
     fn width(&self) -> u32 {
-        self.width
+        self.texture.width as _
     }
     fn height(&self) -> u32 {
-        self.height
+        self.texture.height as _
     }
 }

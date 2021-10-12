@@ -14,7 +14,7 @@ use crate::menu::{Menu, MenuEvent};
 use crate::player::Player;
 use crate::reward::Reward;
 use crate::system::System;
-use crate::texture_holder::TextureHolder;
+use crate::texture_holder::{TextureHolder, TextureId, Textures};
 use crate::utils::compute_distance;
 use crate::{GetDimension, GetPos, ONE_SECOND};
 
@@ -243,8 +243,8 @@ pub struct Env<'a> {
     pub is_attack_pressed: bool,
     pub debug: bool,
     pub fps_str: String,
-    pub debug_display: DebugDisplay<'a>,
-    pub menu: Menu<'a>,
+    pub debug_display: DebugDisplay,
+    pub menu: Menu,
     pub need_sort_rewards: bool,
     pub closest_reward: Option<(i32, usize)>,
     pub game_controller_subsystem: &'a GameControllerSubsystem,
@@ -252,12 +252,13 @@ pub struct Env<'a> {
     // pressed_keys: Vec<Event>,
     pub character_window: EguiWindow,
     pub inventory_window: EguiWindow,
+    reward_text: TextureId,
 }
 
 impl<'a> Env<'a> {
-    pub fn init_textures(
-        textures: &mut HashMap<&'static str, TextureHolder<'a>>,
-        texture_creator: &'a TextureCreator<WindowContext>,
+    pub fn init_textures<'b>(
+        textures: &mut Textures<'b>,
+        texture_creator: &'b TextureCreator<WindowContext>,
         width: u32,
         height: u32,
     ) {
@@ -265,26 +266,27 @@ impl<'a> Env<'a> {
         // Window::init_textures(texture_creator, textures, WINDOW_WIDTH, 1);
     }
 
-    pub fn new(
+    pub fn new<'b>(
         game_controller_subsystem: &'a GameControllerSubsystem,
-        texture_creator: &'a TextureCreator<WindowContext>,
-        textures: &'a HashMap<&'static str, TextureHolder<'a>>,
+        texture_creator: &'b TextureCreator<WindowContext>,
+        textures: &mut Textures<'b>,
         width: u32,
         height: u32,
-    ) -> Env<'a> {
+    ) -> Self {
         let mut env = Env {
             display_menu: false,
             is_attack_pressed: false,
             debug: false,
             fps_str: String::new(),
-            debug_display: DebugDisplay::new(texture_creator, 16),
-            menu: Menu::new(texture_creator, width, height),
+            debug_display: DebugDisplay::new(texture_creator, textures, 16),
+            menu: Menu::new(texture_creator, textures, width, height),
             need_sort_rewards: false,
             closest_reward: None,
             game_controller_subsystem,
             controller: None,
             character_window: Default::default(),
             inventory_window: Default::default(),
+            reward_text: textures.get_texture_id_from_name("reward-text"),
         };
         env.update_controller();
         env
@@ -332,7 +334,7 @@ impl<'a> Env<'a> {
         event_pump: &mut EventPump,
         players: &mut [Player],
         rewards: &mut Vec<Reward>,
-        textures: &'a HashMap<&'static str, TextureHolder<'a>>,
+        textures: &Textures<'_>,
         egui_input_state: &mut egui_sdl2_gl::EguiInputState,
     ) -> bool {
         let mouse_state = event_pump.mouse_state();
@@ -555,7 +557,7 @@ impl<'a> Env<'a> {
         true
     }
 
-    pub fn show_death_screen(&mut self, textures: &'a HashMap<&'static str, TextureHolder<'a>>) {
+    pub fn show_death_screen(&mut self, textures: &Textures<'_>) {
         self.menu.set_death(textures);
         self.display_menu = true;
     }
@@ -584,13 +586,7 @@ impl<'a> Env<'a> {
         }
     }
 
-    pub fn draw_rewards(
-        &mut self,
-        system: &mut System,
-        rewards: &[Reward],
-        player: &Player,
-        textures: &HashMap<&'static str, TextureHolder>,
-    ) {
+    pub fn draw_rewards(&mut self, system: &mut System, rewards: &[Reward], player: &Player) {
         if self.need_sort_rewards {
             self.closest_reward = None;
             for i in 0..rewards.len() {
@@ -687,11 +683,10 @@ impl<'a> Env<'a> {
         }
         if let Some((_, pos)) = self.closest_reward {
             let reward = &rewards[pos];
-            let texture = &textures["reward-text"];
-            texture.draw(
+            self.reward_text.draw(
                 system,
-                reward.x() + (reward.width() as i64) / 2 - (texture.width as i64) / 2,
-                reward.y() - 2 - texture.height as i64,
+                reward.x() + (reward.width() as i64) / 2 - (self.reward_text.width as i64) / 2,
+                reward.y() - 2 - self.reward_text.height as i64,
             );
         }
     }

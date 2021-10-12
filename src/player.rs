@@ -11,43 +11,43 @@ use crate::sdl2::video::WindowContext;
 use crate::character::{Action, Character, CharacterKind, CharacterPoints, Direction};
 use crate::env::Env;
 use crate::player_stats::PlayerStats;
-use crate::stat::Stat;
 use crate::texture_handler::{Dimension, TextureHandler};
+use crate::texture_holder::{TextureHolder, Textures};
 use crate::weapon::Sword;
 // use crate::window::UpdateKind;
 use crate::{GetDimension, GetPos, Id, ONE_SECOND};
 
-pub fn get_player<'a>(
-    texture_creator: &'a TextureCreator<WindowContext>,
-) -> (Texture<'a>, Surface<'a>) {
-    let mut surface =
-        Surface::from_file("resources/zelda.png").expect("failed to load `resources/zelda.png`");
-
-    if surface.pixel_format_enum() != PixelFormatEnum::RGBA8888 {
-        surface = surface
-            .convert_format(PixelFormatEnum::RGBA8888)
-            .expect("failed to convert surface to RGBA8888");
-    }
-
-    (
-        texture_creator
-            .create_texture_from_surface(&surface)
-            .expect("failed to build texture from surface"),
-        surface,
-    )
-}
-
-pub struct Player<'a> {
-    pub character: Character<'a>,
+pub struct Player {
+    pub character: Character,
     pub is_run_pressed: bool,
     pub stats: Option<RefCell<PlayerStats>>,
 }
 
 const MARGIN_STANDING: u32 = 4;
 
-impl<'a> Player<'a> {
+impl Player {
     pub const TILE_WIDTH: u32 = 22;
     pub const TILE_HEIGHT: u32 = 22;
+
+    pub fn init_textures<'a>(
+        texture_creator: &'a TextureCreator<WindowContext>,
+        textures: &mut Textures<'a>,
+    ) {
+        let mut surface = Surface::from_file("resources/zelda.png")
+            .expect("failed to load `resources/zelda.png`");
+
+        if surface.pixel_format_enum() != PixelFormatEnum::RGBA8888 {
+            surface = surface
+                .convert_format(PixelFormatEnum::RGBA8888)
+                .expect("failed to convert surface to RGBA8888");
+        }
+
+        textures.add_named_texture(
+            "player",
+            TextureHolder::surface_to_texture(texture_creator, &surface),
+        );
+        textures.add_surface("player", surface);
+    }
 
     pub fn get_actions_standing() -> Vec<Dimension> {
         vec![
@@ -70,16 +70,15 @@ impl<'a> Player<'a> {
         ]
     }
 
-    pub fn new(
+    pub fn new<'a>(
         texture_creator: &'a TextureCreator<WindowContext>,
-        texture: &'a Texture<'a>,
-        surface: &'a Surface<'a>,
+        textures: &Textures<'a>,
         x: i64,
         y: i64,
         id: Id,
         stats: Option<PlayerStats>,
         env: Option<&mut Env>,
-    ) -> Player<'a> {
+    ) -> Self {
         let mut actions_moving = Vec::with_capacity(4);
         actions_moving.push((
             Dimension::new(Rect::new(15, 77, Self::TILE_WIDTH, Self::TILE_HEIGHT), 32),
@@ -98,8 +97,8 @@ impl<'a> Player<'a> {
             10,
         ));
         let texture_handler = TextureHandler::new(
-            surface,
-            texture,
+            "player",
+            textures.get_texture_id_from_name("player"),
             Self::get_actions_standing(),
             actions_moving,
             None,
@@ -135,7 +134,7 @@ impl<'a> Player<'a> {
                 level,
                 unused_points: 0,
                 texture_handler,
-                weapon: Some(Sword::new(texture_creator, 10)),
+                weapon: Some(Sword::new(textures, 10)),
                 is_running: false,
                 id,
                 invincible_against: Vec::new(),
@@ -202,7 +201,7 @@ impl<'a> Player<'a> {
     }
 }
 
-impl<'a> GetPos for Player<'a> {
+impl GetPos for Player {
     fn x(&self) -> i64 {
         self.character.x
     }
@@ -212,7 +211,7 @@ impl<'a> GetPos for Player<'a> {
     }
 }
 
-impl<'a> GetDimension for Player<'a> {
+impl GetDimension for Player {
     fn width(&self) -> u32 {
         self.character.width()
     }
@@ -221,15 +220,15 @@ impl<'a> GetDimension for Player<'a> {
     }
 }
 
-impl<'a> Deref for Player<'a> {
-    type Target = Character<'a>;
+impl Deref for Player {
+    type Target = Character;
 
     fn deref(&self) -> &Self::Target {
         &self.character
     }
 }
 
-impl<'a> DerefMut for Player<'a> {
+impl DerefMut for Player {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.character
     }

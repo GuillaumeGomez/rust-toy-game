@@ -1,4 +1,5 @@
 use crate::sdl2::pixels::Color;
+use crate::sdl2::rect::{Point, Rect};
 use crate::sdl2::render::{Canvas, TextureCreator};
 use crate::sdl2::ttf::Font;
 use crate::sdl2::video::{Window, WindowContext};
@@ -6,6 +7,7 @@ use crate::sdl2::video::{Window, WindowContext};
 use crate::font_handler::FontHandler;
 use crate::health_bar::HealthBar;
 use crate::player::Player;
+use crate::texture_holder::{TextureId, Textures};
 
 pub struct System<'a> {
     pub canvas: Canvas<Window>,
@@ -15,6 +17,7 @@ pub struct System<'a> {
     pub height: u32,
     pub health_bar: &'a HealthBar<'a>,
     pub font_maps: Vec<FontHandler<'a>>,
+    pub textures: Textures<'a>,
 }
 
 impl<'a> System<'a> {
@@ -23,6 +26,7 @@ impl<'a> System<'a> {
         width: u32,
         height: u32,
         health_bar: &'a HealthBar,
+        textures: Textures<'a>,
     ) -> System<'a> {
         System {
             canvas,
@@ -32,7 +36,50 @@ impl<'a> System<'a> {
             height,
             health_bar,
             font_maps: Vec::new(),
+            textures,
         }
+    }
+
+    #[inline]
+    pub fn copy_to_canvas<R1: Into<Option<Rect>>, R2: Into<Option<Rect>>>(
+        &mut self,
+        id: TextureId,
+        src: R1,
+        dst: R2,
+    ) {
+        let texture = self.textures.get(id);
+        self.canvas
+            .copy(&texture.texture, src, dst)
+            .expect("copy to canvas failed");
+    }
+
+    #[inline]
+    pub fn copy_ex_to_canvas<
+        R1: Into<Option<Rect>>,
+        R2: Into<Option<Rect>>,
+        P: Into<Option<Point>>,
+    >(
+        &mut self,
+        id: TextureId,
+        src: R1,
+        dst: R2,
+        angle: f64,
+        center: P,
+        flip_horizontal: bool,
+        flip_vertical: bool,
+    ) {
+        let texture = self.textures.get(id);
+        self.canvas
+            .copy_ex(
+                &texture.texture,
+                src,
+                dst,
+                angle,
+                center,
+                flip_horizontal,
+                flip_vertical,
+            )
+            .expect("copy_ex to canvas failed");
     }
 
     pub fn create_new_font_map<'b>(

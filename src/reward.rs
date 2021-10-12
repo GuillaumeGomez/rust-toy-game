@@ -1,22 +1,22 @@
 use crate::sdl2::rect::Rect;
 
 use crate::system::System;
-use crate::texture_holder::TextureHolder;
+use crate::texture_holder::{TextureHolder, TextureId};
 use crate::{GetDimension, GetPos};
 
 pub struct RewardInfo {
     pub gold: u32,
 }
 
-pub struct Reward<'a> {
-    texture: &'a TextureHolder<'a>,
+pub struct Reward {
+    texture: TextureId,
     x: i64,
     y: i64,
     info: RewardInfo,
 }
 
-impl<'a> Reward<'a> {
-    pub fn new(texture: &'a TextureHolder<'a>, x: i64, y: i64, info: RewardInfo) -> Reward<'a> {
+impl Reward {
+    pub fn new(texture: TextureId, x: i64, y: i64, info: RewardInfo) -> Reward {
         Reward {
             texture,
             x,
@@ -36,18 +36,15 @@ impl<'a> Reward<'a> {
         {
             return;
         }
-        system
-            .canvas
-            .copy(
-                &self.texture.texture,
-                None,
-                Rect::new(x, y, self.texture.width, self.texture.height),
-            )
-            .expect("copy reward failed");
+        system.copy_to_canvas(
+            self.texture,
+            None,
+            Rect::new(x, y, self.texture.width as _, self.texture.height as _),
+        );
     }
 }
 
-impl<'a> GetPos for Reward<'a> {
+impl GetPos for Reward {
     fn x(&self) -> i64 {
         self.x
     }
@@ -57,11 +54,11 @@ impl<'a> GetPos for Reward<'a> {
     }
 }
 
-impl<'a> GetDimension for Reward<'a> {
+impl GetDimension for Reward {
     fn width(&self) -> u32 {
-        self.texture.width
+        self.texture.width as _
     }
     fn height(&self) -> u32 {
-        self.texture.height
+        self.texture.height as _
     }
 }

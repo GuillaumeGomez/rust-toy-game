@@ -10,11 +10,11 @@ use crate::sdl2::video::WindowContext;
 use std::collections::HashMap;
 
 use crate::system::System;
-use crate::texture_holder::TextureHolder;
+use crate::texture_holder::{TextureHolder, TextureId, Textures};
 
-struct Button<'a> {
-    texture: &'a TextureHolder<'a>,
-    texture_clicked: &'a TextureHolder<'a>,
+struct Button {
+    texture: TextureId,
+    texture_clicked: TextureId,
     text: String,
     rect: Rect,
     is_hovered: bool,
@@ -22,14 +22,14 @@ struct Button<'a> {
     action: MenuEvent,
 }
 
-impl<'a> Button<'a> {
+impl Button {
     fn new(
         text: String,
-        button_texture: &'a TextureHolder<'a>,
-        button_texture_clicked: &'a TextureHolder<'a>,
+        button_texture: TextureId,
+        button_texture_clicked: TextureId,
         rect: Rect,
         action: MenuEvent,
-    ) -> Button<'a> {
+    ) -> Button {
         Button {
             texture: button_texture,
             texture_clicked: button_texture_clicked,
@@ -57,18 +57,15 @@ impl<'a> Button<'a> {
     }
 
     fn draw(&self, system: &mut System) {
-        system
-            .canvas
-            .copy(
-                if self.is_clicked {
-                    &self.texture_clicked.texture
-                } else {
-                    &self.texture.texture
-                },
-                None,
-                self.rect,
-            )
-            .expect("copy menu failed");
+        system.copy_to_canvas(
+            if self.is_clicked {
+                self.texture_clicked
+            } else {
+                self.texture
+            },
+            None,
+            self.rect,
+        );
         system.draw_text(
             &self.text,
             16,
@@ -129,21 +126,21 @@ pub enum MenuEvent {
     None,
 }
 
-pub struct Menu<'a> {
-    background: Texture<'a>,
-    buttons: Vec<Button<'a>>,
+pub struct Menu {
+    background: TextureId,
+    buttons: Vec<Button>,
     selected: Option<usize>,
-    selected_texture: Texture<'a>,
+    selected_texture: TextureId,
     parent_state: Vec<&'static str>,
     state: &'static str,
     width: u32,
     height: u32,
 }
 
-impl<'a> Menu<'a> {
-    pub fn init_button_textures(
+impl Menu {
+    pub fn init_button_textures<'a>(
         texture_creator: &'a TextureCreator<WindowContext>,
-        textures: &mut HashMap<&'static str, TextureHolder<'a>>,
+        textures: &mut Textures<'a>,
         width: u32,
         height: u32,
     ) {
@@ -152,27 +149,29 @@ impl<'a> Menu<'a> {
         button
             .fill_rect(None, Color::RGB(30, 30, 30))
             .expect("failed to fill button surface");
-        textures.insert(
+        textures.add_named_texture(
             "t:button",
-            TextureHolder::surface_to_texture(texture_creator, button),
+            TextureHolder::surface_into_texture(texture_creator, button),
         );
+
         let mut button_clicked =
             Surface::new(width, height, texture_creator.default_pixel_format())
                 .expect("failed to create button surface");
         button_clicked
             .fill_rect(None, Color::RGB(20, 20, 20))
             .expect("failed to fill button surface");
-        textures.insert(
+        textures.add_named_texture(
             "t:button-clicked",
-            TextureHolder::surface_to_texture(texture_creator, button_clicked),
+            TextureHolder::surface_into_texture(texture_creator, button_clicked),
         );
     }
 
-    pub fn new(
+    pub fn new<'a>(
         texture_creator: &'a TextureCreator<WindowContext>,
+        textures: &mut Textures<'a>,
         width: u32,
         height: u32,
-    ) -> Menu<'a> {
+    ) -> Self {
         let mut background = Surface::new(width, height, PixelFormatEnum::RGBA8888)
             .expect("failed to create background surface");
         background
@@ -185,13 +184,15 @@ impl<'a> Menu<'a> {
             .expect("failed to fill selected surface");
 
         Menu {
-            background: texture_creator
-                .create_texture_from_surface(background)
-                .expect("failed to build texture from Menu surface"),
+            background: textures.add_texture(TextureHolder::surface_into_texture(
+                texture_creator,
+                background,
+            )),
             buttons: Vec::new(),
-            selected_texture: texture_creator
-                .create_texture_from_surface(selected_surface)
-                .expect("failed to build texture from selected surface"),
+            selected_texture: textures.add_texture(TextureHolder::surface_into_texture(
+                texture_creator,
+                selected_surface,
+            )),
             selected: None,
             state: "",
             parent_state: Vec::new(),
@@ -200,23 +201,19 @@ impl<'a> Menu<'a> {
         }
     }
 
-    pub fn set_pause(&mut self, textures: &'a HashMap<&'static str, TextureHolder<'a>>) {
+    pub fn set_pause(&mut self, textures: &Textures<'_>) {
         self.parent_state.clear();
         self.set_state("pause", textures);
         self.update(0, 0);
     }
 
-    pub fn set_death(&mut self, textures: &'a HashMap<&'static str, TextureHolder<'a>>) {
+    pub fn set_death(&mut self, textures: &Textures<'_>) {
         self.parent_state.clear();
         self.set_state("death", textures);
         self.update(0, 0);
     }
 
-    pub fn set_state(
-        &mut self,
-        state: &'static str,
-        textures: &'a HashMap<&'static str, TextureHolder<'a>>,
-    ) {
+    pub fn set_state(&mut self, state: &'static str, textures: &Textures<'_>) {
         if self.state == state {
             return;
         }
@@ -232,8 +229,9 @@ impl<'a> Menu<'a> {
                 self.buttons.clear();
                 let total = buttons.len() as i32 + 1;
                 for (pos, (text, action)) in buttons.iter().enumerate() {
-                    let button_texture = &textures[&"t:button"];
-                    let button_texture_clicked = &textures[&"t:button-clicked"];
+                    let button_texture = textures.get_texture_id_from_name("t:button");
+                    let button_texture_clicked =
+                        textures.get_texture_id_from_name("t:button-clicked");
                     self.buttons.push(Button::new(
                         text.to_string(),
                         button_texture,
@@ -282,11 +280,7 @@ impl<'a> Menu<'a> {
         }
     }
 
-    fn handle_button(
-        &mut self,
-        button_pos: usize,
-        textures: &'a HashMap<&'static str, TextureHolder<'a>>,
-    ) -> MenuEvent {
+    fn handle_button(&mut self, button_pos: usize, textures: &Textures<'_>) -> MenuEvent {
         match self.buttons[button_pos].action {
             MenuEvent::StartGame => return MenuEvent::Resume,
             MenuEvent::GoBack => {
@@ -306,11 +300,7 @@ impl<'a> Menu<'a> {
         }
     }
 
-    pub fn handle_event(
-        &mut self,
-        event: Event,
-        textures: &'a HashMap<&'static str, TextureHolder<'a>>,
-    ) -> MenuEvent {
+    pub fn handle_event(&mut self, event: Event, textures: &Textures<'_>) -> MenuEvent {
         match event {
             Event::Quit { .. } => {
                 self.reset_buttons();
@@ -391,28 +381,22 @@ impl<'a> Menu<'a> {
     }
 
     pub fn draw(&self, system: &mut System) {
-        system
-            .canvas
-            .copy(&self.background, None, None)
-            .expect("copy menu failed");
+        system.copy_to_canvas(self.background, None, None);
         for button in self.buttons.iter() {
             button.draw(system);
         }
         if let Some(selected) = self.get_selected_button() {
             let rect = selected.rect;
-            system
-                .canvas
-                .copy(
-                    &self.selected_texture,
-                    None,
-                    Rect::new(
-                        rect.x - 30,
-                        rect.y + (rect.height() - 20) as i32 / 2,
-                        20,
-                        20,
-                    ),
-                )
-                .expect("copy menu failed");
+            system.copy_to_canvas(
+                self.selected_texture,
+                None,
+                Rect::new(
+                    rect.x - 30,
+                    rect.y + (rect.height() - 20) as i32 / 2,
+                    20,
+                    20,
+                ),
+            );
         }
     }
 }
