@@ -16,6 +16,7 @@ pub enum AssetKind {
     Tree = 1,
     Bush,
     House,
+    Houses,
 }
 
 fn check_pixels_for_pos(x: u32, y: u32, surface: &Surface) -> bool {
@@ -201,6 +202,8 @@ impl<'a> Map<'a> {
         let (tree, tree_byte_vec) = load_asset!("resources/trees.png", AssetKind::Tree, tree_r);
         let (bush, bush_byte_vec) = load_asset!("resources/bush.png", AssetKind::Bush);
         let (house, house_byte_vec) = load_asset!("resources/house.png", AssetKind::House);
+        let (buildings, buildings_byte_vec) =
+            load_asset!("resources/building.png", AssetKind::Houses);
 
         let mut surface_map = Surface::new(
             MAP_SIZE * MAP_CASE_SIZE as u32,
@@ -230,11 +233,13 @@ impl<'a> Map<'a> {
 
         let nb_trees = 200;
         let nb_bushes = 500;
-        let mut all_assets = Vec::with_capacity(nb_trees + nb_bushes + 1);
+        let mut all_assets = Vec::with_capacity(nb_trees + nb_bushes + 2);
 
-        let pos = MAP_SIZE / 2 + 50;
-        write_in_map(&mut map, pos, pos, &house_byte_vec);
-        all_assets.push((pos as _, pos as _, AssetKind::House));
+        let pos = MAP_SIZE / 2;
+        write_in_map(&mut map, pos + 20, pos, &house_byte_vec);
+        all_assets.push((pos as u16 + 20, pos as _, AssetKind::House));
+        write_in_map(&mut map, pos, pos - 40, &buildings_byte_vec);
+        all_assets.push((pos as u16, pos as u16 - 40, AssetKind::Houses));
 
         for _ in 0..nb_trees {
             loop {
@@ -262,6 +267,7 @@ impl<'a> Map<'a> {
                 (tree, Some(tree_r), Some(Rect::new(170, 0, 72, 100))),
                 (bush, None, None),
                 (house, None, None),
+                (buildings, None, None),
             ],
             &all_assets,
         );

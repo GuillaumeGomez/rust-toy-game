@@ -80,7 +80,7 @@ impl<'a> FontHandler<'a> {
             })
             .collect::<Vec<_>>();
         FontHandler {
-            texture: TextureHolder::surface_to_texture(texture_creator, letters_surface),
+            texture: TextureHolder::surface_into_texture(texture_creator, letters_surface),
             size: font_size,
             color,
             inner,

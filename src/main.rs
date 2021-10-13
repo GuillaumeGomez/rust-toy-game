@@ -5,10 +5,10 @@ use rand_chacha::ChaCha8Rng;
 
 use sdl2::image::{self, LoadSurface};
 use sdl2::pixels::{Color, PixelFormatEnum};
-use sdl2::render::Canvas;
+use sdl2::render::{Canvas, Texture, TextureCreator};
 use sdl2::surface::Surface;
 use sdl2::ttf;
-use sdl2::video::{GLProfile, Window};
+use sdl2::video::{GLProfile, Window, WindowContext};
 
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
@@ -21,6 +21,7 @@ mod utils;
 mod animation;
 mod character;
 mod debug_display;
+mod enemies;
 mod enemy;
 mod env;
 mod font_handler;
@@ -39,7 +40,7 @@ mod texture_holder;
 mod traits;
 mod weapon;
 
-use character::CharacterKind;
+use enemies::Skeleton;
 use enemy::Enemy;
 use env::Env;
 use health_bar::HealthBar;
@@ -48,7 +49,7 @@ use map::Map;
 use player::Player;
 use reward::Reward;
 use system::System;
-use texture_holder::TextureHolder;
+use texture_holder::{TextureHolder, Textures};
 
 pub use traits::*;
 
@@ -83,8 +84,8 @@ pub fn draw_in_good_order(
     system: &mut System,
     debug: bool,
     players: &mut Vec<Player>,
-    enemies: &mut Vec<Enemy>,
-    dead_enemies: &mut Vec<Enemy>,
+    enemies: &mut Vec<Box<Skeleton>>,
+    dead_enemies: &mut Vec<Box<Skeleton>>,
     sort: bool,
 ) {
     if sort {
@@ -119,6 +120,59 @@ pub fn draw_in_good_order(
         }
         dead_enemy_iter.next().unwrap().draw(system, false);
     }
+}
+
+fn make_enemies<'a>(
+    texture_creator: &'a TextureCreator<WindowContext>,
+    textures: &mut Textures<'a>,
+) -> (Vec<Box<Skeleton>>, Vec<Box<Skeleton>>) {
+    let mut skeleton_surface = Surface::from_file("resources/skeleton.png")
+        .expect("failed to load `resources/skeleton.png`");
+    if skeleton_surface.pixel_format_enum() != PixelFormatEnum::RGBA8888 {
+        skeleton_surface = skeleton_surface
+            .convert_format(PixelFormatEnum::RGBA8888)
+            .expect("failed to convert surface to RGBA8888");
+    }
+    let skeleton_texture = texture_creator
+        .create_texture_from_surface(&skeleton_surface)
+        .expect("failed to build texture from surface");
+    let mut forced_skeleton_surface =
+        Surface::new(24 * 3, 24 * 4, skeleton_surface.pixel_format_enum())
+            .expect("failed to create new surface for resize");
+
+    let rect = forced_skeleton_surface.rect();
+    skeleton_surface
+        .blit(None, &mut forced_skeleton_surface, rect)
+        .expect("failed to resize surface...");
+
+    textures.add_named_texture(
+        "skeleton",
+        TextureHolder {
+            texture: skeleton_texture,
+            width: skeleton_surface.width(),
+            height: skeleton_surface.height(),
+        },
+    );
+    let width = skeleton_surface.width();
+    let height = skeleton_surface.height();
+    textures.add_surface("skeleton", skeleton_surface);
+
+    let enemies = vec![
+        Skeleton::new(texture_creator, textures, 0, 40, 2, width / 3, height / 4),
+        Skeleton::new(texture_creator, textures, 40, 0, 3, width / 3, height / 4),
+    ];
+
+    let dead_enemies = Vec::new();
+
+    (enemies, dead_enemies)
+}
+
+fn init_textures<'a>(
+    texture_creator: &'a TextureCreator<WindowContext>,
+    textures: &mut Textures<'a>,
+) {
+    Player::init_textures(&texture_creator, textures);
+    crate::weapon::Sword::init_textures(&texture_creator, textures);
 }
 
 pub fn main() {
@@ -188,7 +242,18 @@ pub fn main() {
         ..Default::default()
     });
 
-    let mut system = System::new(canvas, WIDTH as _, HEIGHT as _, &health_bar);
+    let font_10 = load_font!(ttf_context, 10);
+    let font_12 = load_font!(ttf_context, 12);
+    let font_14 = load_font!(ttf_context, 14);
+    let font_16 = load_font!(ttf_context, 16);
+
+    let mut system = System::new(
+        canvas,
+        WIDTH as _,
+        HEIGHT as _,
+        &health_bar,
+        Textures::new(),
+    );
 
     let mut event_pump = sdl_context.event_pump().expect("failed to get event pump");
     let map = Map::new(
@@ -198,59 +263,40 @@ pub fn main() {
         MAP_SIZE as i64 * MAP_CASE_SIZE / -2,
     );
 
-    let font_10 = load_font!(ttf_context, 10);
-    let font_12 = load_font!(ttf_context, 12);
-    let font_14 = load_font!(ttf_context, 14);
-    let font_16 = load_font!(ttf_context, 16);
+    init_textures(&texture_creator, &mut system.textures);
 
     system.create_new_font_map(&texture_creator, &font_14, 14, Color::RGB(255, 0, 0));
     system.create_new_font_map(&texture_creator, &font_12, 12, Color::RGB(255, 255, 255));
     system.create_new_font_map(&texture_creator, &font_16, 16, Color::RGB(255, 255, 255));
     system.create_new_font_map(&texture_creator, &font_16, 16, Color::RGB(74, 138, 221));
 
-    let (player_texture, player_surface) = player::get_player(&texture_creator);
-    let mut enemy_surface = Surface::from_file("resources/skeleton.png")
-        .expect("failed to load `resources/skeleton.png`");
-    if enemy_surface.pixel_format_enum() != PixelFormatEnum::RGBA8888 {
-        enemy_surface = enemy_surface
-            .convert_format(PixelFormatEnum::RGBA8888)
-            .expect("failed to convert surface to RGBA8888");
-    }
-    let enemy_texture = texture_creator
-        .create_texture_from_surface(&enemy_surface)
-        .expect("failed to build texture from surface");
-    let mut forced_enemy_surface = Surface::new(24 * 3, 24 * 4, enemy_surface.pixel_format_enum())
-        .expect("failed to create new surface for resize");
-    let rect = forced_enemy_surface.rect();
-    enemy_surface
-        .blit(None, &mut forced_enemy_surface, rect)
-        .expect("failed to resize surface...");
-
-    // TODO: maybe move that in `Env`?
-    let mut textures = HashMap::new();
-    textures.insert(
-        "reward",
+    let reward_id = system.textures.add_texture(
         TextureHolder::from_image(&texture_creator, "resources/bag.png").with_max_size(24),
     );
-    textures.insert(
-        "reward-text",
-        TextureHolder::from_text(
-            &texture_creator,
-            &font_10,
-            Color::RGB(0, 0, 0),
-            None,
-            "Press ENTER",
-        ),
-    );
-    animation::create_death_animation_texture(&mut textures, &texture_creator);
-    animation::create_level_up_animation_texture(&mut textures, &texture_creator);
+    let reward_text_id = system.textures.add_texture(TextureHolder::from_text(
+        &texture_creator,
+        &font_10,
+        Color::RGB(0, 0, 0),
+        None,
+        "Press ENTER",
+    ));
+    system
+        .textures
+        .create_named_texture_id("reward-text", reward_text_id);
+    animation::create_death_animation_texture(&mut system.textures, &texture_creator);
+    animation::create_level_up_animation_texture(&mut system.textures, &texture_creator);
 
     let hud = HUD::new(&texture_creator);
-    Env::init_textures(&mut textures, &texture_creator, WIDTH as u32, HEIGHT as u32);
+    Env::init_textures(
+        &mut system.textures,
+        &texture_creator,
+        WIDTH as u32,
+        HEIGHT as u32,
+    );
     let mut env = Env::new(
         &game_controller_subsystem,
         &texture_creator,
-        &textures,
+        &mut system.textures,
         WIDTH as u32,
         HEIGHT as u32,
     );
@@ -261,42 +307,14 @@ pub fn main() {
 
     let mut players = vec![Player::new(
         &texture_creator,
-        &player_texture,
-        &player_surface,
+        &system.textures,
         0,
         0,
         1,
         Some(Default::default()),
         Some(&mut env),
     )];
-    let mut enemies = vec![
-        Enemy::new(
-            &texture_creator,
-            &textures,
-            &enemy_texture,
-            &forced_enemy_surface,
-            0,
-            40,
-            2,
-            CharacterKind::Enemy,
-            enemy_surface.width() / 3,
-            enemy_surface.height() / 4,
-        ),
-        Enemy::new(
-            &texture_creator,
-            &textures,
-            &enemy_texture,
-            &forced_enemy_surface,
-            40,
-            0,
-            3,
-            CharacterKind::Enemy,
-            enemy_surface.width() / 3,
-            enemy_surface.height() / 4,
-        ),
-    ];
-
-    let mut dead_enemies: Vec<Enemy> = Vec::new();
+    let (mut enemies, mut dead_enemies) = make_enemies(&texture_creator, &mut system.textures);
     let mut sort_update = 0u8;
     let start_time = Instant::now();
 
@@ -309,7 +327,7 @@ pub fn main() {
             &mut event_pump,
             &mut players,
             &mut rewards,
-            &textures,
+            &system.textures,
             &mut egui_input_state,
         ) {
             break;
@@ -317,25 +335,30 @@ pub fn main() {
 
         if !env.display_menu {
             for it in (0..dead_enemies.len()).rev() {
-                dead_enemies[it].update(update_elapsed, 0, 0);
-                if dead_enemies[it].should_be_removed() {
-                    // TODO: in here, give XP to the playerS depending on how much
-                    //       damage they did to the monster and with a bonus/malus based
-                    //       on the level difference.
-                    if let Some(reward) = dead_enemies[it].get_reward() {
-                        let texture = &textures["reward"];
-                        let width = texture.width as i32;
-                        let height = texture.height as i32;
-                        rewards.push(Reward::new(
-                            texture,
-                            dead_enemies[it].x()
-                                + ((dead_enemies[it].width() as i32 / 2) - width / 2) as i64,
-                            dead_enemies[it].y()
-                                + ((dead_enemies[it].height() as i32 / 2) - height / 2) as i64,
-                            reward,
-                        ));
-                        env.need_sort_rewards = true;
+                let to_remove = {
+                    dead_enemies[it].update(update_elapsed, 0, 0);
+                    let dead_enemy = &dead_enemies[it];
+                    if dead_enemy.character().should_be_removed() {
+                        // TODO: in here, give XP to the playerS depending on how much
+                        //       damage they did to the monster and with a bonus/malus based
+                        //       on the level difference.
+                        if let Some(reward) = dead_enemies[it].character().get_reward() {
+                            let width = reward_id.width as i32;
+                            let height = reward_id.height as i32;
+                            rewards.push(Reward::new(
+                                reward_id,
+                                dead_enemy.x()
+                                    + ((dead_enemies[it].width() as i32 / 2) - width / 2) as i64,
+                                dead_enemy.y()
+                                    + ((dead_enemies[it].height() as i32 / 2) - height / 2) as i64,
+                                reward,
+                            ));
+                            env.need_sort_rewards = true;
+                        }
                     }
+                    true
+                };
+                if to_remove {
                     dead_enemies.remove(it);
                 }
             }
@@ -366,13 +389,18 @@ pub fn main() {
                         let mut matrix = None;
                         // TODO: for now, players can only attack NPCs
                         for it in (0..enemies.len()).rev() {
-                            let attack =
-                                enemies[it].check_intersection(id, dir, weapon, &mut matrix);
+                            let attack = enemies[it].character_mut().check_intersection(
+                                id,
+                                dir,
+                                weapon,
+                                &mut matrix,
+                                &system.textures,
+                            );
                             if attack > 0 {
                                 if i == 0 {
                                     env.rumble(u16::MAX / 13, 250);
                                 }
-                                let is_dead = enemies[it].is_dead();
+                                let is_dead = enemies[it].character().is_dead();
                                 if let Some(ref stats) = players[i].stats {
                                     let mut stats = stats.borrow_mut();
                                     if attack > 0 {
@@ -380,14 +408,14 @@ pub fn main() {
                                             attack as u64;
                                         if is_dead {
                                             stats.total_damages.total_kills += 1;
-                                            xp_to_add += enemies[it].xp;
+                                            xp_to_add += enemies[it].character().xp;
                                         }
                                     } else {
                                         stats.total_damages.total_healed += (attack * -1) as u64;
                                     }
                                     let enemy_stats = stats
                                         .enemies
-                                        .entry(enemies[it].kind)
+                                        .entry(enemies[it].character().kind)
                                         .or_insert_with(Default::default);
                                     if attack > 0 {
                                         enemy_stats.total_inflicted_damages += attack as u64;
@@ -407,7 +435,7 @@ pub fn main() {
                     if xp_to_add > 0 {
                         players[i].increase_xp(
                             xp_to_add,
-                            &textures,
+                            &system.textures,
                             if i == 0 { Some(&mut env) } else { None },
                         );
                     }
@@ -417,14 +445,20 @@ pub fn main() {
             for i in 0..len {
                 let (x, y) = enemies[i].apply_move(&map, update_elapsed, &players, &enemies);
                 enemies[i].update(update_elapsed, x, y);
-                if enemies[i].is_attacking() {
-                    let id = enemies[i].id;
-                    let dir = enemies[i].get_direction();
-                    if let Some(ref weapon) = enemies[i].weapon {
+                if enemies[i].character().is_attacking() {
+                    let id = enemies[i].id();
+                    let dir = enemies[i].character().get_direction();
+                    if let Some(ref weapon) = enemies[i].character().weapon {
                         let mut matrix = None;
                         // TODO: for now, NPCs can only attack players
                         for (pos, player) in players.iter_mut().enumerate() {
-                            if player.check_intersection(id, dir, weapon, &mut matrix) > 0
+                            if player.check_intersection(
+                                id,
+                                dir,
+                                weapon,
+                                &mut matrix,
+                                &system.textures,
+                            ) > 0
                                 && pos == 0
                             {
                                 env.rumble(u16::MAX / 10, 250);
@@ -434,7 +468,7 @@ pub fn main() {
                 }
             }
             if players[0].is_dead() {
-                env.show_death_screen(&textures);
+                env.show_death_screen(&system.textures);
             }
         }
 
@@ -447,7 +481,7 @@ pub fn main() {
         system.set_screen_position(&players[0]);
         map.draw(&mut system);
         // TODO: put this whole thing somewhere else
-        env.draw_rewards(&mut system, &rewards, &players[0], &textures);
+        env.draw_rewards(&mut system, &rewards, &players[0]);
         draw_in_good_order(
             &mut system,
             env.debug,

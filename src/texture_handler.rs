@@ -5,6 +5,7 @@ use crate::sdl2::surface::Surface;
 use std::ops::{Deref, DerefMut};
 
 use crate::character::Direction;
+use crate::texture_holder::{TextureId, Textures};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Dimension {
@@ -32,24 +33,24 @@ impl DerefMut for Dimension {
     }
 }
 
-pub struct TextureHandler<'a> {
+pub struct TextureHandler {
     /// We keep this surface for collisions check (it's way too slow to do it on a texture!).
-    surface: &'a Surface<'a>,
-    pub texture: &'a Texture<'a>,
+    surface: &'static str,
+    pub texture: TextureId,
     pub actions_standing: Vec<Dimension>,
     /// The second element is the number of "animations".
     pub actions_moving: Vec<(Dimension, i32)>,
     pub forced_size: Option<(u32, u32)>,
 }
 
-impl<'a> TextureHandler<'a> {
+impl TextureHandler {
     pub fn new(
-        surface: &'a Surface<'a>,
-        texture: &'a Texture<'a>,
+        surface: &'static str,
+        texture: TextureId,
         actions_standing: Vec<Dimension>,
         actions_moving: Vec<(Dimension, i32)>,
         forced_size: Option<(u32, u32)>,
-    ) -> TextureHandler<'a> {
+    ) -> TextureHandler {
         // if let Some((width, height)) = forced_size {
         //     let mut forced_surface = Surface::new(width * 3, height * 4, surface.pixel_format_enum()).expect("failed to create new surface for resize");
         //     surface.blit(None, &mut forced_surface, Rect::new(0, 0, width * 3, height * 4)).expect("failed to resize surface...");
@@ -75,11 +76,13 @@ impl<'a> TextureHandler<'a> {
 
     pub fn check_intersection(
         &self,
+        textures: &Textures<'_>,
         matrix: &[(i64, i64)],
         dir: Direction,
         is_moving: bool,
         character_pos: (i64, i64),
     ) -> bool {
+        let surface = textures.get_surface(self.surface);
         let (mut tile_x, mut tile_y, mut tile_width, mut tile_height) = if is_moving {
             let tmp = &self.actions_moving[dir as usize].0;
             (tmp.x(), tmp.y(), tmp.width() as i32, tmp.height() as i32)
@@ -90,12 +93,12 @@ impl<'a> TextureHandler<'a> {
         if let Some(s) = self.forced_size {
             tile_width = s.0 as i32;
             tile_height = s.1 as i32;
-            tile_x /= self.surface.size().0 as i32 / s.0 as i32;
-            tile_y = self.surface.size().1 as i32 / s.1 as i32;
+            tile_x /= surface.size().0 as i32 / s.0 as i32;
+            tile_y = surface.size().1 as i32 / s.1 as i32;
         }
-        let pitch = self.surface.pitch() as i32;
-        let max_len = (self.surface.height() * self.surface.pitch()) as i32;
-        let surface = self.surface.raw();
+        let pitch = surface.pitch() as i32;
+        let max_len = (surface.height() * surface.pitch()) as i32;
+        let surface = surface.raw();
         let pixels = unsafe { (*surface).pixels as *const u8 };
         for (x, y) in matrix.iter() {
             let x = (x - character_pos.0) as i32 + tile_x;

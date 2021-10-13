@@ -5,6 +5,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 
 use crate::animation::Animation;
+use crate::enemies::Skeleton;
 use crate::enemy::Enemy;
 use crate::env::Env;
 use crate::map::Map;
@@ -14,7 +15,7 @@ use crate::stat::Stat;
 use crate::status::Status;
 use crate::system::System;
 use crate::texture_handler::{Dimension, TextureHandler};
-use crate::texture_holder::TextureHolder;
+use crate::texture_holder::{TextureHolder, Textures};
 use crate::weapon::Weapon;
 // use crate::window::UpdateKind;
 use crate::{GetDimension, GetPos, Id, MAP_CASE_SIZE, MAP_SIZE, ONE_SECOND};
@@ -98,7 +99,7 @@ impl Action {
     pub fn compute_current(
         &self,
         is_running: bool,
-        textures: &TextureHandler<'_>,
+        textures: &TextureHandler,
     ) -> (i32, i32, u32, u32, u32, u32) {
         if let Some(ref pos) = self.movement {
             let (info, nb_animations) = &textures.actions_moving[self.direction as usize];
@@ -150,7 +151,7 @@ impl Action {
         }
     }
 
-    pub fn get_dimension<'a>(&self, textures: &'a TextureHandler<'_>) -> Dimension {
+    pub fn get_dimension(&self, textures: &TextureHandler) -> Dimension {
         let mut dim;
         if let Some(_) = self.movement {
             dim = textures.actions_moving[self.direction as usize].0.clone();
@@ -168,11 +169,7 @@ impl Action {
         dim
     }
 
-    pub fn get_specific_dimension<'a>(
-        &self,
-        textures: &'a TextureHandler<'_>,
-        dir: Direction,
-    ) -> Dimension {
+    pub fn get_specific_dimension(&self, textures: &TextureHandler, dir: Direction) -> Dimension {
         let mut dim = textures.actions_moving[dir as usize].0.clone();
         if let Some((tile_width, tile_height)) = textures.forced_size {
             dim.set_width(tile_width);
@@ -279,7 +276,7 @@ impl CharacterPoints {
     }
 }
 
-pub struct Character<'a> {
+pub struct Character {
     pub action: Action,
     pub x: i64,
     pub y: i64,
@@ -290,9 +287,8 @@ pub struct Character<'a> {
     pub stats: CharacterStats,
     pub points: CharacterPoints,
     pub unused_points: u32,
-    // TODO: Instead of creating a new TextureHandler every time, might be better to use references!
-    pub texture_handler: TextureHandler<'a>,
-    pub weapon: Option<Weapon<'a>>,
+    pub texture_handler: TextureHandler,
+    pub weapon: Option<Weapon>,
     pub is_running: bool,
     /// How much time you need to move of 1.
     pub speed: u64,
@@ -304,22 +300,17 @@ pub struct Character<'a> {
     pub invincible_against: Vec<InvincibleAgainst>,
     pub statuses: Vec<Status>,
     pub show_health_bar: bool,
-    pub death_animation: Option<Animation<'a>>,
+    pub death_animation: Option<Animation>,
     /// (x, y, delay)
     pub effect: RefCell<Option<(i64, i64, u64)>>,
-    pub animations: Vec<Animation<'a>>,
+    pub animations: Vec<Animation>,
     /// When moving, only the feet should be taken into account, not the head. So this is hitbox
     /// containing width and height based on the bottom of the texture.
     pub move_hitbox: (u32, u32),
 }
 
-impl<'a> Character<'a> {
-    pub fn increase_xp(
-        &mut self,
-        xp_to_add: u64,
-        textures: &'a HashMap<&'static str, TextureHolder<'a>>,
-        env: Option<&mut Env>,
-    ) {
+impl Character {
+    pub fn increase_xp(&mut self, xp_to_add: u64, textures: &Textures<'_>, env: Option<&mut Env>) {
         self.xp += xp_to_add;
         if self.xp >= self.xp_to_next_level {
             self.level += 1;
@@ -420,7 +411,7 @@ impl<'a> Character<'a> {
         &self,
         map: &Map,
         players: &[Player],
-        npcs: &[Enemy],
+        npcs: &[Box<Skeleton>],
         new_x: i64,
         new_y: i64,
         ignore_id: Option<Id>,
@@ -444,7 +435,7 @@ impl<'a> Character<'a> {
         let ignore_id = ignore_id.unwrap_or(self.id);
         if npcs
             .iter()
-            .all(|n| n.id == ignore_id || self.check_character_move(new_x, new_y, &n))
+            .all(|n| n.id() == ignore_id || self.check_character_move(new_x, new_y, n.character()))
             && players
                 .iter()
                 .all(|p| p.id == ignore_id || self.check_character_move(new_x, new_y, &p))
@@ -462,7 +453,7 @@ impl<'a> Character<'a> {
         direction: Direction,
         map: &Map,
         players: &[Player],
-        npcs: &[Enemy],
+        npcs: &[Box<Skeleton>],
         // In case of a move on two axes, we have to provide the result of the first move too!
         x_add: i64,
         y_add: i64,
@@ -549,7 +540,7 @@ impl<'a> Character<'a> {
                 && npcs.iter().all(|n| {
                     call(
                         self.id,
-                        &n,
+                        n.character(),
                         &self.move_hitbox,
                         self_x,
                         self_y,
@@ -574,7 +565,7 @@ impl<'a> Character<'a> {
             self.check_hitbox(self_x - map.x, self_y - map.y, &map.data, direction)
                 && npcs
                     .iter()
-                    .all(|n| self.check_character_move(self_x, self_y, &n))
+                    .all(|n| self.check_character_move(self_x, self_y, n.character()))
                 && players
                     .iter()
                     .all(|n| self.check_character_move(self_x, self_y, &n))
@@ -591,7 +582,7 @@ impl<'a> Character<'a> {
         &self,
         map: &Map,
         players: &[Player],
-        npcs: &[Enemy],
+        npcs: &[Box<Skeleton>],
         primary_direction: Direction,
         secondary_direction: Option<Direction>,
         x_add: i64,
@@ -619,7 +610,7 @@ impl<'a> Character<'a> {
         &self,
         map: &Map,
         players: &[Player],
-        npcs: &[Enemy],
+        npcs: &[Box<Skeleton>],
         x_add: i64,
         y_add: i64,
     ) -> (i64, i64) {
@@ -659,14 +650,11 @@ impl<'a> Character<'a> {
             && y + draw_height as i32 >= 0
             && y < system.height()
         {
-            system
-                .canvas
-                .copy(
-                    &self.texture_handler.texture,
-                    Rect::new(tile_x, tile_y, tile_width, tile_height),
-                    Rect::new(x, y, draw_width, draw_height),
-                )
-                .expect("copy character failed");
+            system.copy_to_canvas(
+                self.texture_handler.texture,
+                Rect::new(tile_x, tile_y, tile_width, tile_height),
+                Rect::new(x, y, draw_width, draw_height),
+            );
         }
         for animation in self.animations.iter() {
             animation.draw(
@@ -751,7 +739,7 @@ impl<'a> Character<'a> {
         map: &Map,
         elapsed: u64,
         players: &[Player],
-        npcs: &[Enemy],
+        npcs: &[Box<Skeleton>],
     ) -> (i64, i64) {
         if self.is_dead() {
             return (0, 0);
@@ -957,8 +945,9 @@ impl<'a> Character<'a> {
         &mut self,
         attacker_id: Id,
         attacker_direction: Direction,
-        weapon: &Weapon<'a>,
+        weapon: &Weapon,
         matrix: &mut Option<Vec<(i64, i64)>>,
+        textures: &Textures<'_>,
     ) -> i32 {
         if self.is_dead()
             || attacker_id == self.id
@@ -991,10 +980,11 @@ impl<'a> Character<'a> {
         }
 
         if matrix.is_none() {
-            *matrix = weapon.compute_angle();
+            *matrix = weapon.compute_angle(textures);
         }
         if let Some(ref matrix) = matrix {
             if self.texture_handler.check_intersection(
+                textures,
                 &matrix,
                 self.action.direction,
                 self.action.movement.is_some(),
@@ -1122,7 +1112,7 @@ impl<'a> Character<'a> {
     }
 }
 
-impl<'a> GetDimension for Character<'a> {
+impl GetDimension for Character {
     fn width(&self) -> u32 {
         self.action.get_dimension(&self.texture_handler).width()
     }
@@ -1132,7 +1122,7 @@ impl<'a> GetDimension for Character<'a> {
     }
 }
 
-impl<'a> GetPos for Character<'a> {
+impl GetPos for Character {
     fn x(&self) -> i64 {
         self.x
     }

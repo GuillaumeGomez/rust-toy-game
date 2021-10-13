@@ -5,22 +5,24 @@ use crate::sdl2::surface::Surface;
 use crate::sdl2::video::WindowContext;
 
 use crate::system::System;
+use crate::texture_holder::{TextureHolder, TextureId, Textures};
 use crate::{HEIGHT, MAP_CASE_SIZE, WIDTH};
 
-pub struct DebugDisplay<'a> {
-    background: Texture<'a>,
+pub struct DebugDisplay {
+    background: TextureId,
     width: u32,
     height: u32,
     font_size: u16,
     draw_grid: bool,
-    grid: Texture<'a>,
+    grid: TextureId,
 }
 
-impl<'a, 'b> DebugDisplay<'a> {
-    pub fn new(
+impl DebugDisplay {
+    pub fn new<'a>(
         texture_creator: &'a TextureCreator<WindowContext>,
+        textures: &mut Textures<'a>,
         font_size: u16,
-    ) -> DebugDisplay<'a> {
+    ) -> Self {
         let width = WIDTH as u32;
         let height = 200;
         let mut background = Surface::new(width, height, PixelFormatEnum::RGBA8888)
@@ -63,15 +65,14 @@ impl<'a, 'b> DebugDisplay<'a> {
         }
 
         DebugDisplay {
-            background: texture_creator
-                .create_texture_from_surface(background)
-                .expect("failed to build texture from debug surface"),
+            background: textures.add_texture(TextureHolder::surface_into_texture(
+                texture_creator,
+                background,
+            )),
             width,
             height,
             font_size,
-            grid: texture_creator
-                .create_texture_from_surface(grid)
-                .expect("failed to build texture from grid debug surface"),
+            grid: textures.add_texture(TextureHolder::surface_into_texture(texture_creator, grid)),
             draw_grid: false,
         }
     }
@@ -84,31 +85,25 @@ impl<'a, 'b> DebugDisplay<'a> {
         if self.draw_grid {
             let x_add = system.x().abs() % MAP_CASE_SIZE;
             let y_add = system.y().abs() % MAP_CASE_SIZE;
-            system
-                .canvas
-                .copy(
-                    &self.grid,
-                    Rect::new(
-                        (MAP_CASE_SIZE - x_add) as i32,
-                        (MAP_CASE_SIZE - y_add) as i32,
-                        system.width() as u32,
-                        system.height() as u32,
-                    ),
-                    None,
-                )
-                .expect("copy failed for grid texture");
+            system.copy_to_canvas(
+                self.grid,
+                Rect::new(
+                    (MAP_CASE_SIZE - x_add) as i32,
+                    (MAP_CASE_SIZE - y_add) as i32,
+                    system.width() as u32,
+                    system.height() as u32,
+                ),
+                None,
+            );
         }
         if text.is_empty() {
             return;
         }
-        system
-            .canvas
-            .copy(
-                &self.background,
-                None,
-                Rect::new(0, 0, self.width, self.height),
-            )
-            .expect("copy failed for debug background");
+        system.copy_to_canvas(
+            self.background,
+            None,
+            Rect::new(0, 0, self.width, self.height),
+        );
         let mut current_pos = 2;
         for line in text.lines() {
             if !line.is_empty() {

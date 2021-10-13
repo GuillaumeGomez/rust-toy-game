@@ -5,7 +5,7 @@ use crate::sdl2::video::WindowContext;
 use std::collections::HashMap;
 
 use crate::system::System;
-use crate::texture_holder::TextureHolder;
+use crate::texture_holder::{TextureHolder, TextureId, Textures};
 use crate::ONE_SECOND;
 
 const DEATH_SPRITE_WIDTH: u32 = 30;
@@ -14,27 +14,21 @@ const LEVEL_UP_SPRITE_WIDTH: u32 = 82;
 const LEVEL_UP_SPRITE_HEIGHT: u32 = 36;
 
 pub fn create_death_animation_texture<'a>(
-    textures: &mut HashMap<&'static str, TextureHolder<'a>>,
+    textures: &mut Textures<'a>,
     texture_creator: &'a TextureCreator<WindowContext>,
 ) {
-    textures.insert(
-        "death",
-        TextureHolder::from_image(texture_creator, "resources/death.png"),
-    );
+    textures.create_named_texture_from_image("death", texture_creator, "resources/death.png");
 }
 
 pub fn create_level_up_animation_texture<'a>(
-    textures: &mut HashMap<&'static str, TextureHolder<'a>>,
+    textures: &mut Textures<'a>,
     texture_creator: &'a TextureCreator<WindowContext>,
 ) {
-    textures.insert(
-        "level-up",
-        TextureHolder::from_image(texture_creator, "resources/level-up.png"),
-    );
+    textures.create_named_texture_from_image("level-up", texture_creator, "resources/level-up.png");
 }
 
-pub struct Animation<'a> {
-    pub texture: &'a TextureHolder<'a>,
+pub struct Animation {
+    pub texture: TextureId,
     nb_animations: u32,
     duration: u64,
     max_duration: u64,
@@ -44,10 +38,10 @@ pub struct Animation<'a> {
     pub sprite_display_height: u32,
 }
 
-impl<'a> Animation<'a> {
-    pub fn new_death(textures: &'a HashMap<&'static str, TextureHolder<'a>>) -> Animation<'a> {
-        let texture = &textures[&"death"];
-        let nb_animations = texture.width / DEATH_SPRITE_WIDTH;
+impl Animation {
+    pub fn new_death(textures: &Textures<'_>) -> Self {
+        let texture = textures.get_texture_id_from_name("death");
+        let nb_animations = textures.get(texture).width / DEATH_SPRITE_WIDTH;
         Animation {
             texture,
             nb_animations,
@@ -60,9 +54,9 @@ impl<'a> Animation<'a> {
         }
     }
 
-    pub fn new_level_up(textures: &'a HashMap<&'static str, TextureHolder<'a>>) -> Animation<'a> {
-        let texture = &textures[&"level-up"];
-        let nb_animations = texture.width / LEVEL_UP_SPRITE_WIDTH;
+    pub fn new_level_up(textures: &Textures<'_>) -> Self {
+        let texture = textures.get_texture_id_from_name("level-up");
+        let nb_animations = textures.get(texture).width / LEVEL_UP_SPRITE_WIDTH;
         Animation {
             texture,
             nb_animations,
@@ -96,14 +90,11 @@ impl<'a> Animation<'a> {
         let current_animation =
             (self.duration as u32 * 100 / self.max_duration as u32) * self.nb_animations / 100;
         let tile_x = current_animation * self.sprite_width as u32;
-        system
-            .canvas
-            .copy(
-                &self.texture.texture,
-                Rect::new(tile_x as i32, 0, self.sprite_width, self.sprite_height),
-                Rect::new(x, y, self.sprite_display_width, self.sprite_display_height),
-            )
-            .expect("copy animation failed");
+        system.copy_to_canvas(
+            self.texture,
+            Rect::new(tile_x as i32, 0, self.sprite_width, self.sprite_height),
+            Rect::new(x, y, self.sprite_display_width, self.sprite_display_height),
+        );
     }
 
     pub fn is_done(&self) -> bool {
