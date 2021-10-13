@@ -273,16 +273,17 @@ pub fn main() {
     let reward_id = system.textures.add_texture(
         TextureHolder::from_image(&texture_creator, "resources/bag.png").with_max_size(24),
     );
-    let reward_text_id = system.textures.add_texture(TextureHolder::from_text(
-        &texture_creator,
-        &font_10,
-        Color::RGB(0, 0, 0),
-        None,
-        "Press ENTER",
-    ));
-    system
-        .textures
-        .create_named_texture_id("reward-text", reward_text_id);
+    system.textures.add_named_texture(
+        "reward-text",
+        TextureHolder::from_text(
+            &texture_creator,
+            &font_10,
+            Color::RGB(0, 0, 0),
+            None,
+            "Press ENTER",
+        ),
+    );
+
     animation::create_death_animation_texture(&mut system.textures, &texture_creator);
     animation::create_level_up_animation_texture(&mut system.textures, &texture_creator);
 
@@ -334,6 +335,7 @@ pub fn main() {
         }
 
         if !env.display_menu {
+            // FIXME: use `.iter_mut().retain()` instead!
             for it in (0..dead_enemies.len()).rev() {
                 let to_remove = {
                     dead_enemies[it].update(update_elapsed, 0, 0);
@@ -355,8 +357,10 @@ pub fn main() {
                             ));
                             env.need_sort_rewards = true;
                         }
+                        true
+                    } else {
+                        false
                     }
-                    true
                 };
                 if to_remove {
                     dead_enemies.remove(it);

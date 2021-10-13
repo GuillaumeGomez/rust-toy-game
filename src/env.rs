@@ -589,8 +589,7 @@ impl<'a> Env<'a> {
     pub fn draw_rewards(&mut self, system: &mut System, rewards: &[Reward], player: &Player) {
         if self.need_sort_rewards {
             self.closest_reward = None;
-            for i in 0..rewards.len() {
-                let reward = &rewards[i];
+            for (i, reward) in rewards.iter().enumerate() {
                 reward.draw(system);
                 match player.action.direction {
                     Direction::Up => {

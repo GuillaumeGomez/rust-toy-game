@@ -4,10 +4,12 @@ use crate::system::System;
 use crate::texture_holder::{TextureHolder, TextureId};
 use crate::{GetDimension, GetPos};
 
+#[derive(Debug)]
 pub struct RewardInfo {
     pub gold: u32,
 }
 
+#[derive(Debug)]
 pub struct Reward {
     texture: TextureId,
     x: i64,

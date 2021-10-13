@@ -173,7 +173,7 @@ impl<'a> TextureHolder<'a> {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct TextureId {
     id: usize,
     pub height: u16,
@@ -303,7 +303,7 @@ impl<'a> Textures<'a> {
     }
 
     #[inline]
-    pub fn get_surface(&self, id: &'static str) -> &Surface<'a> {
+    pub fn get_surface(&self, id: &str) -> &Surface<'a> {
         self.surfaces.get(id).expect("tried to get unknown surface")
     }
 }
