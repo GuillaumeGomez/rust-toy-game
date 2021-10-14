@@ -10,10 +10,12 @@ use crate::sdl2::video::WindowContext;
 use crate::character::Direction;
 use crate::system::System;
 use crate::texture_holder::{TextureHolder, TextureId, Textures};
+use crate::weapons::{Nothing, Sword};
 use crate::{GetDimension, GetPos, ONE_SECOND};
 
 #[allow(dead_code)]
 pub enum WeaponKind {
+    Nothing(Nothing),
     Sword(Sword),
     LongSword,
     Axe,
@@ -28,12 +30,12 @@ pub enum WeaponKind {
 pub struct Weapon {
     pub x: i64,
     pub y: i64,
-    action: Option<WeaponAction>,
-    blocking_direction: Option<Direction>,
+    pub action: Option<WeaponAction>,
+    pub blocking_direction: Option<Direction>,
     pub kind: WeaponKind,
-    data_id: &'static str,
+    pub data_id: &'static str,
     /// Total time required for this weapon to perform its action.
-    pub total_time: u64,
+    pub total_time: u32,
     pub attack: i32,
 }
 
@@ -185,19 +187,22 @@ impl DerefMut for Weapon {
 impl WeaponKind {
     fn use_it(&mut self, direction: Direction) -> Option<WeaponAction> {
         match *self {
+            Self::Nothing(ref mut n) => n.use_it(direction),
             Self::Sword(ref mut s) => s.use_it(direction),
             _ => None,
         }
     }
     pub fn weight(&self) -> u32 {
         match *self {
+            Self::Nothing(ref s) => s.weight(),
             Self::Sword(ref s) => s.weight(),
             _ => 0,
         }
     }
     pub fn get_texture(&self) -> Option<TextureId> {
         match *self {
-            Self::Sword(ref s) => Some(s.get_texture()),
+            Self::Nothing(ref n) => n.get_texture(),
+            Self::Sword(ref s) => s.get_texture(),
             _ => None,
         }
     }
@@ -206,12 +211,14 @@ impl WeaponKind {
 impl GetDimension for WeaponKind {
     fn width(&self) -> u32 {
         match *self {
+            Self::Nothing(ref n) => n.width(),
             Self::Sword(ref s) => s.width(),
             _ => 0,
         }
     }
     fn height(&self) -> u32 {
         match *self {
+            Self::Nothing(ref n) => n.height(),
             Self::Sword(ref s) => s.height(),
             _ => 0,
         }
@@ -220,99 +227,10 @@ impl GetDimension for WeaponKind {
 
 #[derive(Debug)]
 pub struct WeaponAction {
-    angle: i32,
+    pub angle: i32,
     /// The angle of the rotation.
-    total_angle: u32,
-    duration: u64,
-    x_add: i32,
-    y_add: i32,
-}
-
-pub struct Sword {
-    texture: TextureId,
-}
-
-fn get_surface_data(surface: &Surface<'_>) -> Vec<u8> {
-    let height = surface.height() as usize;
-    let width = surface.width() as usize;
-    let mut data = Vec::with_capacity(width * height);
-
-    let surface = surface.raw();
-    let pixels = unsafe { (*surface).pixels as *const u32 };
-
-    for pos in 0..height * width {
-        let target_pixel = unsafe { *(pixels.add(pos) as *const u32) };
-        let alpha = target_pixel & 255;
-        data.push(if alpha > 220 { 1 } else { 0 });
-    }
-    data
-}
-
-impl Sword {
-    pub fn init_textures<'a>(
-        texture_creator: &'a TextureCreator<WindowContext>,
-        textures: &mut Textures<'a>,
-    ) {
-        let mut surface = Surface::from_file("resources/weapon.png")
-            .expect("failed to load `resources/weapon.png`");
-
-        if surface.pixel_format_enum() != PixelFormatEnum::RGBA8888 {
-            surface = surface
-                .convert_format(PixelFormatEnum::RGBA8888)
-                .expect("failed to convert surface to RGBA8888");
-        }
-
-        let data = get_surface_data(&surface);
-        textures.add_surface_data("sword", data);
-        textures.add_named_texture(
-            "sword",
-            TextureHolder::surface_into_texture(texture_creator, surface),
-        );
-    }
-
-    pub fn new(textures: &Textures<'_>, attack: i32) -> Weapon {
-        Weapon {
-            x: 0,
-            y: 0,
-            action: None,
-            data_id: "sword",
-            total_time: ONE_SECOND / 4,
-            kind: WeaponKind::Sword(Sword {
-                texture: textures.get_texture_id_from_name("sword"),
-            }),
-            attack,
-            blocking_direction: None,
-        }
-    }
-    /// In case there is a timeout or something, you might not be able to use the weapon.
-    pub fn use_it(&mut self, direction: Direction) -> Option<WeaponAction> {
-        let (angle, x_add, y_add) = match direction {
-            Direction::Up => (-45, self.width() as i32 / 2, self.height() as i32),
-            Direction::Down => (135, self.width() as i32 / 2, self.height() as i32),
-            Direction::Left => (225, 0, self.height() as i32),
-            Direction::Right => (45, 0, self.height() as i32),
-        };
-        Some(WeaponAction {
-            angle,
-            total_angle: 90,
-            duration: ONE_SECOND / 4,
-            x_add,
-            y_add,
-        })
-    }
-    pub fn weight(&self) -> u32 {
-        10
-    }
-    pub fn get_texture(&self) -> TextureId {
-        self.texture
-    }
-}
-
-impl GetDimension for Sword {
-    fn width(&self) -> u32 {
-        self.texture.width as _
-    }
-    fn height(&self) -> u32 {
-        self.texture.height as _
-    }
+    pub total_angle: u32,
+    pub duration: u64,
+    pub x_add: i32,
+    pub y_add: i32,
 }

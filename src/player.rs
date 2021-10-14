@@ -13,7 +13,7 @@ use crate::env::Env;
 use crate::player_stats::PlayerStats;
 use crate::texture_handler::{Dimension, TextureHandler};
 use crate::texture_holder::{TextureHolder, Textures};
-use crate::weapon::Sword;
+use crate::weapons::Sword;
 // use crate::window::UpdateKind;
 use crate::{GetDimension, GetPos, Id, ONE_SECOND};
 
@@ -134,7 +134,7 @@ impl Player {
                 level,
                 unused_points: 0,
                 texture_handler,
-                weapon: Some(Sword::new(textures, 10)),
+                weapon: Sword::new(textures, 10),
                 is_running: false,
                 id,
                 invincible_against: Vec::new(),

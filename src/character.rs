@@ -181,11 +181,11 @@ impl Action {
 
 pub struct InvincibleAgainst {
     id: Id,
-    remaining_time: u64,
+    remaining_time: u32,
 }
 
 impl InvincibleAgainst {
-    fn new(id: Id, remaining_time: u64) -> InvincibleAgainst {
+    fn new(id: Id, remaining_time: u32) -> InvincibleAgainst {
         InvincibleAgainst { id, remaining_time }
     }
 }
@@ -288,7 +288,7 @@ pub struct Character {
     pub points: CharacterPoints,
     pub unused_points: u32,
     pub texture_handler: TextureHandler,
-    pub weapon: Option<Weapon>,
+    pub weapon: Weapon,
     pub is_running: bool,
     /// How much time you need to move of 1.
     pub speed: u64,
@@ -411,7 +411,7 @@ impl Character {
         &self,
         map: &Map,
         players: &[Player],
-        npcs: &[Box<Skeleton>],
+        npcs: &[Box<dyn Enemy>],
         new_x: i64,
         new_y: i64,
         ignore_id: Option<Id>,
@@ -453,7 +453,7 @@ impl Character {
         direction: Direction,
         map: &Map,
         players: &[Player],
-        npcs: &[Box<Skeleton>],
+        npcs: &[Box<dyn Enemy>],
         // In case of a move on two axes, we have to provide the result of the first move too!
         x_add: i64,
         y_add: i64,
@@ -582,7 +582,7 @@ impl Character {
         &self,
         map: &Map,
         players: &[Player],
-        npcs: &[Box<Skeleton>],
+        npcs: &[Box<dyn Enemy>],
         primary_direction: Direction,
         secondary_direction: Option<Direction>,
         x_add: i64,
@@ -610,7 +610,7 @@ impl Character {
         &self,
         map: &Map,
         players: &[Player],
-        npcs: &[Box<Skeleton>],
+        npcs: &[Box<dyn Enemy>],
         x_add: i64,
         y_add: i64,
     ) -> (i64, i64) {
@@ -678,14 +678,12 @@ impl Character {
                 ))
                 .unwrap();
         }
-        if let Some(ref weapon) = self.weapon {
-            // if let Some(matrix) = weapon.compute_angle() {
-            //     for (x, y) in matrix.iter() {
-            //         canvas.fill_rect(Rect::new(x - screen.x, y - screen.y, 8, 8));
-            //     }
-            // }
-            weapon.draw(system, self.id == 1);
-        }
+        // if let Some(matrix) = weapon.compute_angle() {
+        //     for (x, y) in matrix.iter() {
+        //         canvas.fill_rect(Rect::new(x - screen.x, y - screen.y, 8, 8));
+        //     }
+        // }
+        self.weapon.draw(system, self.id == 1);
 
         if self.show_health_bar && !self.stats.health.is_full() {
             system.health_bar.draw(
@@ -708,30 +706,19 @@ impl Character {
     // TODO: add stamina consumption when attacking, depending on the weight of the weapon!
     pub fn attack(&mut self) {
         let remaining_stamina = self.stats.stamina.value();
-        let to_subtract = match self.weapon {
-            Some(ref mut weapon) if remaining_stamina >= weapon.weight() as u64 => {
-                weapon.use_it(self.action.direction);
-                weapon.weight() as u64
-            }
-            _ => 0,
-        };
-        if to_subtract != 0 {
+        if remaining_stamina >= self.weapon.weight() as _ {
+            self.weapon.use_it(self.action.direction);
             self.set_weapon_pos();
-            self.stats.stamina.subtract(to_subtract);
+            self.stats.stamina.subtract(self.weapon.weight() as _);
         }
     }
 
     pub fn is_attacking(&self) -> bool {
-        self.weapon
-            .as_ref()
-            .map(|w| w.is_attacking())
-            .unwrap_or(false)
+        self.weapon.is_attacking()
     }
 
     pub fn stop_attack(&mut self) {
-        if let Some(ref mut weapon) = self.weapon {
-            weapon.stop_use();
-        }
+        self.weapon.stop_use();
     }
 
     pub fn apply_move(
@@ -739,7 +726,7 @@ impl Character {
         map: &Map,
         elapsed: u64,
         players: &[Player],
-        npcs: &[Box<Skeleton>],
+        npcs: &[Box<dyn Enemy>],
     ) -> (i64, i64) {
         if self.is_dead() {
             return (0, 0);
@@ -868,9 +855,7 @@ impl Character {
                 self.move_delay -= self.speed;
             }
 
-            if let Some(ref mut weapon) = self.weapon {
-                weapon.update(elapsed);
-            }
+            self.weapon.update(elapsed);
         }
 
         // We update the statuses display
@@ -890,84 +875,81 @@ impl Character {
         }
         let mut i = 0;
         while i < self.invincible_against.len() {
-            if self.invincible_against[i].remaining_time <= elapsed {
+            if self.invincible_against[i].remaining_time <= elapsed as u32 {
                 self.invincible_against.remove(i);
             } else {
-                self.invincible_against[i].remaining_time -= elapsed;
+                self.invincible_against[i].remaining_time -= elapsed as u32;
                 i += 1;
             }
         }
     }
 
     fn set_weapon_pos(&mut self) {
-        if let Some(ref mut weapon) = self.weapon {
-            if weapon.is_blocking() {
-                // To set the direction of the blocking.
-                weapon.block(self.action.direction);
+        if self.weapon.is_blocking() {
+            // To set the direction of the blocking.
+            self.weapon.block(self.action.direction);
 
-                let (_, _, _, _, draw_width, draw_height) = self
-                    .action
-                    .compute_current(self.is_running, &self.texture_handler);
-                let draw_width = draw_width as i64;
-                let draw_height = draw_height as i64;
-                let width = weapon.width() as i64;
-                let height = weapon.height() as i64;
-                let (x, y) = match self.action.direction {
-                    Direction::Up => (self.x + width + 2, self.y - height + 3),
-                    Direction::Down => (self.x + width / 2, self.y + draw_height - 2),
-                    Direction::Left => (self.x - width - 4, self.y),
-                    Direction::Right => (self.x + draw_width, self.y),
-                };
-                weapon.set_pos(x, y);
-            } else {
-                let (_, _, _, _, draw_width, draw_height) = self
-                    .action
-                    .compute_current(self.is_running, &self.texture_handler);
-                let draw_width = draw_width as i64;
-                let draw_height = draw_height as i64;
-                let width = weapon.width() as i64;
-                let height = weapon.height() as i64;
-                let (x, y) = match self.action.direction {
-                    Direction::Up => (self.x + draw_width / 2 - 3, self.y - height),
-                    Direction::Down => (self.x + draw_width / 2 - 4, self.y + draw_height - height),
-                    Direction::Left => (self.x - 2, self.y + draw_height / 2 - height + 2),
-                    Direction::Right => (
-                        self.x + draw_width - width + 2,
-                        self.y + draw_height / 2 - height,
-                    ),
-                };
-                weapon.set_pos(x, y);
-            }
+            let (_, _, _, _, draw_width, draw_height) = self
+                .action
+                .compute_current(self.is_running, &self.texture_handler);
+            let draw_width = draw_width as i64;
+            let draw_height = draw_height as i64;
+            let width = self.weapon.width() as i64;
+            let height = self.weapon.height() as i64;
+            let (x, y) = match self.action.direction {
+                Direction::Up => (self.x + width + 2, self.y - height + 3),
+                Direction::Down => (self.x + width / 2, self.y + draw_height - 2),
+                Direction::Left => (self.x - width - 4, self.y),
+                Direction::Right => (self.x + draw_width, self.y),
+            };
+            self.weapon.set_pos(x, y);
+        } else {
+            let (_, _, _, _, draw_width, draw_height) = self
+                .action
+                .compute_current(self.is_running, &self.texture_handler);
+            let draw_width = draw_width as i64;
+            let draw_height = draw_height as i64;
+            let width = self.weapon.width() as i64;
+            let height = self.weapon.height() as i64;
+            let (x, y) = match self.action.direction {
+                Direction::Up => (self.x + draw_width / 2 - 3, self.y - height),
+                Direction::Down => (self.x + draw_width / 2 - 4, self.y + draw_height - height),
+                Direction::Left => (self.x - 2, self.y + draw_height / 2 - height + 2),
+                Direction::Right => (
+                    self.x + draw_width - width + 2,
+                    self.y + draw_height / 2 - height,
+                ),
+            };
+            self.weapon.set_pos(x, y);
         }
     }
 
     pub fn check_intersection(
-        &mut self,
-        attacker_id: Id,
-        attacker_direction: Direction,
-        weapon: &Weapon,
+        &self,
+        attacker: &Character,
         matrix: &mut Option<Vec<(i64, i64)>>,
         textures: &Textures<'_>,
     ) -> i32 {
         if self.is_dead()
-            || attacker_id == self.id
-            || self.invincible_against.iter().any(|e| e.id == attacker_id)
+            || attacker.id == self.id
+            || self.invincible_against.iter().any(|e| e.id == attacker.id)
         {
             return 0;
         }
         let (_tile_x, _tile_y, _, _, width, height) = self
             .action
             .compute_current(self.is_running, &self.texture_handler);
-        let w_biggest = ::std::cmp::max(weapon.height(), weapon.width()) as i64;
+        let w_biggest = ::std::cmp::max(attacker.weapon.height(), attacker.weapon.width()) as i64;
+        let attacker_direction = attacker.get_direction();
         let weapon_x = if attacker_direction == Direction::Right {
-            weapon.x + w_biggest
+            attacker.weapon.x + w_biggest
         } else {
-            weapon.x
+            attacker.weapon.x
         };
         let weapon_y = if attacker_direction == Direction::Down {
-            weapon.y + w_biggest
+            attacker.weapon.y + w_biggest
         } else {
-            weapon.y
+            attacker.weapon.y
         };
 
         if weapon_x + w_biggest < self.x
@@ -980,7 +962,7 @@ impl Character {
         }
 
         if matrix.is_none() {
-            *matrix = weapon.compute_angle(textures);
+            *matrix = attacker.weapon.compute_angle(textures);
         }
         if let Some(ref matrix) = matrix {
             if self.texture_handler.check_intersection(
@@ -992,7 +974,8 @@ impl Character {
             ) {
                 // TODO: add element effects on attacks.
                 // TODO2: if you attack with fire effect on a fire monster, it heals it!
-                let attack = if weapon.attack >= 0 {
+                let attack = if attacker.weapon.attack >= 0 {
+                    let attack = attacker.weapon.attack as u32 + attacker.stats.attack;
                     let attack = if self.is_blocking() {
                         let dir = self.get_direction();
                         {
@@ -1012,37 +995,45 @@ impl Character {
                         }
                         if dir.is_opposite(attacker_direction) {
                             // They're facing each other, full block on the attack!
-                            weapon.attack / 2
+                            attack / 2
                         } else if dir.is_adjacent(attacker_direction) {
                             // Partially blocked, only 25% of the attack is removed
-                            weapon.attack * 3 / 4
+                            attack * 3 / 4
                         } else {
                             // The attack is on the back, full damage!
-                            weapon.attack
+                            attack
                         }
                     } else {
-                        weapon.attack
+                        attack
                     };
                     let attack = if attack == 0 { 1 } else { attack };
-                    self.stats.health.subtract(attack as u64);
-                    attack
+                    attack as i32
                 } else {
-                    self.stats.health.add((weapon.attack * -1) as u64);
-                    weapon.attack
+                    // Since it's supposed to heal, we don't take into account anything than
+                    // the weapon "attack".
+                    attacker.weapon.attack
                 };
-                // TODO: not the same display if attack is negative (meaning you gain back health!).
-                if !self.stats.health.is_empty() {
-                    self.invincible_against
-                        .push(InvincibleAgainst::new(attacker_id, weapon.total_time));
-                    // TODO: add defense on characters and make computation here (also add dodge
-                    // computation and the other stuff...)
-                    self.statuses
-                        .push(Status::new(attack.to_string(), Color::RGB(255, 0, 0)));
-                }
-                return weapon.attack;
+                return attack;
             }
         }
         0
+    }
+
+    pub fn update_attack_info(&mut self, attacker_id: Id, attacker_weapon_time: u32, attack: i32) {
+        if attack > 0 {
+            self.stats.health.subtract(attack as _);
+        } else if attack < 0 {
+            self.stats.health.add((attack * -1) as _);
+        }
+        // TODO: not the same display if attack is negative (meaning you gain back health!).
+        if !self.stats.health.is_empty() {
+            self.invincible_against
+                .push(InvincibleAgainst::new(attacker_id, attacker_weapon_time));
+            // TODO: add defense on characters and make computation here (also add dodge
+            // computation and the other stuff...)
+            self.statuses
+                .push(Status::new(attack.to_string(), Color::RGB(255, 0, 0)));
+        }
     }
 
     pub fn is_dead(&self) -> bool {
@@ -1064,26 +1055,15 @@ impl Character {
     }
 
     pub fn is_blocking(&self) -> bool {
-        self.weapon
-            .as_ref()
-            .map(|w| w.is_blocking())
-            .unwrap_or(false)
+        self.weapon.is_blocking()
     }
     pub fn block(&mut self) {
         let dir = self.get_direction();
-        if if let Some(ref mut weapon) = self.weapon {
-            weapon.block(dir);
-            true
-        } else {
-            false
-        } {
-            self.set_weapon_pos();
-        }
+        self.weapon.block(dir);
+        self.set_weapon_pos();
     }
     pub fn stop_block(&mut self) {
-        if let Some(ref mut weapon) = self.weapon {
-            weapon.stop_block();
-        }
+        self.weapon.stop_block();
     }
 
     pub fn get_direction(&self) -> Direction {

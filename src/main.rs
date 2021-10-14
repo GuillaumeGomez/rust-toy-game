@@ -39,8 +39,9 @@ mod texture_handler;
 mod texture_holder;
 mod traits;
 mod weapon;
+mod weapons;
 
-use enemies::Skeleton;
+use enemies::{Bat, Skeleton};
 use enemy::Enemy;
 use env::Env;
 use health_bar::HealthBar;
@@ -84,8 +85,8 @@ pub fn draw_in_good_order(
     system: &mut System,
     debug: bool,
     players: &mut Vec<Player>,
-    enemies: &mut Vec<Box<Skeleton>>,
-    dead_enemies: &mut Vec<Box<Skeleton>>,
+    enemies: &mut Vec<Box<dyn Enemy>>,
+    dead_enemies: &mut Vec<Box<dyn Enemy>>,
     sort: bool,
 ) {
     if sort {
@@ -125,7 +126,7 @@ pub fn draw_in_good_order(
 fn make_enemies<'a>(
     texture_creator: &'a TextureCreator<WindowContext>,
     textures: &mut Textures<'a>,
-) -> (Vec<Box<Skeleton>>, Vec<Box<Skeleton>>) {
+) -> (Vec<Box<dyn Enemy>>, Vec<Box<dyn Enemy>>) {
     let mut skeleton_surface = Surface::from_file("resources/skeleton.png")
         .expect("failed to load `resources/skeleton.png`");
     if skeleton_surface.pixel_format_enum() != PixelFormatEnum::RGBA8888 {
@@ -157,9 +158,28 @@ fn make_enemies<'a>(
     let height = skeleton_surface.height();
     textures.add_surface("skeleton", skeleton_surface);
 
-    let enemies = vec![
-        Skeleton::new(texture_creator, textures, 0, 40, 2, width / 3, height / 4),
-        Skeleton::new(texture_creator, textures, 40, 0, 3, width / 3, height / 4),
+    Bat::init_textures(texture_creator, textures);
+
+    let enemies: Vec<Box<dyn Enemy>> = vec![
+        Box::new(Skeleton::new(
+            texture_creator,
+            textures,
+            0,
+            40,
+            2,
+            width / 3,
+            height / 4,
+        )),
+        Box::new(Skeleton::new(
+            texture_creator,
+            textures,
+            40,
+            0,
+            3,
+            width / 3,
+            height / 4,
+        )),
+        Box::new(Bat::new(texture_creator, textures, 40, 40, 4)),
     ];
 
     let dead_enemies = Vec::new();
@@ -172,7 +192,7 @@ fn init_textures<'a>(
     textures: &mut Textures<'a>,
 ) {
     Player::init_textures(&texture_creator, textures);
-    crate::weapon::Sword::init_textures(&texture_creator, textures);
+    crate::weapons::Sword::init_textures(&texture_creator, textures);
 }
 
 pub fn main() {
@@ -386,53 +406,52 @@ pub fn main() {
                     if i == 0 { Some(&mut env) } else { None },
                 );
                 if players[i].is_attacking() {
-                    let id = players[i].id;
-                    let dir = players[i].get_direction();
+                    let player = &players[i];
                     let mut xp_to_add = 0;
-                    if let Some(ref weapon) = players[i].weapon {
-                        let mut matrix = None;
-                        // TODO: for now, players can only attack NPCs
-                        for it in (0..enemies.len()).rev() {
-                            let attack = enemies[it].character_mut().check_intersection(
-                                id,
-                                dir,
-                                weapon,
-                                &mut matrix,
-                                &system.textures,
+                    let mut matrix = None;
+                    // TODO: for now, players can only attack NPCs
+                    for it in (0..enemies.len()).rev() {
+                        let attack = enemies[it].character().check_intersection(
+                            player,
+                            &mut matrix,
+                            &system.textures,
+                        );
+                        if attack > 0 {
+                            enemies[it].character_mut().update_attack_info(
+                                player.id,
+                                player.weapon.total_time,
+                                attack,
                             );
-                            if attack > 0 {
-                                if i == 0 {
-                                    env.rumble(u16::MAX / 13, 250);
-                                }
-                                let is_dead = enemies[it].character().is_dead();
-                                if let Some(ref stats) = players[i].stats {
-                                    let mut stats = stats.borrow_mut();
-                                    if attack > 0 {
-                                        stats.total_damages.total_inflicted_damages +=
-                                            attack as u64;
-                                        if is_dead {
-                                            stats.total_damages.total_kills += 1;
-                                            xp_to_add += enemies[it].character().xp;
-                                        }
-                                    } else {
-                                        stats.total_damages.total_healed += (attack * -1) as u64;
+                            if i == 0 {
+                                env.rumble(u16::MAX / 13, 250);
+                            }
+                            let is_dead = enemies[it].character().is_dead();
+                            if let Some(ref stats) = players[i].stats {
+                                let mut stats = stats.borrow_mut();
+                                if attack > 0 {
+                                    stats.total_damages.total_inflicted_damages += attack as u64;
+                                    if is_dead {
+                                        stats.total_damages.total_kills += 1;
+                                        xp_to_add += enemies[it].character().xp;
                                     }
-                                    let enemy_stats = stats
-                                        .enemies
-                                        .entry(enemies[it].character().kind)
-                                        .or_insert_with(Default::default);
-                                    if attack > 0 {
-                                        enemy_stats.total_inflicted_damages += attack as u64;
-                                        if is_dead {
-                                            enemy_stats.total_kills += 1;
-                                        }
-                                    } else {
-                                        enemy_stats.total_healed += (attack * -1) as u64;
+                                } else {
+                                    stats.total_damages.total_healed += (attack * -1) as u64;
+                                }
+                                let enemy_stats = stats
+                                    .enemies
+                                    .entry(enemies[it].character().kind)
+                                    .or_insert_with(Default::default);
+                                if attack > 0 {
+                                    enemy_stats.total_inflicted_damages += attack as u64;
+                                    if is_dead {
+                                        enemy_stats.total_kills += 1;
                                     }
+                                } else {
+                                    enemy_stats.total_healed += (attack * -1) as u64;
                                 }
-                                if is_dead {
-                                    dead_enemies.push(enemies.remove(it));
-                                }
+                            }
+                            if is_dead {
+                                dead_enemies.push(enemies.remove(it));
                             }
                         }
                     }
@@ -448,23 +467,26 @@ pub fn main() {
             let len = enemies.len();
             for i in 0..len {
                 let (x, y) = enemies[i].apply_move(&map, update_elapsed, &players, &enemies);
-                enemies[i].update(update_elapsed, x, y);
-                if enemies[i].character().is_attacking() {
-                    let id = enemies[i].id();
-                    let dir = enemies[i].character().get_direction();
-                    if let Some(ref weapon) = enemies[i].character().weapon {
-                        let mut matrix = None;
-                        // TODO: for now, NPCs can only attack players
-                        for (pos, player) in players.iter_mut().enumerate() {
-                            if player.check_intersection(
-                                id,
-                                dir,
-                                weapon,
-                                &mut matrix,
-                                &system.textures,
-                            ) > 0
-                                && pos == 0
-                            {
+                let enemy = &mut enemies[i];
+                enemy.update(update_elapsed, x, y);
+                if enemy.character().is_attacking() {
+                    let mut matrix = None;
+                    // TODO: for now, NPCs can only attack players
+                    for (pos, player) in players.iter_mut().enumerate() {
+                        let attack = player.check_intersection(
+                            enemy.character(),
+                            &mut matrix,
+                            &system.textures,
+                        );
+                        if attack != 0 {
+                            player.character.update_attack_info(
+                                enemy.id(),
+                                enemy.character().weapon.total_time,
+                                attack,
+                            );
+                            // If this the current player (not a remote one), then we vibrate
+                            // the controller.
+                            if pos == 0 {
                                 env.rumble(u16::MAX / 10, 250);
                             }
                         }

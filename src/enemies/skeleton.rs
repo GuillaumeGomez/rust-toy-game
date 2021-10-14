@@ -17,7 +17,7 @@ use crate::player::Player;
 use crate::texture_handler::{Dimension, TextureHandler};
 use crate::texture_holder::{TextureId, Textures};
 use crate::utils;
-use crate::weapon::Sword;
+use crate::weapons::Sword;
 use crate::{
     GetDimension, GetPos, Id, MAP_CASE_SIZE, MAX_DISTANCE_PURSUIT, MAX_DISTANCE_WANDERING,
     ONE_SECOND,
@@ -81,7 +81,7 @@ impl Skeleton {
         id: Id,
         tile_width: u32,
         tile_height: u32,
-    ) -> Box<Self> {
+    ) -> Self {
         // // up
         // actions_standing.push(Dimension::new(Rect::new(0, 73, 28, 36), 0));
         // // down
@@ -190,7 +190,7 @@ impl Skeleton {
             dexterity: 1,
         };
         let stats = points.generate_stats(level);
-        Box::new(Self {
+        Self {
             character: Character {
                 action: Action {
                     direction: Direction::Down,
@@ -206,7 +206,7 @@ impl Skeleton {
                 xp: 100,
                 unused_points: 0,
                 texture_handler,
-                weapon: Some(Sword::new(textures, 10)),
+                weapon: Sword::new(textures, 10),
                 is_running: false,
                 id,
                 invincible_against: Vec::new(),
@@ -223,7 +223,7 @@ impl Skeleton {
             action: RefCell::new(EnemyAction::None),
             start_x: x,
             start_y: y,
-        })
+        }
     }
 
     fn compute_adds(&self, target_x: i64, target_y: i64) -> (i64, i64) {
@@ -285,7 +285,7 @@ impl Skeleton {
         mut destination_y: i64,
         map: &Map,
         players: &[Player],
-        npcs: &[Box<Skeleton>],
+        npcs: &[Box<dyn Enemy>],
         step: i64,
         target_id: Option<Id>,
     ) -> Option<Vec<(i64, i64)>> {
@@ -369,7 +369,7 @@ impl Skeleton {
         &self,
         map: &Map,
         players: &[Player],
-        npcs: &[Box<Skeleton>],
+        npcs: &[Box<dyn Enemy>],
         self_x: i64,
         self_y: i64,
         target_x: i64,
@@ -471,7 +471,7 @@ impl Enemy for Skeleton {
         map: &Map,
         _elapsed: u64,
         players: &[Player],
-        npcs: &[Box<Skeleton>],
+        npcs: &[Box<dyn Enemy>],
     ) -> (i64, i64) {
         let mut distance = utils::compute_distance(&players[0], self);
         let mut index = 0;
@@ -503,12 +503,7 @@ impl Enemy for Skeleton {
             self_y,
         );
 
-        let weapon_height = self
-            .character
-            .weapon
-            .as_ref()
-            .map(|w| w.height() * 3 / 4)
-            .unwrap_or_else(|| distance as u32 + 1);
+        let weapon_height = self.character.weapon.height() * 3 / 4;
 
         let new_action = match &mut *self.action.borrow_mut() {
             EnemyAction::None
@@ -892,24 +887,5 @@ impl Enemy for Skeleton {
             }
         }
         self.character.draw(system, debug);
-    }
-}
-
-impl GetPos for Skeleton {
-    fn x(&self) -> i64 {
-        self.character().x()
-    }
-
-    fn y(&self) -> i64 {
-        self.character().y()
-    }
-}
-
-impl GetDimension for Skeleton {
-    fn width(&self) -> u32 {
-        self.character().width()
-    }
-    fn height(&self) -> u32 {
-        self.character().height()
     }
 }

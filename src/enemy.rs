@@ -40,9 +40,28 @@ pub trait Enemy: GetPos + GetDimension {
         map: &Map,
         elapsed: u64,
         players: &[Player],
-        npcs: &[Box<Skeleton>],
+        npcs: &[Box<dyn Enemy>],
     ) -> (i64, i64);
     fn draw(&mut self, system: &mut crate::system::System, debug: bool);
     fn update(&mut self, elapsed: u64, x: i64, y: i64);
     fn id(&self) -> Id;
+}
+
+impl<E: Enemy> GetPos for E {
+    fn x(&self) -> i64 {
+        self.character().x()
+    }
+
+    fn y(&self) -> i64 {
+        self.character().y()
+    }
+}
+
+impl<E: Enemy> GetDimension for E {
+    fn width(&self) -> u32 {
+        self.character().width()
+    }
+    fn height(&self) -> u32 {
+        self.character().height()
+    }
 }
