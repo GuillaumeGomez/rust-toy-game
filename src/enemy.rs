@@ -38,12 +38,12 @@ pub trait Enemy: GetPos + GetDimension {
     fn apply_move(
         &self,
         map: &Map,
-        elapsed: u64,
+        elapsed: u32,
         players: &[Player],
         npcs: &[Box<dyn Enemy>],
     ) -> (i64, i64);
     fn draw(&mut self, system: &mut crate::system::System, debug: bool);
-    fn update(&mut self, elapsed: u64, x: i64, y: i64);
+    fn update(&mut self, elapsed: u32, x: i64, y: i64);
     fn id(&self) -> Id;
 }
 

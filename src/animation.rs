@@ -30,8 +30,8 @@ pub fn create_level_up_animation_texture<'a>(
 pub struct Animation {
     pub texture: TextureId,
     nb_animations: u32,
-    duration: u64,
-    max_duration: u64,
+    duration: u32,
+    max_duration: u32,
     sprite_width: u32,
     sprite_height: u32,
     pub sprite_display_width: u32,
@@ -69,7 +69,7 @@ impl Animation {
         }
     }
 
-    pub fn update(&mut self, elapsed: u64) {
+    pub fn update(&mut self, elapsed: u32) {
         self.duration += elapsed;
     }
 

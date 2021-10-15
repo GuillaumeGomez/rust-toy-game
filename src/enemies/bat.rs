@@ -129,7 +129,7 @@ impl Bat {
                 id,
                 invincible_against: Vec::new(),
                 statuses: Vec::new(),
-                speed: ONE_SECOND / 45, // we want to move 45 times per second
+                speed: ONE_SECOND / 90,
                 move_delay: 0,
                 show_health_bar: true,
                 death_animation: Some(Animation::new_death(textures)),
@@ -178,7 +178,7 @@ impl Enemy for Bat {
         unsafe { std::mem::transmute(&mut self.character) }
     }
 
-    fn update(&mut self, elapsed: u64, x: i64, y: i64) {
+    fn update(&mut self, elapsed: u32, x: i64, y: i64) {
         // if !self.character.is_attacking() && self.action.borrow().is_attack() {
         //     self.character.attack();
         //     if x == 0 && y == 0 {
@@ -194,7 +194,7 @@ impl Enemy for Bat {
     fn apply_move(
         &self,
         map: &Map,
-        _elapsed: u64,
+        _elapsed: u32,
         players: &[Player],
         npcs: &[Box<dyn Enemy>],
     ) -> (i64, i64) {

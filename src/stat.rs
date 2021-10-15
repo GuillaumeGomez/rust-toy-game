@@ -3,28 +3,28 @@ use crate::ONE_SECOND;
 #[derive(Clone)]
 pub struct Stat {
     /// How much got regenerated in a thousand second
-    pub regen_rate: u64,
-    max_value: u64,
-    value: u64,
+    pub regen_rate: u32,
+    max_value: u32,
+    value: u32,
 }
 
 impl Stat {
-    pub fn new(regen_rate: f32, max_value: u64) -> Stat {
+    pub fn new(regen_rate: f32, max_value: u32) -> Stat {
         Stat {
-            regen_rate: (regen_rate * 1_000.) as u64,
+            regen_rate: (regen_rate * 1_000.) as _,
             max_value: max_value * 1_000,
             value: max_value * 1_000,
         }
     }
 
-    pub fn add(&mut self, add: u64) {
+    pub fn add(&mut self, add: u32) {
         self.value += add * 1000;
         if self.value > self.max_value {
             self.value = self.max_value
         }
     }
 
-    pub fn subtract(&mut self, sub: u64) {
+    pub fn subtract(&mut self, sub: u32) {
         let sub = sub * 1_000;
         if sub > self.value {
             self.value = 0;
@@ -33,11 +33,11 @@ impl Stat {
         }
     }
 
-    pub fn value(&self) -> u64 {
+    pub fn value(&self) -> u32 {
         self.value / 1_000
     }
 
-    pub fn max_value(&self) -> u64 {
+    pub fn max_value(&self) -> u32 {
         self.max_value / 1_000
     }
 
@@ -50,10 +50,10 @@ impl Stat {
     }
 
     pub fn pourcent(&self) -> u32 {
-        (self.value * 100 / self.max_value) as u32
+        self.value * 100 / self.max_value
     }
 
-    pub fn refresh(&mut self, elapsed: u64) -> bool {
+    pub fn refresh(&mut self, elapsed: u32) -> bool {
         if self.value >= self.max_value {
             return false;
         }

@@ -291,9 +291,9 @@ pub struct Character {
     pub weapon: Weapon,
     pub is_running: bool,
     /// How much time you need to move of 1.
-    pub speed: u64,
+    pub speed: u32,
     /// When "move_delay" is superior than "speed", we trigger the movement.
-    pub move_delay: u64,
+    pub move_delay: u32,
     /// This ID is used when this character is attacking someone else. This "someone else" will
     /// invincible to any other attack from your ID until the total attack time is over.
     pub id: Id,
@@ -302,7 +302,7 @@ pub struct Character {
     pub show_health_bar: bool,
     pub death_animation: Option<Animation>,
     /// (x, y, delay)
-    pub effect: RefCell<Option<(i64, i64, u64)>>,
+    pub effect: RefCell<Option<(i64, i64, u32)>>,
     pub animations: Vec<Animation>,
     /// When moving, only the feet should be taken into account, not the head. So this is hitbox
     /// containing width and height based on the bottom of the texture.
@@ -724,7 +724,7 @@ impl Character {
     pub fn apply_move(
         &self,
         map: &Map,
-        elapsed: u64,
+        elapsed: u32,
         players: &[Player],
         npcs: &[Box<dyn Enemy>],
     ) -> (i64, i64) {
@@ -809,7 +809,7 @@ impl Character {
         (x, y)
     }
 
-    pub fn update(&mut self, elapsed: u64, x: i64, y: i64, env: Option<&mut Env>) {
+    pub fn update(&mut self, elapsed: u32, x: i64, y: i64, env: Option<&mut Env>) {
         if self.is_dead() {
             if let Some(ref mut death) = self.death_animation {
                 death.update(elapsed);
@@ -982,14 +982,14 @@ impl Character {
                             let mut effect = self.effect.borrow_mut();
                             if effect.is_none() {
                                 // We want the character to be moved by 6 cases.
-                                let distance = MAP_CASE_SIZE * 6;
+                                let distance = MAP_CASE_SIZE as u32 * 6;
                                 // We want the "animation" to last for half a second.
-                                let dur = ONE_SECOND / 2 / distance as u64;
+                                let dur = ONE_SECOND / 2 / distance;
                                 *effect = Some(match dir {
-                                    Direction::Up => (0, distance, dur),
-                                    Direction::Down => (0, distance * -1, dur),
-                                    Direction::Right => (distance * -1, 0, dur),
-                                    Direction::Left => (distance, 0, dur),
+                                    Direction::Up => (0, distance as i64, dur),
+                                    Direction::Down => (0, distance as i64 * -1, dur),
+                                    Direction::Right => (distance as i64 * -1, 0, dur),
+                                    Direction::Left => (distance as i64, 0, dur),
                                 });
                             }
                         }

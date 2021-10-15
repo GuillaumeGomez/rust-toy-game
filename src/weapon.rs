@@ -75,7 +75,7 @@ impl Weapon {
         self.x = x;
         self.y = y;
     }
-    pub fn update(&mut self, elapsed: u64) {
+    pub fn update(&mut self, elapsed: u32) {
         if self.blocking_direction.is_some() {
             return;
         }
@@ -83,7 +83,7 @@ impl Weapon {
             if action.duration > elapsed {
                 action.duration -= elapsed;
 
-                let angle_add = elapsed * action.total_angle as u64 / self.total_time as u64;
+                let angle_add = elapsed * action.total_angle / self.total_time;
 
                 action.angle += angle_add as i32;
                 self.action = Some(action);
@@ -230,7 +230,7 @@ pub struct WeaponAction {
     pub angle: i32,
     /// The angle of the rotation.
     pub total_angle: u32,
-    pub duration: u64,
+    pub duration: u32,
     pub x_add: i32,
     pub y_add: i32,
 }

@@ -437,7 +437,7 @@ impl Enemy for Skeleton {
         unsafe { std::mem::transmute(&mut self.character) }
     }
 
-    fn update(&mut self, elapsed: u64, x: i64, y: i64) {
+    fn update(&mut self, elapsed: u32, x: i64, y: i64) {
         if x > 0 {
             self.character.action.direction = Direction::Right;
         } else if x < 0 {
@@ -469,7 +469,7 @@ impl Enemy for Skeleton {
     fn apply_move(
         &self,
         map: &Map,
-        _elapsed: u64,
+        _elapsed: u32,
         players: &[Player],
         npcs: &[Box<dyn Enemy>],
     ) -> (i64, i64) {

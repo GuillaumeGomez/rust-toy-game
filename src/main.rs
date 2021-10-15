@@ -58,9 +58,9 @@ pub const WIDTH: i32 = 800;
 pub const HEIGHT: i32 = 600;
 pub const MAP_SIZE: u32 = 1_000;
 // in micro-seconds
-pub const ONE_SECOND: u64 = 1_000_000;
-pub const FPS: u64 = 60;
-pub const FRAME_DELAY: u64 = ONE_SECOND / FPS;
+pub const ONE_SECOND: u32 = 1_000_000;
+pub const FPS: u32 = 60;
+pub const FRAME_DELAY: u32 = ONE_SECOND / FPS;
 pub const MAX_DISTANCE_DETECTION: i32 = 200;
 pub const MAX_DISTANCE_PURSUIT: i32 = 300;
 pub const MAP_CASE_SIZE: i64 = 8;
@@ -522,7 +522,7 @@ pub fn main() {
         env.draw(&mut system);
 
         let elapsed_time = loop_timer.elapsed();
-        let micro_elapsed = elapsed_time.as_micros() as u64;
+        let micro_elapsed = elapsed_time.as_micros() as u32;
 
         // TODO: use `update_elapsed` instead of `loop_timer` for the FPS count!
         env.debug_draw(&mut system, &players[0], micro_elapsed);
@@ -657,11 +657,11 @@ pub fn main() {
 
         system.clear();
         update_elapsed = if micro_elapsed < FRAME_DELAY {
-            ::std::thread::sleep(Duration::from_micros(FRAME_DELAY - micro_elapsed));
+            ::std::thread::sleep(Duration::from_micros((FRAME_DELAY - micro_elapsed) as u64));
             FRAME_DELAY
         } else {
             micro_elapsed
-        } as u64;
+        };
 
         loop_timer = Instant::now();
         sort_update += 1;

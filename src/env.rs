@@ -562,7 +562,7 @@ impl<'a> Env<'a> {
         self.display_menu = true;
     }
 
-    pub fn debug_draw(&mut self, system: &mut System, player: &Player, elapsed: u64) {
+    pub fn debug_draw(&mut self, system: &mut System, player: &Player, elapsed: u32) {
         if self.debug {
             self.fps_str = if elapsed < crate::FRAME_DELAY {
                 "FPS: 60.0".to_owned()
