@@ -91,23 +91,16 @@ impl Direction {
 pub struct Action {
     pub direction: Direction,
     pub secondary: Option<Direction>,
-    pub movement: Option<u64>,
+    pub movement: Option<u32>,
 }
 
 impl Action {
     /// Returns `(x, y, width, height, draw_width, draw_height)`.
-    pub fn compute_current(
-        &self,
-        is_running: bool,
-        textures: &TextureHandler,
-    ) -> (i32, i32, u32, u32, u32, u32) {
+    pub fn compute_current(&self, textures: &TextureHandler) -> (i32, i32, u32, u32, u32, u32) {
         if let Some(ref pos) = self.movement {
             let (info, nb_animations) = &textures.actions_moving[self.direction as usize];
-            let pos = if is_running {
-                (pos % 30) as i32 / (30 / nb_animations)
-            } else {
-                (pos % 60) as i32 / (60 / nb_animations)
-            };
+            // TODO: It shouldn't be needed but just in case...
+            let pos = *pos as i32 % nb_animations;
             if let Some((tile_width, tile_height)) = textures.forced_size {
                 (
                     pos * info.incr_to_next + info.x,
@@ -294,6 +287,10 @@ pub struct Character {
     pub speed: u32,
     /// When "move_delay" is superior than "speed", we trigger the movement.
     pub move_delay: u32,
+    /// How much time we show a tile before going to the next one.
+    pub tile_duration: u32,
+    /// When "tile_delay" is superior to "tile_duration", we change the tile.
+    pub tile_delay: u32,
     /// This ID is used when this character is attacking someone else. This "someone else" will
     /// invincible to any other attack from your ID until the total attack time is over.
     pub id: Id,
@@ -630,9 +627,8 @@ impl Character {
     }
 
     pub fn draw(&mut self, system: &mut System, debug: bool) {
-        let (tile_x, tile_y, tile_width, tile_height, draw_width, draw_height) = self
-            .action
-            .compute_current(self.is_running, &self.texture_handler);
+        let (tile_x, tile_y, tile_width, tile_height, draw_width, draw_height) =
+            self.action.compute_current(&self.texture_handler);
         if self.is_dead() {
             if let Some(ref death) = self.death_animation {
                 death.draw(
@@ -843,10 +839,6 @@ impl Character {
             }
         } else {
             while self.move_delay > self.speed {
-                // We now update the animation!
-                if let Some(ref mut pos) = self.action.movement {
-                    *pos += 1;
-                }
                 let stamina_value = self.stats.stamina.value();
                 if self.is_running && stamina_value > 0 {
                     self.stats.stamina.subtract(1);
@@ -856,6 +848,25 @@ impl Character {
             }
 
             self.weapon.update(elapsed);
+        }
+
+        if let Some(ref mut pos) = self.action.movement {
+            self.tile_delay += elapsed;
+            let tile_duration = if self.is_running {
+                self.tile_duration / 2
+            } else {
+                self.tile_duration
+            };
+            while self.tile_delay > tile_duration {
+                // We now update the animation!
+                *pos += 1;
+                self.tile_delay -= tile_duration;
+            }
+            let nb_animations =
+                self.texture_handler.actions_moving[self.action.direction as usize].1 as u32;
+            if *pos > nb_animations {
+                *pos %= nb_animations;
+            }
         }
 
         // We update the statuses display
@@ -889,9 +900,8 @@ impl Character {
             // To set the direction of the blocking.
             self.weapon.block(self.action.direction);
 
-            let (_, _, _, _, draw_width, draw_height) = self
-                .action
-                .compute_current(self.is_running, &self.texture_handler);
+            let (_, _, _, _, draw_width, draw_height) =
+                self.action.compute_current(&self.texture_handler);
             let draw_width = draw_width as i64;
             let draw_height = draw_height as i64;
             let width = self.weapon.width() as i64;
@@ -904,9 +914,8 @@ impl Character {
             };
             self.weapon.set_pos(x, y);
         } else {
-            let (_, _, _, _, draw_width, draw_height) = self
-                .action
-                .compute_current(self.is_running, &self.texture_handler);
+            let (_, _, _, _, draw_width, draw_height) =
+                self.action.compute_current(&self.texture_handler);
             let draw_width = draw_width as i64;
             let draw_height = draw_height as i64;
             let width = self.weapon.width() as i64;
@@ -936,9 +945,8 @@ impl Character {
         {
             return 0;
         }
-        let (_tile_x, _tile_y, _, _, width, height) = self
-            .action
-            .compute_current(self.is_running, &self.texture_handler);
+        let (_tile_x, _tile_y, _, _, width, height) =
+            self.action.compute_current(&self.texture_handler);
         let w_biggest = ::std::cmp::max(attacker.weapon.height(), attacker.weapon.width()) as i64;
         let attacker_direction = attacker.get_direction();
         let weapon_x = if attacker_direction == Direction::Right {

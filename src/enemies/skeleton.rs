@@ -213,6 +213,8 @@ impl Skeleton {
                 statuses: Vec::new(),
                 speed: ONE_SECOND / 45, // we want to move 45 times per second
                 move_delay: 0,
+                tile_duration: ONE_SECOND / 8,
+                tile_delay: 0,
                 show_health_bar: true,
                 death_animation: Some(Animation::new_death(textures)),
                 kind: CharacterKind::Enemy,
