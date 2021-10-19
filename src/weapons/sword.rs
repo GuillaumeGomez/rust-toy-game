@@ -10,7 +10,7 @@ use crate::sdl2::video::WindowContext;
 use crate::character::Direction;
 use crate::system::System;
 use crate::texture_holder::{TextureHolder, TextureId, Textures};
-use crate::weapon::{Weapon, WeaponAction, WeaponKind};
+use crate::weapon::{Weapon, WeaponAction, WeaponActionKind, WeaponKind};
 use crate::{GetDimension, GetPos, ONE_SECOND};
 
 fn get_surface_data(surface: &Surface<'_>) -> Vec<u8> {
@@ -59,30 +59,31 @@ impl Sword {
         Weapon {
             x: 0,
             y: 0,
-            action: None,
             data_id: "sword",
             total_time: ONE_SECOND as u32 / 4,
             kind: WeaponKind::Sword(Sword {
                 texture: textures.get_texture_id_from_name("sword"),
             }),
             attack,
-            blocking_direction: None,
         }
     }
     /// In case there is a timeout or something, you might not be able to use the weapon.
-    pub fn use_it(&mut self, direction: Direction) -> Option<WeaponAction> {
-        let (angle, x_add, y_add) = match direction {
+    pub fn use_it(&mut self, direction: Direction, total_duration: u32) -> Option<WeaponAction> {
+        let (start_angle, x_add, y_add) = match direction {
             Direction::Up => (-45, self.width() as i32 / 2, self.height() as i32),
             Direction::Down => (135, self.width() as i32 / 2, self.height() as i32),
             Direction::Left => (225, 0, self.height() as i32),
             Direction::Right => (45, 0, self.height() as i32),
         };
         Some(WeaponAction {
-            angle,
-            total_angle: 90,
-            duration: ONE_SECOND / 4,
+            duration: 0,
+            total_duration,
             x_add,
             y_add,
+            kind: WeaponActionKind::AttackBySlash {
+                start_angle,
+                total_angle: 90,
+            },
         })
     }
     pub fn weight(&self) -> u32 {

@@ -221,6 +221,8 @@ impl Skeleton {
                 effect: RefCell::new(None),
                 animations: Vec::new(),
                 move_hitbox: (16, 8),
+                blocking_direction: None,
+                weapon_action: None,
             },
             action: RefCell::new(EnemyAction::None),
             start_x: x,

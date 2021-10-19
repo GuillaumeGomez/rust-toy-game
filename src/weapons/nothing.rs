@@ -10,26 +10,38 @@ use crate::sdl2::video::WindowContext;
 use crate::character::Direction;
 use crate::system::System;
 use crate::texture_holder::{TextureHolder, TextureId, Textures};
-use crate::weapon::{Weapon, WeaponAction, WeaponKind};
+use crate::weapon::{Weapon, WeaponAction, WeaponActionKind, WeaponKind};
 use crate::{GetDimension, GetPos, ONE_SECOND};
 
 pub struct Nothing;
 
+pub const RANGE: i32 = 15;
+
 impl Nothing {
-    pub fn new(textures: &Textures<'_>, attack: i32) -> Weapon {
+    pub fn new(attack: i32) -> Weapon {
         Weapon {
             x: 0,
             y: 0,
-            action: None,
-            data_id: "sword",
-            total_time: ONE_SECOND as u32 / 5,
+            data_id: "",
+            total_time: ONE_SECOND / 5,
             kind: WeaponKind::Nothing(Nothing),
             attack,
-            blocking_direction: None,
         }
     }
-    pub fn use_it(&mut self, direction: Direction) -> Option<WeaponAction> {
-        None
+    pub fn use_it(&mut self, direction: Direction, total_duration: u32) -> Option<WeaponAction> {
+        let (x, y) = match direction {
+            Direction::Up => (0, -RANGE),
+            Direction::Down => (0, RANGE),
+            Direction::Left => (-RANGE, 0),
+            Direction::Right => (RANGE, 0),
+        };
+        Some(WeaponAction {
+            duration: 0,
+            total_duration,
+            x_add: 0,
+            y_add: 0,
+            kind: WeaponActionKind::AttackByMove { target: (x, y) },
+        })
     }
     pub fn weight(&self) -> u32 {
         1
@@ -41,9 +53,9 @@ impl Nothing {
 
 impl GetDimension for Nothing {
     fn width(&self) -> u32 {
-        0
+        10
     }
     fn height(&self) -> u32 {
-        0
+        10
     }
 }

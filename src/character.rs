@@ -16,7 +16,7 @@ use crate::status::Status;
 use crate::system::System;
 use crate::texture_handler::{Dimension, TextureHandler};
 use crate::texture_holder::{TextureHolder, Textures};
-use crate::weapon::Weapon;
+use crate::weapon::{Weapon, WeaponAction};
 // use crate::window::UpdateKind;
 use crate::{GetDimension, GetPos, Id, MAP_CASE_SIZE, MAP_SIZE, ONE_SECOND};
 
@@ -300,6 +300,8 @@ pub struct Character {
     pub death_animation: Option<Animation>,
     /// (x, y, delay)
     pub effect: RefCell<Option<(i64, i64, u32)>>,
+    pub weapon_action: Option<WeaponAction>,
+    pub blocking_direction: Option<Direction>,
     pub animations: Vec<Animation>,
     /// When moving, only the feet should be taken into account, not the head. So this is hitbox
     /// containing width and height based on the bottom of the texture.
@@ -639,19 +641,39 @@ impl Character {
                 return;
             }
         }
-        let x = (self.x - system.x()) as i32;
-        let y = (self.y - system.y()) as i32;
-        if x + draw_width as i32 >= 0
+        let mut x = (self.x - system.x()) as i32;
+        let mut y = (self.y - system.y()) as i32;
+        let is_in_viewport = x + draw_width as i32 >= 0
             && x < system.width()
             && y + draw_height as i32 >= 0
-            && y < system.height()
-        {
-            system.copy_to_canvas(
-                self.texture_handler.texture,
-                Rect::new(tile_x, tile_y, tile_width, tile_height),
-                Rect::new(x, y, draw_width, draw_height),
-            );
+            && y < system.height();
+        if !is_in_viewport {
+            return;
         }
+        if let Some(direction) = self.blocking_direction {
+            self.weapon.draw_blocking(system, direction);
+        } else if let Some(ref action) = self.weapon_action {
+            if let Some((x_add, y_add)) = action.kind.get_attack_by_move_target() {
+                // We consider that the target must be reached in half the time and then go back to
+                // where it's supposed to be.
+                if action.duration > action.total_duration / 2 {
+                    x += x_add - x_add * action.duration as i32 / action.total_duration as i32;
+                    y += y_add - y_add * action.duration as i32 / action.total_duration as i32;
+                } else {
+                    x += x_add * action.duration as i32 / action.total_duration as i32;
+                    y += y_add * action.duration as i32 / action.total_duration as i32;
+                }
+            } else {
+                self.weapon.draw(system, action);
+            }
+        }
+
+        system.copy_to_canvas(
+            self.texture_handler.texture,
+            Rect::new(tile_x, tile_y, tile_width, tile_height),
+            Rect::new(x, y, draw_width, draw_height),
+        );
+
         for animation in self.animations.iter() {
             animation.draw(
                 system,
@@ -679,7 +701,6 @@ impl Character {
         //         canvas.fill_rect(Rect::new(x - screen.x, y - screen.y, 8, 8));
         //     }
         // }
-        self.weapon.draw(system, self.id == 1);
 
         if self.show_health_bar && !self.stats.health.is_full() {
             system.health_bar.draw(
@@ -703,18 +724,20 @@ impl Character {
     pub fn attack(&mut self) {
         let remaining_stamina = self.stats.stamina.value();
         if remaining_stamina >= self.weapon.weight() as _ {
-            self.weapon.use_it(self.action.direction);
+            self.weapon_action = self.weapon.use_it(self.action.direction);
+            self.blocking_direction = None;
+
             self.set_weapon_pos();
             self.stats.stamina.subtract(self.weapon.weight() as _);
         }
     }
 
     pub fn is_attacking(&self) -> bool {
-        self.weapon.is_attacking()
+        self.weapon_action.is_some()
     }
 
     pub fn stop_attack(&mut self) {
-        self.weapon.stop_use();
+        self.weapon_action = None;
     }
 
     pub fn apply_move(
@@ -847,7 +870,15 @@ impl Character {
                 self.move_delay -= self.speed;
             }
 
-            self.weapon.update(elapsed);
+            // Normally, when we block we set the weapon_action to None.
+            // if self.blocking_direction.is_none() {
+            if let Some(mut weapon_action) = self.weapon_action.take() {
+                weapon_action.duration += elapsed;
+                if weapon_action.duration <= weapon_action.total_duration {
+                    self.weapon_action = Some(weapon_action);
+                }
+            }
+            // }
         }
 
         if let Some(ref mut pos) = self.action.movement {
@@ -896,9 +927,9 @@ impl Character {
     }
 
     fn set_weapon_pos(&mut self) {
-        if self.weapon.is_blocking() {
+        if self.is_blocking() {
             // To set the direction of the blocking.
-            self.weapon.block(self.action.direction);
+            self.block();
 
             let (_, _, _, _, draw_width, draw_height) =
                 self.action.compute_current(&self.texture_handler);
@@ -970,7 +1001,9 @@ impl Character {
         }
 
         if matrix.is_none() {
-            *matrix = attacker.weapon.compute_angle(textures);
+            *matrix = attacker
+                .weapon
+                .compute_angle(textures, &attacker.weapon_action);
         }
         if let Some(ref matrix) = matrix {
             if self.texture_handler.check_intersection(
@@ -1063,15 +1096,18 @@ impl Character {
     }
 
     pub fn is_blocking(&self) -> bool {
-        self.weapon.is_blocking()
+        self.blocking_direction.is_some()
     }
     pub fn block(&mut self) {
         let dir = self.get_direction();
-        self.weapon.block(dir);
-        self.set_weapon_pos();
+        self.weapon_action = None;
+        if self.weapon.can_block() {
+            self.blocking_direction = Some(dir);
+            self.set_weapon_pos();
+        }
     }
     pub fn stop_block(&mut self) {
-        self.weapon.stop_block();
+        self.blocking_direction = None;
     }
 
     pub fn get_direction(&self) -> Direction {
@@ -1089,10 +1125,10 @@ impl Character {
             return;
         }
         self.reset_stats();
-        // When you get resurrected "by yourself", you lose 10% of your xp.
-        let tenth = self.xp_to_next_level / 10;
-        if tenth <= self.xp {
-            self.xp -= tenth;
+        // When you get resurrected "by yourself", you lose 30% of your xp.
+        let third = self.xp_to_next_level / 30;
+        if third < self.xp {
+            self.xp -= third;
         } else {
             self.xp = 0;
         }

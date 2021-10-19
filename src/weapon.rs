@@ -30,8 +30,6 @@ pub enum WeaponKind {
 pub struct Weapon {
     pub x: i64,
     pub y: i64,
-    pub action: Option<WeaponAction>,
-    pub blocking_direction: Option<Direction>,
     pub kind: WeaponKind,
     pub data_id: &'static str,
     /// Total time required for this weapon to perform its action.
@@ -42,15 +40,31 @@ pub struct Weapon {
 impl Weapon {
     /// Returns a vec of positions to check.
     // FIXME: This whole thing is terrible performance-wise...
-    pub fn compute_angle(&self, textures: &Textures<'_>) -> Option<Vec<(i64, i64)>> {
-        let action = self.get_action()?;
+    pub fn compute_angle(
+        &self,
+        textures: &Textures<'_>,
+        action: &Option<WeaponAction>,
+    ) -> Option<Vec<(i64, i64)>> {
+        let action = match action {
+            Some(a) => a,
+            None => return None,
+        };
+        let (start_angle, total_angle) = match action.kind {
+            WeaponActionKind::AttackBySlash {
+                start_angle,
+                total_angle,
+            } => (start_angle, total_angle),
+            _ => return None,
+        };
         let height = self.height() as i64;
         let width = self.width() as i64;
         let half_width = width / 2;
         let data = textures.get_data(self.data_id);
         let mut matrix = Vec::with_capacity(data.len());
 
-        let radian_angle = action.angle as f32 * 0.0174533;
+        let radian_angle = (start_angle as f32
+            + action.duration as f32 / action.total_duration as f32 * total_angle as f32)
+            * 0.0174533;
         let radian_sin = radian_angle.sin();
         let radian_cos = radian_angle.cos();
         for y in 0..height {
@@ -75,80 +89,63 @@ impl Weapon {
         self.x = x;
         self.y = y;
     }
-    pub fn update(&mut self, elapsed: u32) {
-        if self.blocking_direction.is_some() {
-            return;
+    pub fn draw_blocking(&self, system: &mut System, direction: Direction) {
+        if let Some(texture) = self.get_texture() {
+            let x = self.x - system.x();
+            let y = self.y - system.y();
+            let (angle, _, _) = match direction {
+                Direction::Up => (90, 0, self.height() as i32),
+                Direction::Right => (180, self.width() as i32, 0),
+                Direction::Down => (270, self.width() as i32, self.height() as i32),
+                Direction::Left => (0, 0, 0),
+            };
+            system.copy_ex_to_canvas(
+                texture,
+                None,
+                Rect::new(x as i32, y as i32, self.width(), self.height()),
+                angle as f64,
+                None,
+                false,
+                false,
+            );
         }
-        if let Some(mut action) = self.action.take() {
-            if action.duration > elapsed {
-                action.duration -= elapsed;
-
-                let angle_add = elapsed * action.total_angle / self.total_time;
-
-                action.angle += angle_add as i32;
-                self.action = Some(action);
+    }
+    pub fn draw(&self, system: &mut System, action: &WeaponAction) {
+        if let Some(texture) = self.get_texture() {
+            let x = self.x - system.x();
+            let y = self.y - system.y();
+            match action.kind {
+                WeaponActionKind::AttackBySlash {
+                    start_angle,
+                    total_angle,
+                } => {
+                    let current_angle = (start_angle as f32
+                        + action.duration as f32 / action.total_duration as f32
+                            * total_angle as f32) as f64;
+                    system.copy_ex_to_canvas(
+                        texture,
+                        None,
+                        Rect::new(x as i32, y as i32, self.width(), self.height()),
+                        current_angle,
+                        Some((action.x_add, action.y_add).into()),
+                        false,
+                        false,
+                    );
+                }
+                WeaponActionKind::AttackByMove { .. } => {}
+                WeaponActionKind::AttackByProjection => {
+                    // FIXME: it'll be the animation to send the projectile.
+                    unimplemented!();
+                }
             }
         }
     }
-    pub fn draw(&self, system: &mut System, _debug: bool) {
-        if let Some(direction) = self.blocking_direction {
-            if let Some(texture) = self.get_texture() {
-                let x = self.x - system.x();
-                let y = self.y - system.y();
-                let (angle, _, _) = match direction {
-                    Direction::Up => (90, 0, self.height() as i32),
-                    Direction::Right => (180, self.width() as i32, 0),
-                    Direction::Down => (270, self.width() as i32, self.height() as i32),
-                    Direction::Left => (0, 0, 0),
-                };
-                system.copy_ex_to_canvas(
-                    texture,
-                    None,
-                    Rect::new(x as i32, y as i32, self.width(), self.height()),
-                    angle as f64,
-                    None,
-                    false,
-                    false,
-                );
-            }
-        } else if let Some(ref action) = self.action {
-            if let Some(texture) = self.get_texture() {
-                let x = self.x - system.x();
-                let y = self.y - system.y();
-                system.copy_ex_to_canvas(
-                    texture,
-                    None,
-                    Rect::new(x as i32, y as i32, self.width(), self.height()),
-                    action.angle as f64,
-                    Some((action.x_add, action.y_add).into()),
-                    false,
-                    false,
-                );
-            }
-        }
+    pub fn can_block(&self) -> bool {
+        // Obviously, if you don't have a weapon, you can't block.
+        matches!(self.kind, WeaponKind::Nothing(_))
     }
-    pub fn is_blocking(&self) -> bool {
-        self.blocking_direction.is_some()
-    }
-    pub fn block(&mut self, direction: Direction) {
-        self.blocking_direction = Some(direction);
-        self.action = None;
-    }
-    pub fn stop_block(&mut self) {
-        self.blocking_direction = None;
-    }
-    pub fn is_attacking(&self) -> bool {
-        self.action.is_some()
-    }
-    pub fn get_action(&self) -> Option<&WeaponAction> {
-        self.action.as_ref()
-    }
-    pub fn stop_use(&mut self) {
-        self.action = None;
-    }
-    pub fn use_it(&mut self, direction: Direction) {
-        self.action = self.kind.use_it(direction);
-        self.blocking_direction = None;
+    pub fn use_it(&mut self, direction: Direction) -> Option<WeaponAction> {
+        self.kind.use_it(direction, self.total_time)
     }
 }
 
@@ -185,10 +182,10 @@ impl DerefMut for Weapon {
 }
 
 impl WeaponKind {
-    fn use_it(&mut self, direction: Direction) -> Option<WeaponAction> {
+    fn use_it(&mut self, direction: Direction, total_time: u32) -> Option<WeaponAction> {
         match *self {
-            Self::Nothing(ref mut n) => n.use_it(direction),
-            Self::Sword(ref mut s) => s.use_it(direction),
+            Self::Nothing(ref mut n) => n.use_it(direction, total_time),
+            Self::Sword(ref mut s) => s.use_it(direction, total_time),
             _ => None,
         }
     }
@@ -227,10 +224,35 @@ impl GetDimension for WeaponKind {
 
 #[derive(Debug)]
 pub struct WeaponAction {
-    pub angle: i32,
-    /// The angle of the rotation.
-    pub total_angle: u32,
+    pub total_duration: u32,
     pub duration: u32,
     pub x_add: i32,
     pub y_add: i32,
+    pub kind: WeaponActionKind,
+}
+
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum WeaponActionKind {
+    /// Sword, Mass, Hammer...
+    AttackBySlash {
+        start_angle: i32,
+        /// The total angle of the rotation that the attack will do.
+        total_angle: i32,
+    },
+    /// Magic staff, bow...
+    AttackByProjection,
+    /// When you don't have a weapon and use your body instead...
+    AttackByMove {
+        /// (x, y) of where the move will end.
+        target: (i32, i32),
+    },
+}
+
+impl WeaponActionKind {
+    pub fn get_attack_by_move_target(&self) -> Option<(i32, i32)> {
+        match *self {
+            Self::AttackByMove { target } => Some(target),
+            _ => None,
+        }
+    }
 }
