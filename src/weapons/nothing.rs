@@ -29,7 +29,7 @@ impl Nothing {
         }
     }
     pub fn use_it(&mut self, direction: Direction, total_duration: u32) -> Option<WeaponAction> {
-        let (x, y) = match direction {
+        let (target_x, target_y) = match direction {
             Direction::Up => (0, -RANGE),
             Direction::Down => (0, RANGE),
             Direction::Left => (-RANGE, 0),
@@ -40,7 +40,7 @@ impl Nothing {
             total_duration,
             x_add: 0,
             y_add: 0,
-            kind: WeaponActionKind::AttackByMove { target: (x, y) },
+            kind: WeaponActionKind::AttackByMove { target_x, target_y },
         })
     }
     pub fn weight(&self) -> u32 {

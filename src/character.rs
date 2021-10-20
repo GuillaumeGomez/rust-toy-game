@@ -653,16 +653,9 @@ impl Character {
         if let Some(direction) = self.blocking_direction {
             self.weapon.draw_blocking(system, direction);
         } else if let Some(ref action) = self.weapon_action {
-            if let Some((x_add, y_add)) = action.kind.get_attack_by_move_target() {
-                // We consider that the target must be reached in half the time and then go back to
-                // where it's supposed to be.
-                if action.duration > action.total_duration / 2 {
-                    x += x_add - x_add * action.duration as i32 / action.total_duration as i32;
-                    y += y_add - y_add * action.duration as i32 / action.total_duration as i32;
-                } else {
-                    x += x_add * action.duration as i32 / action.total_duration as i32;
-                    y += y_add * action.duration as i32 / action.total_duration as i32;
-                }
+            if let Some((x_add, y_add)) = action.get_attack_by_move_target() {
+                x += x_add;
+                y += y_add;
             } else {
                 self.weapon.draw(system, action);
             }

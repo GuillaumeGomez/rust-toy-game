@@ -231,6 +231,30 @@ pub struct WeaponAction {
     pub kind: WeaponActionKind,
 }
 
+impl WeaponAction {
+    pub fn get_attack_by_move_target(&self) -> Option<(i32, i32)> {
+        match self.kind {
+            WeaponActionKind::AttackByMove { target_x, target_y } => {
+                // We consider that the target must be reached in half the time and then go back to
+                // where it's supposed to be.
+                let (x_add, y_add) = if self.duration > self.total_duration / 2 {
+                    (
+                        target_x - target_x * self.duration as i32 / self.total_duration as i32,
+                        target_y - target_y * self.duration as i32 / self.total_duration as i32,
+                    )
+                } else {
+                    (
+                        target_x * self.duration as i32 / self.total_duration as i32,
+                        target_y * self.duration as i32 / self.total_duration as i32,
+                    )
+                };
+                Some((x_add, y_add))
+            }
+            _ => None,
+        }
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum WeaponActionKind {
     /// Sword, Mass, Hammer...
@@ -243,16 +267,8 @@ pub enum WeaponActionKind {
     AttackByProjection,
     /// When you don't have a weapon and use your body instead...
     AttackByMove {
-        /// (x, y) of where the move will end.
-        target: (i32, i32),
+        // (x, y) of where the move will end.
+        target_x: i32,
+        target_y: i32,
     },
-}
-
-impl WeaponActionKind {
-    pub fn get_attack_by_move_target(&self) -> Option<(i32, i32)> {
-        match *self {
-            Self::AttackByMove { target } => Some(target),
-            _ => None,
-        }
-    }
 }
