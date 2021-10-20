@@ -53,9 +53,9 @@ impl Nothing {
 
 impl GetDimension for Nothing {
     fn width(&self) -> u32 {
-        10
+        RANGE as _
     }
     fn height(&self) -> u32 {
-        10
+        RANGE as _
     }
 }
