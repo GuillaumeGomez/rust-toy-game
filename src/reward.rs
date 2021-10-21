@@ -1,7 +1,7 @@
 use crate::sdl2::rect::Rect;
 
 use crate::system::System;
-use crate::texture_holder::{TextureHolder, TextureId};
+use crate::texture_holder::TextureId;
 use crate::{GetDimension, GetPos};
 
 #[derive(Debug)]

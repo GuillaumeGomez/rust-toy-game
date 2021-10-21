@@ -1,6 +1,6 @@
 use crate::sdl2::pixels::{Color, PixelFormatEnum};
 use crate::sdl2::rect::Rect;
-use crate::sdl2::render::{Texture, TextureCreator};
+use crate::sdl2::render::TextureCreator;
 use crate::sdl2::surface::Surface;
 use crate::sdl2::video::WindowContext;
 

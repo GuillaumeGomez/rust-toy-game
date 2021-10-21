@@ -5,13 +5,12 @@ use rand_chacha::ChaCha8Rng;
 
 use sdl2::image::{self, LoadSurface};
 use sdl2::pixels::{Color, PixelFormatEnum};
-use sdl2::render::{Canvas, Texture, TextureCreator};
+use sdl2::render::{Canvas, TextureCreator};
 use sdl2::surface::Surface;
 use sdl2::ttf;
 use sdl2::video::{GLProfile, Window, WindowContext};
 
 use std::collections::hash_map::DefaultHasher;
-use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::time::{Duration, Instant};
 
@@ -327,7 +326,6 @@ pub fn main() {
     let mut loop_timer = Instant::now();
 
     let mut players = vec![Player::new(
-        &texture_creator,
         &system.textures,
         0,
         0,
@@ -631,12 +629,12 @@ pub fn main() {
                 .collapsible(false)
                 .open(&mut env.inventory_window.is_displayed)
                 .show(&egui_ctx, |ui| {
-                    egui::Grid::new("inventory").show(ui, |ui| {});
+                    egui::Grid::new("inventory").show(ui, |_ui| {});
                 });
         }
 
         if env.character_window.is_displayed || env.inventory_window.is_displayed {
-            let (egui_output, paint_cmds) = egui_ctx.end_frame();
+            let (_egui_output, paint_cmds) = egui_ctx.end_frame();
             let paint_jobs = egui_ctx.tessellate(paint_cmds);
 
             //Note: passing a bg_color to paint_jobs will clear any previously drawn stuff.

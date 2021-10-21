@@ -1,6 +1,4 @@
 use crate::sdl2::rect::Rect;
-use crate::sdl2::render::Texture;
-use crate::sdl2::surface::Surface;
 
 use std::ops::{Deref, DerefMut};
 

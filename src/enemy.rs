@@ -1,5 +1,4 @@
 use crate::character::{Character, Direction};
-use crate::enemies::Skeleton;
 use crate::map::Map;
 use crate::player::Player;
 use crate::{GetDimension, GetPos, Id};

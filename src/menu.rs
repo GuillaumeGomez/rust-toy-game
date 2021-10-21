@@ -3,11 +3,9 @@ use crate::sdl2::keyboard::Keycode;
 use crate::sdl2::mouse::MouseButton;
 use crate::sdl2::pixels::{Color, PixelFormatEnum};
 use crate::sdl2::rect::Rect;
-use crate::sdl2::render::{Texture, TextureCreator};
+use crate::sdl2::render::TextureCreator;
 use crate::sdl2::surface::Surface;
 use crate::sdl2::video::WindowContext;
-
-use std::collections::HashMap;
 
 use crate::system::System;
 use crate::texture_holder::{TextureHolder, TextureId, Textures};

@@ -2,10 +2,8 @@ use crate::sdl2::pixels::Color;
 use crate::sdl2::rect::Rect;
 
 use std::cell::RefCell;
-use std::collections::HashMap;
 
 use crate::animation::Animation;
-use crate::enemies::Skeleton;
 use crate::enemy::Enemy;
 use crate::env::Env;
 use crate::map::Map;
@@ -15,7 +13,7 @@ use crate::stat::Stat;
 use crate::status::Status;
 use crate::system::System;
 use crate::texture_handler::{Dimension, TextureHandler};
-use crate::texture_holder::{TextureHolder, Textures};
+use crate::texture_holder::Textures;
 use crate::weapon::{Weapon, WeaponAction};
 // use crate::window::UpdateKind;
 use crate::{GetDimension, GetPos, Id, MAP_CASE_SIZE, MAP_SIZE, ONE_SECOND};
@@ -309,7 +307,7 @@ pub struct Character {
 }
 
 impl Character {
-    pub fn increase_xp(&mut self, xp_to_add: u64, textures: &Textures<'_>, env: Option<&mut Env>) {
+    pub fn increase_xp(&mut self, xp_to_add: u64, textures: &Textures<'_>, _env: Option<&mut Env>) {
         self.xp += xp_to_add;
         if self.xp >= self.xp_to_next_level {
             self.level += 1;
@@ -821,7 +819,7 @@ impl Character {
         (x, y)
     }
 
-    pub fn update(&mut self, elapsed: u32, x: i64, y: i64, env: Option<&mut Env>) {
+    pub fn update(&mut self, elapsed: u32, x: i64, y: i64, _env: Option<&mut Env>) {
         if self.is_dead() {
             if let Some(ref mut death) = self.death_animation {
                 death.update(elapsed);
@@ -833,9 +831,9 @@ impl Character {
         // Since we might change direction, better update weapon in any case...
         self.set_weapon_pos();
 
-        let env_stamina = self.stats.stamina.refresh(elapsed);
-        let env_health = self.stats.health.refresh(elapsed);
-        let env_mana = self.stats.mana.refresh(elapsed);
+        let _env_stamina = self.stats.stamina.refresh(elapsed);
+        let _env_health = self.stats.health.refresh(elapsed);
+        let _env_mana = self.stats.mana.refresh(elapsed);
         // if let Some(env) = env {
         //     if env_stamina {
         //         env.add_character_update("Stamina", UpdateKind::Value(self.stamina.value()));
@@ -1010,10 +1008,11 @@ impl Character {
             return 0;
         }
 
-        let has_intersection = if let Some((weapon_action, true)) = attacker
+        let has_intersection = if attacker
             .weapon_action
             .as_ref()
-            .map(|a| (a, a.is_attack_by_move()))
+            .map(|a| a.is_attack_by_move())
+            .unwrap_or(false)
         {
             self.check_attack_by_move_intersection(attacker)
         } else {

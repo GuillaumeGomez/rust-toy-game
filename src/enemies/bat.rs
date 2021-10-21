@@ -1,15 +1,12 @@
 use std::cell::RefCell;
-use std::cmp::{Ordering, Reverse};
-use std::collections::{BinaryHeap, HashMap};
-use std::ops::{Deref, DerefMut};
+use std::cmp::Ordering;
 
 use crate::sdl2::image::LoadSurface;
-use crate::sdl2::pixels::{Color, PixelFormatEnum};
+use crate::sdl2::pixels::PixelFormatEnum;
 use crate::sdl2::rect::Rect;
-use crate::sdl2::render::{Texture, TextureCreator};
+use crate::sdl2::render::TextureCreator;
 use crate::sdl2::surface::Surface;
 use crate::sdl2::video::WindowContext;
-use rand::Rng;
 
 use crate::animation::Animation;
 use crate::character::{Action, Character, CharacterKind, CharacterPoints, Direction, Obstacle};

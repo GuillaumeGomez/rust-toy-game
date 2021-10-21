@@ -151,7 +151,6 @@ impl<'a> System<'a> {
 
     /// The purpose is just to display the font map (so for debug).
     pub fn full_draw_text(&mut self, x: i32, y: i32) {
-        use crate::sdl2::rect::Rect;
         self.canvas
             .copy(
                 &self.font_maps[1].texture.texture,

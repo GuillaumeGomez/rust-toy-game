@@ -1,11 +1,9 @@
 use std::cell::RefCell;
 use std::cmp::{Ordering, Reverse};
-use std::collections::{BinaryHeap, HashMap};
-use std::ops::{Deref, DerefMut};
+use std::collections::BinaryHeap;
 
 use crate::sdl2::rect::Rect;
-use crate::sdl2::render::{Texture, TextureCreator};
-use crate::sdl2::surface::Surface;
+use crate::sdl2::render::TextureCreator;
 use crate::sdl2::video::WindowContext;
 use rand::Rng;
 
@@ -15,7 +13,7 @@ use crate::enemy::{Enemy, EnemyAction};
 use crate::map::Map;
 use crate::player::Player;
 use crate::texture_handler::{Dimension, TextureHandler};
-use crate::texture_holder::{TextureId, Textures};
+use crate::texture_holder::Textures;
 use crate::utils;
 use crate::weapons::Sword;
 use crate::{

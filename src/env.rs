@@ -6,15 +6,13 @@ use crate::sdl2::video::WindowContext;
 use crate::sdl2::EventPump;
 use crate::sdl2::GameControllerSubsystem;
 
-use std::collections::HashMap;
-
 use crate::character::Direction;
 use crate::debug_display::DebugDisplay;
 use crate::menu::{Menu, MenuEvent};
 use crate::player::Player;
 use crate::reward::Reward;
 use crate::system::System;
-use crate::texture_holder::{TextureHolder, TextureId, Textures};
+use crate::texture_holder::{TextureId, Textures};
 use crate::utils::compute_distance;
 use crate::{GetDimension, GetPos, ONE_SECOND};
 

@@ -4,7 +4,7 @@ use std::ops::{Deref, DerefMut};
 use crate::sdl2::image::LoadSurface;
 use crate::sdl2::pixels::PixelFormatEnum;
 use crate::sdl2::rect::Rect;
-use crate::sdl2::render::{Texture, TextureCreator};
+use crate::sdl2::render::TextureCreator;
 use crate::sdl2::surface::Surface;
 use crate::sdl2::video::WindowContext;
 
@@ -13,8 +13,7 @@ use crate::env::Env;
 use crate::player_stats::PlayerStats;
 use crate::texture_handler::{Dimension, TextureHandler};
 use crate::texture_holder::{TextureHolder, Textures};
-use crate::weapons::{Nothing, Sword};
-// use crate::window::UpdateKind;
+use crate::weapons::Sword;
 use crate::{GetDimension, GetPos, Id, ONE_SECOND};
 
 pub struct Player {
@@ -71,13 +70,12 @@ impl Player {
     }
 
     pub fn new<'a>(
-        texture_creator: &'a TextureCreator<WindowContext>,
         textures: &Textures<'a>,
         x: i64,
         y: i64,
         id: Id,
         stats: Option<PlayerStats>,
-        env: Option<&mut Env>,
+        _env: Option<&mut Env>,
     ) -> Self {
         let mut actions_moving = Vec::with_capacity(4);
         actions_moving.push((
@@ -134,8 +132,7 @@ impl Player {
                 level,
                 unused_points: 0,
                 texture_handler,
-                // weapon: Sword::new(textures, 10),
-                weapon: Nothing::new(0),
+                weapon: Sword::new(textures, 10),
                 is_running: false,
                 id,
                 invincible_against: Vec::new(),

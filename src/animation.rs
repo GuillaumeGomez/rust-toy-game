@@ -2,10 +2,8 @@ use crate::sdl2::rect::Rect;
 use crate::sdl2::render::TextureCreator;
 use crate::sdl2::video::WindowContext;
 
-use std::collections::HashMap;
-
 use crate::system::System;
-use crate::texture_holder::{TextureHolder, TextureId, Textures};
+use crate::texture_holder::{TextureId, Textures};
 use crate::ONE_SECOND;
 
 const DEATH_SPRITE_WIDTH: u32 = 30;
