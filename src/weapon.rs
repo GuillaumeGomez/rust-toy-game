@@ -14,6 +14,7 @@ use crate::weapons::{Nothing, Sword};
 use crate::{GetDimension, GetPos, ONE_SECOND};
 
 #[allow(dead_code)]
+#[derive(Debug)]
 pub enum WeaponKind {
     Nothing(Nothing),
     Sword(Sword),
@@ -27,6 +28,7 @@ pub enum WeaponKind {
     Wand,
 }
 
+#[derive(Debug)]
 pub struct Weapon {
     pub x: i64,
     pub y: i64,
@@ -142,7 +144,7 @@ impl Weapon {
     }
     pub fn can_block(&self) -> bool {
         // Obviously, if you don't have a weapon, you can't block.
-        matches!(self.kind, WeaponKind::Nothing(_))
+        !matches!(self.kind, WeaponKind::Nothing(_))
     }
     pub fn use_it(&mut self, direction: Direction) -> Option<WeaponAction> {
         self.kind.use_it(direction, self.total_time)
@@ -252,6 +254,10 @@ impl WeaponAction {
             }
             _ => None,
         }
+    }
+
+    pub fn is_attack_by_move(&self) -> bool {
+        matches!(self.kind, WeaponActionKind::AttackByMove { .. })
     }
 }
 

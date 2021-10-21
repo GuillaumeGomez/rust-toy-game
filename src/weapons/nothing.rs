@@ -13,6 +13,7 @@ use crate::texture_holder::{TextureHolder, TextureId, Textures};
 use crate::weapon::{Weapon, WeaponAction, WeaponActionKind, WeaponKind};
 use crate::{GetDimension, GetPos, ONE_SECOND};
 
+#[derive(Debug)]
 pub struct Nothing;
 
 pub const RANGE: i32 = 15;

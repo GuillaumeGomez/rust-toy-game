@@ -957,6 +957,23 @@ impl Character {
         }
     }
 
+    fn check_attack_by_move_intersection(&self, attacker: &Character) -> bool {
+        let x_overlap = if self.x > attacker.x {
+            attacker.x - self.x < attacker.width() as _
+        } else {
+            self.x - attacker.x < self.width() as _
+        };
+        if !x_overlap {
+            return false;
+        }
+        // For y, we need to "switch" where we add the height because the y axis is reversed.
+        if self.y > attacker.y {
+            self.y - attacker.y < self.height() as _
+        } else {
+            attacker.y - self.y < attacker.height() as _
+        }
+    }
+
     pub fn check_intersection(
         &self,
         attacker: &Character,
@@ -993,64 +1010,75 @@ impl Character {
             return 0;
         }
 
-        if matrix.is_none() {
-            *matrix = attacker
-                .weapon
-                .compute_angle(textures, &attacker.weapon_action);
-        }
-        if let Some(ref matrix) = matrix {
-            if self.texture_handler.check_intersection(
-                textures,
-                &matrix,
-                self.action.direction,
-                self.action.movement.is_some(),
-                (self.x, self.y),
-            ) {
-                // TODO: add element effects on attacks.
-                // TODO2: if you attack with fire effect on a fire monster, it heals it!
-                let attack = if attacker.weapon.attack >= 0 {
-                    let attack = attacker.weapon.attack as u32 + attacker.stats.attack;
-                    let attack = if self.is_blocking() {
-                        let dir = self.get_direction();
-                        {
-                            let mut effect = self.effect.borrow_mut();
-                            if effect.is_none() {
-                                // We want the character to be moved by 6 cases.
-                                let distance = MAP_CASE_SIZE as u32 * 6;
-                                // We want the "animation" to last for half a second.
-                                let dur = ONE_SECOND / 2 / distance;
-                                *effect = Some(match dir {
-                                    Direction::Up => (0, distance as i64, dur),
-                                    Direction::Down => (0, distance as i64 * -1, dur),
-                                    Direction::Right => (distance as i64 * -1, 0, dur),
-                                    Direction::Left => (distance as i64, 0, dur),
-                                });
-                            }
-                        }
-                        if dir.is_opposite(attacker_direction) {
-                            // They're facing each other, full block on the attack!
-                            attack / 2
-                        } else if dir.is_adjacent(attacker_direction) {
-                            // Partially blocked, only 25% of the attack is removed
-                            attack * 3 / 4
-                        } else {
-                            // The attack is on the back, full damage!
-                            attack
-                        }
-                    } else {
-                        attack
-                    };
-                    let attack = if attack == 0 { 1 } else { attack };
-                    attack as i32
-                } else {
-                    // Since it's supposed to heal, we don't take into account anything than
-                    // the weapon "attack".
-                    attacker.weapon.attack
-                };
-                return attack;
+        let has_intersection = if let Some((weapon_action, true)) = attacker
+            .weapon_action
+            .as_ref()
+            .map(|a| (a, a.is_attack_by_move()))
+        {
+            self.check_attack_by_move_intersection(attacker)
+        } else {
+            if matrix.is_none() {
+                *matrix = attacker
+                    .weapon
+                    .compute_angle(textures, &attacker.weapon_action);
             }
+            if let Some(ref matrix) = matrix {
+                self.texture_handler.check_intersection(
+                    textures,
+                    &matrix,
+                    self.action.direction,
+                    self.action.movement.is_some(),
+                    (self.x, self.y),
+                )
+            } else {
+                false
+            }
+        };
+        if !has_intersection {
+            return 0;
         }
-        0
+        // TODO: add element effects on attacks.
+        // TODO2: if you attack with fire effect on a fire monster, it heals it!
+        let attack = if attacker.weapon.attack >= 0 {
+            let attack = attacker.weapon.attack as u32 + attacker.stats.attack;
+            let attack = if self.is_blocking() {
+                let dir = self.get_direction();
+                {
+                    let mut effect = self.effect.borrow_mut();
+                    if effect.is_none() {
+                        // We want the character to be moved by 6 cases.
+                        let distance = MAP_CASE_SIZE as u32 * 6;
+                        // We want the "animation" to last for half a second.
+                        let dur = ONE_SECOND / 2 / distance;
+                        *effect = Some(match dir {
+                            Direction::Up => (0, distance as i64, dur),
+                            Direction::Down => (0, distance as i64 * -1, dur),
+                            Direction::Right => (distance as i64 * -1, 0, dur),
+                            Direction::Left => (distance as i64, 0, dur),
+                        });
+                    }
+                }
+                if dir.is_opposite(attacker_direction) {
+                    // They're facing each other, full block on the attack!
+                    attack / 2
+                } else if dir.is_adjacent(attacker_direction) {
+                    // Partially blocked, only 25% of the attack is removed
+                    attack * 3 / 4
+                } else {
+                    // The attack is on the back, full damage!
+                    attack
+                }
+            } else {
+                attack
+            };
+            let attack = if attack == 0 { 1 } else { attack };
+            attack as i32
+        } else {
+            // Since it's supposed to heal, we don't take into account anything except
+            // the weapon "attack".
+            attacker.weapon.attack
+        };
+        return attack;
     }
 
     pub fn update_attack_info(&mut self, attacker_id: Id, attacker_weapon_time: u32, attack: i32) {

@@ -29,6 +29,7 @@ fn get_surface_data(surface: &Surface<'_>) -> Vec<u8> {
     data
 }
 
+#[derive(Debug)]
 pub struct Sword {
     texture: TextureId,
 }
