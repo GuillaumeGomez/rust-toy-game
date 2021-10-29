@@ -5,6 +5,10 @@ use std::ops::{Deref, DerefMut};
 use crate::character::Direction;
 use crate::texture_holder::{TextureId, Textures};
 
+use parry2d::shape::{ConvexPolygon, Shape};
+use parry2d::math::{Isometry, Point, Vector};
+use parry2d::query::intersection_test;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Dimension {
     rect: Rect,
@@ -75,7 +79,7 @@ impl TextureHandler {
     pub fn check_intersection(
         &self,
         textures: &Textures<'_>,
-        matrix: &[(i64, i64)],
+        matrix: &dyn Shape,
         dir: Direction,
         is_moving: bool,
         character_pos: (i64, i64),
@@ -94,27 +98,39 @@ impl TextureHandler {
             tile_x /= surface.size().0 as i32 / s.0 as i32;
             tile_y = surface.size().1 as i32 / s.1 as i32;
         }
-        let pitch = surface.pitch() as i32;
-        let max_len = (surface.height() * surface.pitch()) as i32;
-        let surface = surface.raw();
-        let pixels = unsafe { (*surface).pixels as *const u8 };
-        for (x, y) in matrix.iter() {
-            let x = (x - character_pos.0) as i32 + tile_x;
-            let y = (y - character_pos.1) as i32 + tile_y;
-            if y < tile_y || y > tile_y + tile_height || x < tile_x || x > tile_x + tile_width {
-                // We are outside of the tile we're looking for!
-                continue;
-            }
-            let pos = y * pitch + x * 4; // 4 is because the surfaces are always RGBA8888 so 4 bytes
-            if pos >= 0 && pos < max_len {
-                let target_pixel = unsafe { *(pixels.add(pos as usize) as *const u32) };
-                let alpha = target_pixel & 255;
-                if alpha > 220 {
-                    // We consider something with an alpha to more than 86% to be part of the character.
-                    return true;
-                }
-            }
-        }
-        false
+        let hitbox = ConvexPolygon::from_convex_hull(&[
+            Point::new(tile_x as f32, tile_y as f32),
+            Point::new((tile_x + tile_width) as f32, tile_y as f32),
+            Point::new((tile_x + tile_width) as f32, (tile_y + tile_height) as f32),
+            Point::new(tile_x as f32, (tile_y + tile_height) as f32),
+        ]).unwrap();
+        intersection_test(
+            &Isometry::new(Vector::new(0., 0.), 0.),
+            matrix,
+            &Isometry::new(Vector::new(0., 0.), 0.),
+            &hitbox,
+        ).unwrap()
+        // let pitch = surface.pitch() as i32;
+        // let max_len = (surface.height() * surface.pitch()) as i32;
+        // let surface = surface.raw();
+        // let pixels = unsafe { (*surface).pixels as *const u8 };
+        // for (x, y) in matrix.iter() {
+        //     let x = (x - character_pos.0) as i32 + tile_x;
+        //     let y = (y - character_pos.1) as i32 + tile_y;
+        //     if y < tile_y || y > tile_y + tile_height || x < tile_x || x > tile_x + tile_width {
+        //         // We are outside of the tile we're looking for!
+        //         continue;
+        //     }
+        //     let pos = y * pitch + x * 4; // 4 is because the surfaces are always RGBA8888 so 4 bytes
+        //     if pos >= 0 && pos < max_len {
+        //         let target_pixel = unsafe { *(pixels.add(pos as usize) as *const u32) };
+        //         let alpha = target_pixel & 255;
+        //         if alpha > 220 {
+        //             // We consider something with an alpha to more than 86% to be part of the character.
+        //             return true;
+        //         }
+        //     }
+        // }
+        // false
     }
 }

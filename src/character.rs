@@ -18,6 +18,8 @@ use crate::weapon::{Weapon, WeaponAction};
 // use crate::window::UpdateKind;
 use crate::{GetDimension, GetPos, Id, MAP_CASE_SIZE, MAP_SIZE, ONE_SECOND};
 
+use parry2d::shape::ConvexPolygon;
+
 const STAT_POINTS_PER_LEVEL: u32 = 3;
 
 #[derive(Hash, PartialEq, Eq, Clone, Copy, Debug)]
@@ -975,7 +977,7 @@ impl Character {
     pub fn check_intersection(
         &self,
         attacker: &Character,
-        matrix: &mut Option<Vec<(i64, i64)>>,
+        matrix: &mut Option<ConvexPolygon>,
         textures: &Textures<'_>,
     ) -> i32 {
         if self.is_dead()
@@ -1019,12 +1021,12 @@ impl Character {
             if matrix.is_none() {
                 *matrix = attacker
                     .weapon
-                    .compute_angle(textures, &attacker.weapon_action);
+                    .compute_angle(&attacker.weapon_action);
             }
             if let Some(ref matrix) = matrix {
                 self.texture_handler.check_intersection(
                     textures,
-                    &matrix,
+                    matrix,
                     self.action.direction,
                     self.action.movement.is_some(),
                     (self.x, self.y),

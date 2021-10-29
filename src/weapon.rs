@@ -2,6 +2,9 @@ use std::ops::{Deref, DerefMut};
 
 use crate::sdl2::rect::Rect;
 
+use parry2d::shape::ConvexPolygon;
+use parry2d::math::Point;
+
 use crate::character::Direction;
 use crate::system::System;
 use crate::texture_holder::{TextureId, Textures};
@@ -39,9 +42,8 @@ impl Weapon {
     // FIXME: This whole thing is terrible performance-wise...
     pub fn compute_angle(
         &self,
-        textures: &Textures<'_>,
         action: &Option<WeaponAction>,
-    ) -> Option<Vec<(i64, i64)>> {
+    ) -> Option<ConvexPolygon> {
         let action = match action {
             Some(a) => a,
             None => return None,
@@ -53,33 +55,32 @@ impl Weapon {
             } => (start_angle, total_angle),
             _ => return None,
         };
-        let height = self.height() as i64;
-        let width = self.width() as i64;
+        let height = self.height() as i32;
+        let width = self.width() as i32;
         let half_width = width / 2;
-        let data = textures.get_data(self.data_id);
-        let mut matrix = Vec::with_capacity(data.len());
 
-        let radian_angle = (start_angle as f32
-            + action.duration as f32 / action.total_duration as f32 * total_angle as f32)
-            * 0.0174533;
+        let current_angle = start_angle
+            + action.duration as f32 / action.total_duration as f32 * total_angle;
+        let radian_angle = current_angle * 0.0174533;
         let radian_sin = radian_angle.sin();
         let radian_cos = radian_angle.cos();
-        for y in 0..height {
-            let y = (height - 1 - y) as usize;
-            let y_f32 = y as f32;
-            let rad_sin_y = y_f32 * radian_sin;
-            let rad_cos_y = y_f32 * radian_cos;
-            for x in 0..width {
-                if unsafe { *data.get_unchecked(y * width as usize + x as usize) } == 0 {
-                    continue;
-                }
-                let x = x - half_width;
-                let x2 = x as f32 * radian_cos - rad_sin_y;
-                let y2 = x as f32 * radian_sin + rad_cos_y;
-                matrix.push((self.x - x2 as i64, self.y - y2 as i64 + action.y_add as i64));
-            }
+
+        // FIXME: replace with actual hitbox.
+        let mut poses = [
+            Point::new(0., 0.),
+            Point::new(width as f32, 0.),
+            Point::new(width as f32, height as f32),
+            Point::new(0., height as f32),
+        ];
+        for ref mut p in &mut poses {
+            let y = (height - 1) as f32 - p.y;
+            let rad_sin_y = y * radian_sin;
+            let rad_cos_y = y * radian_cos;
+            let x = p.x - half_width as f32;
+            p.x = self.x as f32 - (x * radian_cos - rad_sin_y);
+            p.y = self.y as f32 - (x * radian_sin + rad_cos_y) + action.y_add as f32;
         }
-        Some(matrix)
+        ConvexPolygon::from_convex_hull(&poses)
     }
     /// Set the position based on the character and its direction.
     pub fn set_pos(&mut self, x: i64, y: i64) {
@@ -116,9 +117,9 @@ impl Weapon {
                     start_angle,
                     total_angle,
                 } => {
-                    let current_angle = (start_angle as f32
+                    let current_angle = (start_angle
                         + action.duration as f32 / action.total_duration as f32
-                            * total_angle as f32) as f64;
+                            * total_angle) as f64;
                     system.copy_ex_to_canvas(
                         texture,
                         None,
@@ -260,9 +261,9 @@ impl WeaponAction {
 pub enum WeaponActionKind {
     /// Sword, Mass, Hammer...
     AttackBySlash {
-        start_angle: i32,
+        start_angle: f32,
         /// The total angle of the rotation that the attack will do.
-        total_angle: i32,
+        total_angle: f32,
     },
     /// Magic staff, bow...
     AttackByProjection,

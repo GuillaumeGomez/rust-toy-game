@@ -67,10 +67,10 @@ impl Sword {
     /// In case there is a timeout or something, you might not be able to use the weapon.
     pub fn use_it(&mut self, direction: Direction, total_duration: u32) -> Option<WeaponAction> {
         let (start_angle, x_add, y_add) = match direction {
-            Direction::Up => (-45, self.width() as i32 / 2, self.height() as i32),
-            Direction::Down => (135, self.width() as i32 / 2, self.height() as i32),
-            Direction::Left => (225, 0, self.height() as i32),
-            Direction::Right => (45, 0, self.height() as i32),
+            Direction::Up => (-45., self.width() as i32 / 2, self.height() as i32),
+            Direction::Down => (135., self.width() as i32 / 2, self.height() as i32),
+            Direction::Left => (225., 0, self.height() as i32),
+            Direction::Right => (45., 0, self.height() as i32),
         };
         Some(WeaponAction {
             duration: 0,
@@ -79,7 +79,7 @@ impl Sword {
             y_add,
             kind: WeaponActionKind::AttackBySlash {
                 start_angle,
-                total_angle: 90,
+                total_angle: 90.,
             },
         })
     }
