@@ -7,7 +7,7 @@ use crate::texture_holder::{TextureId, Textures};
 
 use parry2d::shape::{ConvexPolygon, Shape};
 use parry2d::math::{Isometry, Point, Vector};
-use parry2d::query::intersection_test;
+use parry2d::query::details::intersection_test_support_map_support_map;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Dimension {
@@ -106,12 +106,11 @@ impl TextureHandler {
             Point::new(x + tile_width as f32, y + tile_height as f32),
             Point::new(x, y + tile_height as f32),
         ]).unwrap();
-        intersection_test(
+        intersection_test_support_map_support_map(
             &Isometry::new(Vector::new(0., 0.), 0.),
-            matrix,
-            &Isometry::new(Vector::new(0., 0.), 0.),
-            &hitbox,
-        ).unwrap()
+            matrix.as_support_map().unwrap(),
+            hitbox.as_support_map().unwrap(),
+        )
         // let pitch = surface.pitch() as i32;
         // let max_len = (surface.height() * surface.pitch()) as i32;
         // let surface = surface.raw();
