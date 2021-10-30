@@ -85,24 +85,26 @@ impl TextureHandler {
         character_pos: (i64, i64),
     ) -> bool {
         let surface = textures.get_surface(self.surface);
-        let (mut tile_x, mut tile_y, mut tile_width, mut tile_height) = if is_moving {
+        let (/*mut tile_x, mut tile_y, */mut tile_width, mut tile_height) = if is_moving {
             let tmp = &self.actions_moving[dir as usize].0;
-            (tmp.x(), tmp.y(), tmp.width() as i32, tmp.height() as i32)
+            (/*tmp.x(), tmp.y(), */tmp.width() as i32, tmp.height() as i32)
         } else {
             let tmp = &self.actions_standing[dir as usize];
-            (tmp.x(), tmp.y(), tmp.width() as i32, tmp.height() as i32)
+            (/*tmp.x(), tmp.y(), */tmp.width() as i32, tmp.height() as i32)
         };
         if let Some(s) = self.forced_size {
             tile_width = s.0 as i32;
             tile_height = s.1 as i32;
-            tile_x /= surface.size().0 as i32 / s.0 as i32;
-            tile_y = surface.size().1 as i32 / s.1 as i32;
+            // tile_x /= surface.size().0 as i32 / s.0 as i32;
+            // tile_y = surface.size().1 as i32 / s.1 as i32;
         }
+        let x = character_pos.0 as f32;
+        let y = character_pos.1 as f32;
         let hitbox = ConvexPolygon::from_convex_hull(&[
-            Point::new(tile_x as f32, tile_y as f32),
-            Point::new((tile_x + tile_width) as f32, tile_y as f32),
-            Point::new((tile_x + tile_width) as f32, (tile_y + tile_height) as f32),
-            Point::new(tile_x as f32, (tile_y + tile_height) as f32),
+            Point::new(x, y),
+            Point::new(x + tile_width as f32, y),
+            Point::new(x + tile_width as f32, y + tile_height as f32),
+            Point::new(x, y + tile_height as f32),
         ]).unwrap();
         intersection_test(
             &Isometry::new(Vector::new(0., 0.), 0.),
