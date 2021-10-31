@@ -1,14 +1,14 @@
 use crate::{GetDimension, GetPos};
 
-pub fn compute_distance<A, B>(a: &A, b: &B) -> i32
+pub fn compute_distance<A, B>(a: &A, b: &B) -> f32
 where
     A: GetPos + GetDimension,
     B: GetPos + GetDimension,
 {
-    let a_width = a.width() as i64;
-    let a_height = a.height() as i64;
-    let b_width = b.width() as i64;
-    let b_height = b.height() as i64;
+    let a_width = a.width() as f32;
+    let a_height = a.height() as f32;
+    let b_width = b.width() as f32;
+    let b_height = b.height() as f32;
 
     let a_x = a.x();
     let a_y = a.y();
@@ -20,9 +20,9 @@ where
     // It can be seen when a skeleton is on the left of the player: without this adjustment, its
     // attacks won't reach the player.
     let x = if b_x >= a_x + a_width {
-        b_x - a_x - (a_width - 2)
+        b_x - a_x - (a_width - 2.)
     } else if a_x >= b_x + b_width {
-        b_x + (b_width - 2) - a_x
+        b_x + (b_width - 2.) - a_x
     } else {
         b_x - a_x
     };
@@ -33,7 +33,7 @@ where
     } else {
         b_y - a_y
     };
-    ((x * x + y * y) as f32).sqrt() as i32
+    (x * x + y * y).sqrt()
 }
 
 /// Returns a tuple containing: `(distance, incr X axis, incr Y axis)`.
@@ -43,13 +43,13 @@ where
 //     B: GetPos + GetDimension,
 // {
 //     let x1 = a.x();
-//     let x1b = x1 + a.width() as i64;
+//     let x1b = x1 + a.width() as f32;
 //     let y1 = a.y();
-//     let y1b = y1 + a.height() as i64;
+//     let y1b = y1 + a.height() as f32;
 //     let x2 = b.x();
-//     let x2b = x2 + b.width() as i64;
+//     let x2b = x2 + b.width() as f32;
 //     let y2 = b.y();
-//     let y2b = y2 + b.height() as i64;
+//     let y2b = y2 + b.height() as f32;
 
 //     let left = x2b < x1;
 //     let right = x1b < x2;

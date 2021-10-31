@@ -10,6 +10,7 @@ use sdl2::surface::Surface;
 use sdl2::ttf;
 use sdl2::video::{GLProfile, Window, WindowContext};
 
+use std::cmp::Ordering;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::time::{Duration, Instant};
@@ -56,18 +57,20 @@ pub use traits::*;
 pub const WIDTH: i32 = 800;
 pub const HEIGHT: i32 = 600;
 pub const MAP_SIZE: u32 = 1_000;
+pub const MAP_CASE_SIZE: i32 = 8;
+pub const MAP_SIZE_WITH_CASE: u32 = MAP_CASE_SIZE as u32 * MAP_SIZE;
 // in micro-seconds
 pub const ONE_SECOND: u32 = 1_000_000;
 pub const FPS: u32 = 60;
 pub const FRAME_DELAY: u32 = ONE_SECOND / FPS;
 pub const MAX_DISTANCE_DETECTION: i32 = 200;
 pub const MAX_DISTANCE_PURSUIT: i32 = 300;
-pub const MAP_CASE_SIZE: i64 = 8;
 /// You need 8 pixels to have 1 "grid case" and you need 4 "grid cases" to have a meter.
-pub const PIXELS_TO_METERS: i64 = 8 * 4;
+pub const PIXELS_TO_METERS: i32 = 8 * 4;
 /// Just an alias to `PIXELS_TO_METERS`, to make usage more clear in the code.
-pub const ONE_METER: i64 = PIXELS_TO_METERS;
+pub const ONE_METER: i32 = PIXELS_TO_METERS;
 pub const MAX_DISTANCE_WANDERING: i32 = ONE_METER as i32 * 15;
+pub const FLOAT_COMPARISON_PRECISION: f32 = 0.001;
 
 /// Just for code clarity.
 pub type Id = usize;
@@ -89,9 +92,10 @@ pub fn draw_in_good_order(
     sort: bool,
 ) {
     if sort {
-        players.sort_unstable_by(|c1, c2| c1.y().cmp(&c2.y()));
-        enemies.sort_unstable_by(|c1, c2| c1.y().cmp(&c2.y()));
-        dead_enemies.sort_unstable_by(|c1, c2| c1.y().cmp(&c2.y()));
+        players.sort_unstable_by(|c1, c2| c1.y().partial_cmp(&c2.y()).unwrap_or(Ordering::Equal));
+        enemies.sort_unstable_by(|c1, c2| c1.y().partial_cmp(&c2.y()).unwrap_or(Ordering::Equal));
+        dead_enemies
+            .sort_unstable_by(|c1, c2| c1.y().partial_cmp(&c2.y()).unwrap_or(Ordering::Equal));
     }
 
     let mut player_iter = players.iter_mut().peekable();
@@ -104,8 +108,11 @@ pub fn draw_in_good_order(
     {
         if let Some(ref player) = player_iter.peek() {
             let y = player.y();
-            if y < enemy_iter.peek().map(|x| x.y()).unwrap_or(y + 1)
-                && y < dead_enemy_iter.peek().map(|x| x.y()).unwrap_or(y + 1)
+            if y < enemy_iter.peek().map(|x| x.y()).unwrap_or_else(|| y + 1.)
+                && y < dead_enemy_iter
+                    .peek()
+                    .map(|x| x.y())
+                    .unwrap_or_else(|| y + 1.)
             {
                 player_iter.next().unwrap().draw(system, debug);
                 continue;
@@ -113,7 +120,11 @@ pub fn draw_in_good_order(
         }
         if let Some(ref enemy) = enemy_iter.peek() {
             let y = enemy.y();
-            if y < dead_enemy_iter.peek().map(|x| x.y()).unwrap_or(y + 1) {
+            if y < dead_enemy_iter
+                .peek()
+                .map(|x| x.y())
+                .unwrap_or_else(|| y + 1.)
+            {
                 enemy_iter.next().unwrap().draw(system, debug);
                 continue;
             }
@@ -163,8 +174,8 @@ fn make_enemies<'a>(
         Box::new(Skeleton::new(
             texture_creator,
             textures,
-            0,
-            40,
+            0.,
+            40.,
             2,
             width / 3,
             height / 4,
@@ -172,13 +183,13 @@ fn make_enemies<'a>(
         Box::new(Skeleton::new(
             texture_creator,
             textures,
-            40,
-            0,
+            40.,
+            0.,
             3,
             width / 3,
             height / 4,
         )),
-        Box::new(Bat::new(texture_creator, textures, 40, 40, 4)),
+        Box::new(Bat::new(texture_creator, textures, 40., 40., 4)),
     ];
 
     let dead_enemies = Vec::new();
@@ -278,8 +289,8 @@ pub fn main() {
     let map = Map::new(
         &texture_creator,
         &mut rng,
-        MAP_SIZE as i64 * MAP_CASE_SIZE / -2,
-        MAP_SIZE as i64 * MAP_CASE_SIZE / -2,
+        (MAP_SIZE as i32 * MAP_CASE_SIZE / -2) as _,
+        (MAP_SIZE as i32 * MAP_CASE_SIZE / -2) as _,
     );
 
     init_textures(&texture_creator, &mut system.textures);
@@ -310,15 +321,15 @@ pub fn main() {
     Env::init_textures(
         &mut system.textures,
         &texture_creator,
-        WIDTH as u32,
-        HEIGHT as u32,
+        WIDTH as _,
+        HEIGHT as _,
     );
     let mut env = Env::new(
         &game_controller_subsystem,
         &texture_creator,
         &mut system.textures,
-        WIDTH as u32,
-        HEIGHT as u32,
+        WIDTH as _,
+        HEIGHT as _,
     );
     let mut rewards = Vec::new();
 
@@ -327,8 +338,8 @@ pub fn main() {
 
     let mut players = vec![Player::new(
         &system.textures,
-        0,
-        0,
+        0.,
+        0.,
         1,
         Some(Default::default()),
         Some(&mut env),
@@ -356,7 +367,7 @@ pub fn main() {
             // FIXME: use `.iter_mut().retain()` instead!
             for it in (0..dead_enemies.len()).rev() {
                 let to_remove = {
-                    dead_enemies[it].update(update_elapsed, 0, 0);
+                    dead_enemies[it].update(update_elapsed, 0., 0.);
                     let dead_enemy = &dead_enemies[it];
                     if dead_enemy.character().should_be_removed() {
                         // TODO: in here, give XP to the playerS depending on how much
@@ -368,9 +379,9 @@ pub fn main() {
                             rewards.push(Reward::new(
                                 reward_id,
                                 dead_enemy.x()
-                                    + ((dead_enemies[it].width() as i32 / 2) - width / 2) as i64,
+                                    + ((dead_enemies[it].width() as i32 / 2) - width / 2) as f32,
                                 dead_enemy.y()
-                                    + ((dead_enemies[it].height() as i32 / 2) - height / 2) as i64,
+                                    + ((dead_enemies[it].height() as i32 / 2) - height / 2) as f32,
                                 reward,
                             ));
                             env.need_sort_rewards = true;
@@ -391,11 +402,11 @@ pub fn main() {
             let len = players.len();
             for i in 0..len {
                 let (x, y) = players[i].apply_move(&map, update_elapsed, &players, &enemies);
-                if i == 0 && (x != 0 || y != 0) {
+                if i == 0 && (x != 0. || y != 0.) {
                     env.need_sort_rewards = true;
                 }
                 if let Some(ref stats) = players[i].stats {
-                    stats.borrow_mut().total_walked += ::std::cmp::max(x.abs(), y.abs()) as u64;
+                    stats.borrow_mut().total_walked += x.abs().max(y.abs()) as u64;
                 }
                 players[i].update(
                     update_elapsed,

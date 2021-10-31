@@ -4,7 +4,7 @@ use crate::sdl2::video::WindowContext;
 
 use crate::system::System;
 use crate::texture_holder::{TextureId, Textures};
-use crate::ONE_SECOND;
+use crate::{GetDimension, GetPos, ONE_SECOND};
 
 const DEATH_SPRITE_WIDTH: u32 = 30;
 const DEATH_SPRITE_HEIGHT: u32 = 22;
@@ -71,7 +71,7 @@ impl Animation {
         self.duration += elapsed;
     }
 
-    pub fn draw(&self, system: &mut System, x: i64, y: i64) {
+    pub fn draw(&self, system: &mut System, x: f32, y: f32) {
         if self.is_done() {
             return;
         }
@@ -79,18 +79,18 @@ impl Animation {
         let y = (y - system.y()) as i32 - (self.sprite_display_height / 2) as i32;
 
         if self.sprite_display_width as i32 + x < 0
-            || x > system.width()
+            || x > system.width() as i32
             || self.sprite_display_height as i32 + y < 0
-            || y > system.height()
+            || y > system.height() as i32
         {
             return;
         }
         let current_animation =
-            (self.duration as u32 * 100 / self.max_duration as u32) * self.nb_animations / 100;
-        let tile_x = current_animation * self.sprite_width as u32;
+            (self.duration * 100 / self.max_duration) * self.nb_animations / 100;
+        let tile_x = current_animation * self.sprite_width;
         system.copy_to_canvas(
             self.texture,
-            Rect::new(tile_x as i32, 0, self.sprite_width, self.sprite_height),
+            Rect::new(tile_x as _, 0, self.sprite_width, self.sprite_height),
             Rect::new(x, y, self.sprite_display_width, self.sprite_display_height),
         );
     }

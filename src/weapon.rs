@@ -2,8 +2,8 @@ use std::ops::{Deref, DerefMut};
 
 use crate::sdl2::rect::Rect;
 
-use parry2d::shape::ConvexPolygon;
 use parry2d::math::Point;
+use parry2d::shape::ConvexPolygon;
 
 use crate::character::Direction;
 use crate::system::System;
@@ -28,8 +28,8 @@ pub enum WeaponKind {
 
 #[derive(Debug)]
 pub struct Weapon {
-    pub x: i64,
-    pub y: i64,
+    pub x: f32,
+    pub y: f32,
     pub kind: WeaponKind,
     pub data_id: &'static str,
     /// Total time required for this weapon to perform its action.
@@ -40,10 +40,7 @@ pub struct Weapon {
 impl Weapon {
     /// Returns a vec of positions to check.
     // FIXME: This whole thing is terrible performance-wise...
-    pub fn compute_angle(
-        &self,
-        action: &Option<WeaponAction>,
-    ) -> Option<ConvexPolygon> {
+    pub fn compute_angle(&self, action: &Option<WeaponAction>) -> Option<ConvexPolygon> {
         let action = match action {
             Some(a) => a,
             None => return None,
@@ -59,8 +56,8 @@ impl Weapon {
         let width = self.width() as i32;
         let half_width = width / 2;
 
-        let current_angle = start_angle
-            + action.duration as f32 / action.total_duration as f32 * total_angle;
+        let current_angle =
+            start_angle + action.duration as f32 / action.total_duration as f32 * total_angle;
         let radian_angle = current_angle * 0.0174533;
         let radian_sin = radian_angle.sin();
         let radian_cos = radian_angle.cos();
@@ -83,7 +80,7 @@ impl Weapon {
         ConvexPolygon::from_convex_hull(&poses)
     }
     /// Set the position based on the character and its direction.
-    pub fn set_pos(&mut self, x: i64, y: i64) {
+    pub fn set_pos(&mut self, x: f32, y: f32) {
         self.x = x;
         self.y = y;
     }
@@ -118,14 +115,14 @@ impl Weapon {
                     total_angle,
                 } => {
                     let current_angle = (start_angle
-                        + action.duration as f32 / action.total_duration as f32
-                            * total_angle) as f64;
+                        + action.duration as f32 / action.total_duration as f32 * total_angle)
+                        as f64;
                     system.copy_ex_to_canvas(
                         texture,
                         None,
                         Rect::new(x as i32, y as i32, self.width(), self.height()),
                         current_angle,
-                        Some((action.x_add, action.y_add).into()),
+                        Some((action.x_add as i32, action.y_add as i32).into()),
                         false,
                         false,
                     );
@@ -148,10 +145,10 @@ impl Weapon {
 }
 
 impl GetPos for Weapon {
-    fn x(&self) -> i64 {
+    fn x(&self) -> f32 {
         self.x
     }
-    fn y(&self) -> i64 {
+    fn y(&self) -> f32 {
         self.y
     }
 }
@@ -224,27 +221,22 @@ impl GetDimension for WeaponKind {
 pub struct WeaponAction {
     pub total_duration: u32,
     pub duration: u32,
-    pub x_add: i32,
-    pub y_add: i32,
+    pub x_add: f32,
+    pub y_add: f32,
     pub kind: WeaponActionKind,
 }
 
 impl WeaponAction {
-    pub fn get_attack_by_move_target(&self) -> Option<(i32, i32)> {
+    pub fn get_attack_by_move_target(&self) -> Option<(f32, f32)> {
         match self.kind {
             WeaponActionKind::AttackByMove { target_x, target_y } => {
                 // We consider that the target must be reached in half the time and then go back to
                 // where it's supposed to be.
+                let percent = self.duration as f32 / self.total_duration as f32;
                 let (x_add, y_add) = if self.duration > self.total_duration / 2 {
-                    (
-                        target_x - target_x * self.duration as i32 / self.total_duration as i32,
-                        target_y - target_y * self.duration as i32 / self.total_duration as i32,
-                    )
+                    (target_x - target_x * percent, target_y - target_y * percent)
                 } else {
-                    (
-                        target_x * self.duration as i32 / self.total_duration as i32,
-                        target_y * self.duration as i32 / self.total_duration as i32,
-                    )
+                    (target_x * percent, target_y * percent)
                 };
                 Some((x_add, y_add))
             }
@@ -270,7 +262,7 @@ pub enum WeaponActionKind {
     /// When you don't have a weapon and use your body instead...
     AttackByMove {
         // (x, y) of where the move will end.
-        target_x: i32,
-        target_y: i32,
+        target_x: f32,
+        target_y: f32,
     },
 }

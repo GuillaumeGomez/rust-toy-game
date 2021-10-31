@@ -8,7 +8,7 @@ use rand::Rng;
 use rand_chacha::ChaCha8Rng;
 
 use crate::system::System;
-use crate::{MAP_CASE_SIZE, MAP_SIZE};
+use crate::{GetDimension, GetPos, MAP_CASE_SIZE, MAP_SIZE};
 
 #[derive(Clone, Copy, Debug)]
 #[repr(u8)]
@@ -159,8 +159,8 @@ pub fn create_texture(
 
 pub struct Map<'a> {
     pub data: Vec<u8>,
-    pub x: i64,
-    pub y: i64,
+    pub x: f32,
+    pub y: f32,
     pub texture: Texture<'a>,
     pub top_layer_texture: Texture<'a>,
 }
@@ -195,8 +195,8 @@ impl<'a> Map<'a> {
     pub fn new(
         texture_creator: &'a TextureCreator<WindowContext>,
         rng: &mut ChaCha8Rng,
-        x: i64,
-        y: i64,
+        x: f32,
+        y: f32,
     ) -> Map<'a> {
         let tree_r = Rect::new(184, 100, 60, 26);
         let (tree, tree_byte_vec) = load_asset!("resources/trees.png", AssetKind::Tree, tree_r);
@@ -225,7 +225,7 @@ impl<'a> Map<'a> {
 
         let mut map = vec![0; (MAP_SIZE * MAP_SIZE) as usize];
 
-        // let map_file = format!("data/{}_{}.map", x / MAP_SIZE as i64, y / MAP_SIZE as i64);
+        // let map_file = format!("data/{}_{}.map", x / MAP_SIZE as f32, y / MAP_SIZE as f32);
         // We first create trees
         // TODO: if a tree with a bigger y already exist, it should go above! To fix this issue,
         // generate all trees into a map and then draw them from top to bottom!
@@ -286,63 +286,40 @@ impl<'a> Map<'a> {
     }
 
     pub fn draw(&self, system: &mut System) {
-        let x = system.x() - self.x;
-        let y = system.y() - self.y;
-        let (s_x, pos_x, width) = if x < 0 {
-            (0, x * -1, (system.width() as i64 + x) as u32)
-        } else if x + system.width() as i64 > MAP_SIZE as i64 * MAP_CASE_SIZE {
-            let sub = system.width() as i64
-                - (system.width() as i64 + x - MAP_SIZE as i64 * MAP_CASE_SIZE);
-            (x, 0, sub as u32)
-        } else {
-            (x, 0, system.width() as u32)
-        };
-        let (s_y, pos_y, height) = if y < 0 {
-            (0, y * -1, (system.height() as i64 + y) as u32)
-        } else if y + system.height() as i64 > MAP_SIZE as i64 * MAP_CASE_SIZE {
-            let sub = system.height() as i64
-                - (system.height() as i64 + y - MAP_SIZE as i64 * MAP_CASE_SIZE);
-            (y, 0, sub as u32)
-        } else {
-            (y, 0, system.height() as u32)
-        };
-        system
-            .canvas
-            .copy(
-                &self.texture,
-                Rect::new(s_x as i32, s_y as i32, width, height),
-                Rect::new(pos_x as i32, pos_y as i32, width, height),
-            )
-            .expect("copy map failed");
+        self.inner_draw(system, &self.texture)
     }
 
     pub fn draw_layer(&self, system: &mut System) {
-        let x = system.x() - self.x;
-        let y = system.y() - self.y;
+        self.inner_draw(system, &self.top_layer_texture)
+    }
+
+    fn inner_draw(&self, system: &mut System, texture: &Texture<'a>) {
+        let x = (system.x() - self.x) as i32;
+        let y = (system.y() - self.y) as i32;
         let (s_x, pos_x, width) = if x < 0 {
-            (0, x * -1, (system.width() as i64 + x) as u32)
-        } else if x + system.width() as i64 > MAP_SIZE as i64 * MAP_CASE_SIZE {
-            let sub = system.width() as i64
-                - (system.width() as i64 + x - MAP_SIZE as i64 * MAP_CASE_SIZE);
-            (x, 0, sub as u32)
+            (0, x * -1, system.width() as i32 + x)
+        } else if x + system.width() as i32 > MAP_SIZE as i32 * MAP_CASE_SIZE {
+            let sub = system.width() as i32
+                - (system.width() as i32 + x - MAP_SIZE as i32 * MAP_CASE_SIZE);
+            (x, 0, sub)
         } else {
-            (x, 0, system.width() as u32)
+            (x, 0, system.width() as i32)
         };
         let (s_y, pos_y, height) = if y < 0 {
-            (0, y * -1, (system.height() as i64 + y) as u32)
-        } else if y + system.height() as i64 > MAP_SIZE as i64 * MAP_CASE_SIZE {
-            let sub = system.height() as i64
-                - (system.height() as i64 + y - MAP_SIZE as i64 * MAP_CASE_SIZE);
-            (y, 0, sub as u32)
+            (0, y * -1, system.height() as i32 + y)
+        } else if y + system.height() as i32 > MAP_SIZE as i32 * MAP_CASE_SIZE {
+            let sub = system.height() as i32
+                - (system.height() as i32 + y - MAP_SIZE as i32 * MAP_CASE_SIZE);
+            (y, 0, sub)
         } else {
-            (y, 0, system.height() as u32)
+            (y, 0, system.height() as i32)
         };
         system
             .canvas
             .copy(
-                &self.top_layer_texture,
-                Rect::new(s_x as i32, s_y as i32, width, height),
-                Rect::new(pos_x as i32, pos_y as i32, width, height),
+                texture,
+                Rect::new(s_x as i32, s_y as i32, width as u32, height as u32),
+                Rect::new(pos_x as i32, pos_y as i32, width as u32, height as u32),
             )
             .expect("copy map failed");
     }

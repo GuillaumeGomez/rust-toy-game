@@ -1,6 +1,7 @@
 use crate::sdl2::pixels::Color;
 
 use crate::system::System;
+use crate::GetPos;
 use crate::ONE_SECOND;
 
 const STATUS_UPDATE_TIME: u32 = ONE_SECOND / 60;
@@ -33,11 +34,11 @@ impl<'a> Status {
         }
     }
 
-    pub fn draw(&self, system: &mut System, x: i64, y: i64) {
+    pub fn draw(&self, system: &mut System, x: f32, y: f32) {
         // increase position of the text
-        let x = (x - system.x()) as i32;
+        let x = x - system.x();
         let y = (y - system.y()) as i32 - self.y_pos - 10;
-        system.draw_text(&self.text, 14, self.color, x, y, true, false);
+        system.draw_text(&self.text, 14, self.color, x as _, y, true, false);
     }
 
     pub fn should_be_removed(&self) -> bool {

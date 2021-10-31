@@ -1,45 +1,44 @@
 pub trait GetPos {
-    fn x(&self) -> i64;
-    fn y(&self) -> i64;
+    fn x(&self) -> f32;
+    fn y(&self) -> f32;
 }
 
-impl GetPos for (i64, i64) {
-    fn x(&self) -> i64 {
-        self.0
-    }
-    fn y(&self) -> i64 {
-        self.1
-    }
+macro_rules! impl_get_pos {
+    ($x:ty) => {
+        impl GetPos for $x {
+            fn x(&self) -> f32 {
+                self.0
+            }
+            fn y(&self) -> f32 {
+                self.1
+            }
+        }
+    };
 }
 
-impl GetPos for &(i64, i64) {
-    fn x(&self) -> i64 {
-        self.0
-    }
-    fn y(&self) -> i64 {
-        self.1
-    }
-}
+impl_get_pos!((f32, f32));
+impl_get_pos!(&(f32, f32));
 
 pub trait GetDimension {
     fn width(&self) -> u32;
     fn height(&self) -> u32;
 }
 
-impl GetDimension for (i64, i64) {
-    fn width(&self) -> u32 {
-        0
-    }
-    fn height(&self) -> u32 {
-        0
-    }
+macro_rules! impl_get_dimension {
+    ($x:ty) => {
+        /// This is a tuple of position. Therefore there is no width or height.
+        impl GetDimension for $x {
+            fn width(&self) -> u32 {
+                0
+            }
+            fn height(&self) -> u32 {
+                0
+            }
+        }
+    };
 }
 
-impl GetDimension for &(i64, i64) {
-    fn width(&self) -> u32 {
-        0
-    }
-    fn height(&self) -> u32 {
-        0
-    }
-}
+impl_get_dimension!((f32, f32));
+impl_get_dimension!(&(f32, f32));
+impl_get_dimension!((u32, u32));
+impl_get_dimension!(&(u32, u32));

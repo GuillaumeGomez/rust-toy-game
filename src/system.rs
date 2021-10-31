@@ -8,11 +8,12 @@ use crate::font_handler::FontHandler;
 use crate::health_bar::HealthBar;
 use crate::player::Player;
 use crate::texture_holder::{TextureId, Textures};
+use crate::traits::{GetDimension, GetPos};
 
 pub struct System<'a> {
     pub canvas: Canvas<Window>,
-    pub x: i64,
-    pub y: i64,
+    pub x: f32,
+    pub y: f32,
     pub width: u32,
     pub height: u32,
     pub health_bar: &'a HealthBar<'a>,
@@ -30,8 +31,8 @@ impl<'a> System<'a> {
     ) -> System<'a> {
         System {
             canvas,
-            x: 0,
-            y: 0,
+            x: 0.,
+            y: 0.,
             width,
             height,
             health_bar,
@@ -101,24 +102,8 @@ impl<'a> System<'a> {
     }
 
     pub fn set_screen_position(&mut self, player: &Player) {
-        self.x = player.x - self.width() as i64 / 2;
-        self.y = player.y - self.height() as i64 / 2;
-    }
-
-    pub fn width(&self) -> i32 {
-        self.width as i32
-    }
-
-    pub fn height(&self) -> i32 {
-        self.height as i32
-    }
-
-    pub fn x(&self) -> i64 {
-        self.x
-    }
-
-    pub fn y(&self) -> i64 {
-        self.y
+        self.x = player.x - (self.width() / 2) as f32;
+        self.y = player.y - (self.height() / 2) as f32;
     }
 
     pub fn clear(&mut self) {
@@ -163,5 +148,23 @@ impl<'a> System<'a> {
                 ),
             )
             .unwrap();
+    }
+}
+
+impl GetDimension for System<'_> {
+    fn width(&self) -> u32 {
+        self.width
+    }
+    fn height(&self) -> u32 {
+        self.height
+    }
+}
+
+impl GetPos for System<'_> {
+    fn x(&self) -> f32 {
+        self.x
+    }
+    fn y(&self) -> f32 {
+        self.y
     }
 }

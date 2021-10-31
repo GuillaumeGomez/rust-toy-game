@@ -7,6 +7,7 @@ use crate::sdl2::ttf::Font;
 use crate::sdl2::video::WindowContext;
 
 use crate::system::System;
+use crate::traits::{GetDimension, GetPos};
 
 use std::collections::HashMap;
 
@@ -151,14 +152,14 @@ impl<'a> TextureHolder<'a> {
         self
     }
 
-    pub fn draw(&self, system: &mut System, x: i64, y: i64) {
+    pub fn draw(&self, system: &mut System, x: f32, y: f32) {
         let x = (x - system.x()) as i32;
         let y = (y - system.y()) as i32;
 
         if self.width as i32 + x < 0
-            || x > system.width()
+            || x > system.width() as i32
             || self.height as i32 + y < 0
-            || y > system.height()
+            || y > system.height() as i32
         {
             return;
         }
@@ -189,15 +190,15 @@ impl TextureId {
         }
     }
 
-    pub fn draw(self, system: &mut System, x: i64, y: i64) {
+    pub fn draw(self, system: &mut System, x: f32, y: f32) {
         let texture = system.textures.get(self);
         let x = (x - system.x()) as i32;
         let y = (y - system.y()) as i32;
 
         if self.width as i32 + x < 0
-            || x > system.width()
+            || x > system.width() as i32
             || self.height as i32 + y < 0
-            || y > system.height()
+            || y > system.height() as i32
         {
             return;
         }
