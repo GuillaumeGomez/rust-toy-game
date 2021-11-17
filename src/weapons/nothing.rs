@@ -6,13 +6,13 @@ use crate::{GetDimension, ONE_SECOND};
 #[derive(Debug)]
 pub struct Nothing;
 
-pub const RANGE: i32 = 15;
+pub const RANGE: f32 = 15.;
 
 impl Nothing {
     pub fn new(attack: i32) -> Weapon {
         Weapon {
-            x: 0,
-            y: 0,
+            x: 0.,
+            y: 0.,
             data_id: "",
             total_time: ONE_SECOND / 5,
             kind: WeaponKind::Nothing(Nothing),
@@ -21,16 +21,16 @@ impl Nothing {
     }
     pub fn use_it(&mut self, direction: Direction, total_duration: u32) -> Option<WeaponAction> {
         let (target_x, target_y) = match direction {
-            Direction::Up => (0, -RANGE),
-            Direction::Down => (0, RANGE),
-            Direction::Left => (-RANGE, 0),
-            Direction::Right => (RANGE, 0),
+            Direction::Up => (0., -RANGE),
+            Direction::Down => (0., RANGE),
+            Direction::Left => (-RANGE, 0.),
+            Direction::Right => (RANGE, 0.),
         };
         Some(WeaponAction {
             duration: 0,
             total_duration,
-            x_add: 0,
-            y_add: 0,
+            x_add: 0.,
+            y_add: 0.,
             kind: WeaponActionKind::AttackByMove { target_x, target_y },
         })
     }

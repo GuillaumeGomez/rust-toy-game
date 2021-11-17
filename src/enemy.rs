@@ -9,9 +9,9 @@ pub enum EnemyAction {
     // Not doing anything for the moment...
     None,
     Attack(Direction),
-    MoveTo(Vec<(i64, i64)>),
+    MoveTo(Vec<(f32, f32)>),
     // Targetted player (in case of multiplayer, might be nice to have IDs for players)
-    MoveToPlayer(Vec<(i64, i64)>),
+    MoveToPlayer(Vec<(f32, f32)>),
 }
 
 impl EnemyAction {
@@ -40,18 +40,18 @@ pub trait Enemy: GetPos + GetDimension {
         elapsed: u32,
         players: &[Player],
         npcs: &[Box<dyn Enemy>],
-    ) -> (i64, i64);
+    ) -> (f32, f32);
     fn draw(&mut self, system: &mut crate::system::System, debug: bool);
-    fn update(&mut self, elapsed: u32, x: i64, y: i64);
+    fn update(&mut self, elapsed: u32, x: f32, y: f32);
     fn id(&self) -> Id;
 }
 
 impl<E: Enemy> GetPos for E {
-    fn x(&self) -> i64 {
+    fn x(&self) -> f32 {
         self.character().x()
     }
 
-    fn y(&self) -> i64 {
+    fn y(&self) -> f32 {
         self.character().y()
     }
 }

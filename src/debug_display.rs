@@ -6,7 +6,7 @@ use crate::sdl2::video::WindowContext;
 
 use crate::system::System;
 use crate::texture_holder::{TextureHolder, TextureId, Textures};
-use crate::{HEIGHT, MAP_CASE_SIZE, WIDTH};
+use crate::{GetDimension, GetPos, HEIGHT, MAP_CASE_SIZE, WIDTH};
 
 pub struct DebugDisplay {
     background: TextureId,
@@ -83,13 +83,13 @@ impl DebugDisplay {
 
     pub fn draw(&self, system: &mut System, text: &str) {
         if self.draw_grid {
-            let x_add = system.x().abs() % MAP_CASE_SIZE;
-            let y_add = system.y().abs() % MAP_CASE_SIZE;
+            let x_add = system.x().abs() % MAP_CASE_SIZE as f32;
+            let y_add = system.y().abs() % MAP_CASE_SIZE as f32;
             system.copy_to_canvas(
                 self.grid,
                 Rect::new(
-                    (MAP_CASE_SIZE - x_add) as i32,
-                    (MAP_CASE_SIZE - y_add) as i32,
+                    (MAP_CASE_SIZE as f32 - x_add) as i32,
+                    (MAP_CASE_SIZE as f32 - y_add) as i32,
                     system.width() as u32,
                     system.height() as u32,
                 ),

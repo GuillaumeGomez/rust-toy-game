@@ -5,6 +5,7 @@ use crate::sdl2::surface::Surface;
 use crate::sdl2::video::WindowContext;
 
 use crate::system::System;
+use crate::traits::{GetDimension, GetPos};
 
 pub struct HealthBar<'a> {
     bar: Texture<'a>,
@@ -51,13 +52,13 @@ impl<'a> HealthBar<'a> {
         }
     }
 
-    pub fn draw(&self, x: i64, y: i64, pourcent: u32, system: &mut System) {
+    pub fn draw(&self, x: f32, y: f32, pourcent: u32, system: &mut System) {
         let x = (x - system.x()) as i32;
         let y = (y - system.y()) as i32;
         if x + self.width as i32 >= 0
-            && x < system.width()
+            && x < system.width() as i32
             && y + self.height as i32 >= 0
-            && y < system.height()
+            && y < system.height() as i32
         {
             system
                 .canvas

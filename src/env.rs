@@ -244,7 +244,7 @@ pub struct Env<'a> {
     pub debug_display: DebugDisplay,
     pub menu: Menu,
     pub need_sort_rewards: bool,
-    pub closest_reward: Option<(i32, usize)>,
+    pub closest_reward: Option<(f32, usize)>,
     pub game_controller_subsystem: &'a GameControllerSubsystem,
     controller: Option<GamePad>,
     // pressed_keys: Vec<Event>,
@@ -591,9 +591,9 @@ impl<'a> Env<'a> {
                 reward.draw(system);
                 match player.action.direction {
                     Direction::Up => {
-                        if player.y() + 4 >= reward.y() + 4 {
+                        if player.y() >= reward.y() {
                             let distance = compute_distance(player, reward);
-                            if distance > 40 {
+                            if distance > 40. {
                                 continue;
                             }
                             match self.closest_reward {
@@ -610,11 +610,11 @@ impl<'a> Env<'a> {
                         }
                     }
                     Direction::Down => {
-                        if player.height() as i64 + player.y() - 10
-                            < reward.y() + reward.height() as i64
+                        if player.height() as f32 + player.y() - 10.
+                            < reward.y() + reward.height() as f32
                         {
                             let distance = compute_distance(player, reward);
-                            if distance > 50 {
+                            if distance > 50. {
                                 continue;
                             }
                             match self.closest_reward {
@@ -631,11 +631,11 @@ impl<'a> Env<'a> {
                         }
                     }
                     Direction::Right => {
-                        if player.width() as i64 + player.x() - 10
-                            < reward.x() + reward.width() as i64
+                        if player.width() as f32 + player.x() - 10.
+                            < reward.x() + reward.width() as f32
                         {
                             let distance = compute_distance(player, reward);
-                            if distance > 50 {
+                            if distance > 50. {
                                 continue;
                             }
                             match self.closest_reward {
@@ -652,9 +652,9 @@ impl<'a> Env<'a> {
                         }
                     }
                     Direction::Left => {
-                        if player.x() > reward.x() + 4 {
+                        if player.x() > reward.x() + 4. {
                             let distance = compute_distance(player, reward);
-                            if distance > 50 {
+                            if distance > 50. {
                                 continue;
                             }
                             match self.closest_reward {
@@ -682,8 +682,8 @@ impl<'a> Env<'a> {
             let reward = &rewards[pos];
             self.reward_text.draw(
                 system,
-                reward.x() + (reward.width() as i64) / 2 - (self.reward_text.width as i64) / 2,
-                reward.y() - 2 - self.reward_text.height as i64,
+                reward.x() + (reward.width() as i32 / 2 - self.reward_text.width as i32 / 2) as f32,
+                reward.y() - (self.reward_text.height + 2) as f32,
             );
         }
     }

@@ -12,13 +12,13 @@ pub struct RewardInfo {
 #[derive(Debug)]
 pub struct Reward {
     texture: TextureId,
-    x: i64,
-    y: i64,
+    x: f32,
+    y: f32,
     info: RewardInfo,
 }
 
 impl Reward {
-    pub fn new(texture: TextureId, x: i64, y: i64, info: RewardInfo) -> Reward {
+    pub fn new(texture: TextureId, x: f32, y: f32, info: RewardInfo) -> Reward {
         Reward {
             texture,
             x,
@@ -32,9 +32,9 @@ impl Reward {
         let y = (self.y - system.y()) as i32;
 
         if self.texture.width as i32 + x < 0
-            || x > system.width()
+            || x > system.width() as i32
             || self.texture.height as i32 + y < 0
-            || y > system.height()
+            || y > system.height() as i32
         {
             return;
         }
@@ -47,11 +47,11 @@ impl Reward {
 }
 
 impl GetPos for Reward {
-    fn x(&self) -> i64 {
+    fn x(&self) -> f32 {
         self.x
     }
 
-    fn y(&self) -> i64 {
+    fn y(&self) -> f32 {
         self.y
     }
 }

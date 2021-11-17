@@ -54,8 +54,8 @@ impl Sword {
 
     pub fn new(textures: &Textures<'_>, attack: i32) -> Weapon {
         Weapon {
-            x: 0,
-            y: 0,
+            x: 0.,
+            y: 0.,
             data_id: "sword",
             total_time: ONE_SECOND as u32 / 4,
             kind: WeaponKind::Sword(Sword {
@@ -67,19 +67,19 @@ impl Sword {
     /// In case there is a timeout or something, you might not be able to use the weapon.
     pub fn use_it(&mut self, direction: Direction, total_duration: u32) -> Option<WeaponAction> {
         let (start_angle, x_add, y_add) = match direction {
-            Direction::Up => (-45, self.width() as i32 / 2, self.height() as i32),
-            Direction::Down => (135, self.width() as i32 / 2, self.height() as i32),
-            Direction::Left => (225, 0, self.height() as i32),
-            Direction::Right => (45, 0, self.height() as i32),
+            Direction::Up => (-45., self.width() / 2, self.height()),
+            Direction::Down => (135., self.width() / 2, self.height()),
+            Direction::Left => (225., 0, self.height()),
+            Direction::Right => (45., 0, self.height()),
         };
         Some(WeaponAction {
             duration: 0,
             total_duration,
-            x_add,
-            y_add,
+            x_add: x_add as _,
+            y_add: y_add as _,
             kind: WeaponActionKind::AttackBySlash {
                 start_angle,
-                total_angle: 90,
+                total_angle: 90.,
             },
         })
     }

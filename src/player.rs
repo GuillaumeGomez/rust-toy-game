@@ -71,8 +71,8 @@ impl Player {
 
     pub fn new<'a>(
         textures: &Textures<'a>,
-        x: i64,
-        y: i64,
+        x: f32,
+        y: f32,
         id: Id,
         stats: Option<PlayerStats>,
         _env: Option<&mut Env>,
@@ -204,11 +204,11 @@ impl Player {
 }
 
 impl GetPos for Player {
-    fn x(&self) -> i64 {
+    fn x(&self) -> f32 {
         self.character.x
     }
 
-    fn y(&self) -> i64 {
+    fn y(&self) -> f32 {
         self.character.y
     }
 }

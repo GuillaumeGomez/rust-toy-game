@@ -25,8 +25,8 @@ use crate::{
 pub struct Bat {
     pub character: Character,
     action: RefCell<EnemyAction>,
-    start_x: i64,
-    start_y: i64,
+    start_x: f32,
+    start_y: f32,
 }
 
 impl Bat {
@@ -53,8 +53,8 @@ impl Bat {
     pub fn new<'a>(
         texture_creator: &TextureCreator<WindowContext>,
         textures: &Textures<'a>,
-        x: i64,
-        y: i64,
+        x: f32,
+        y: f32,
         id: Id,
     ) -> Self {
         let tile_height = 13;
@@ -145,22 +145,22 @@ impl Bat {
         }
     }
 
-    fn compute_adds(&self, target_x: i64, target_y: i64) -> (i64, i64) {
+    fn compute_adds(&self, target_x: f32, target_y: f32) -> (f32, f32) {
         (
-            match self.x().cmp(&target_x) {
-                Ordering::Less => 1,
-                Ordering::Equal => 0,
-                Ordering::Greater => -1,
+            match self.x().partial_cmp(&target_x).unwrap() {
+                Ordering::Less => 1.,
+                Ordering::Equal => 0.,
+                Ordering::Greater => -1.,
             },
-            match self.y().cmp(&target_y) {
-                Ordering::Less => 1,
-                Ordering::Equal => 0,
-                Ordering::Greater => -1,
+            match self.y().partial_cmp(&target_y).unwrap() {
+                Ordering::Less => 1.,
+                Ordering::Equal => 0.,
+                Ordering::Greater => -1.,
             },
         )
     }
 
-    fn get_directions(&self, x_add: i64, y_add: i64) -> (Direction, Option<Direction>) {
+    fn get_directions(&self, x_add: f32, y_add: f32) -> (Direction, Option<Direction>) {
         (Direction::Down, None)
     }
 }
@@ -179,7 +179,7 @@ impl Enemy for Bat {
         unsafe { std::mem::transmute(&mut self.character) }
     }
 
-    fn update(&mut self, elapsed: u32, x: i64, y: i64) {
+    fn update(&mut self, elapsed: u32, x: f32, y: f32) {
         // if !self.character.is_attacking() && self.action.borrow().is_attack() {
         //     self.character.attack();
         //     if x == 0 && y == 0 {
@@ -198,8 +198,8 @@ impl Enemy for Bat {
         _elapsed: u32,
         players: &[Player],
         npcs: &[Box<dyn Enemy>],
-    ) -> (i64, i64) {
-        (0, 0)
+    ) -> (f32, f32) {
+        (0., 0.)
     }
 
     fn draw(&mut self, system: &mut crate::system::System, debug: bool) {
