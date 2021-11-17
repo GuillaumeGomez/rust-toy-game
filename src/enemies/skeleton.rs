@@ -8,7 +8,7 @@ use crate::sdl2::video::WindowContext;
 use rand::Rng;
 
 use crate::animation::Animation;
-use crate::character::{Action, Character, CharacterKind, CharacterPoints, Direction, Obstacle};
+use crate::character::{Action, Character, CharacterKind, CharacterPoints, Direction, DirectionAndStrength, Obstacle};
 use crate::enemy::{Enemy, EnemyAction};
 use crate::map::Map;
 use crate::player::Player;
@@ -193,7 +193,7 @@ impl Skeleton {
         Self {
             character: Character {
                 action: Action {
-                    direction: Direction::Down,
+                    direction: DirectionAndStrength::new_with_strength(Direction::Down, 0.),
                     secondary: None,
                     movement: None,
                 },
@@ -245,35 +245,35 @@ impl Skeleton {
         )
     }
 
-    fn get_directions(&self, x_add: f32, y_add: f32) -> (Direction, Option<Direction>) {
+    fn get_directions(&self, x_add: f32, y_add: f32) -> (DirectionAndStrength, Option<DirectionAndStrength>) {
         if x_add != 0. && y_add != 0. {
             (
                 if x_add > 0. {
-                    Direction::Right
+                    DirectionAndStrength::new(Direction::Right)
                 } else {
-                    Direction::Left
+                    DirectionAndStrength::new(Direction::Left)
                 },
                 Some(if y_add > 0. {
-                    Direction::Down
+                    DirectionAndStrength::new(Direction::Down)
                 } else {
-                    Direction::Up
+                    DirectionAndStrength::new(Direction::Up)
                 }),
             )
         } else if x_add != 0. {
             (
                 if x_add > 0. {
-                    Direction::Right
+                    DirectionAndStrength::new(Direction::Right)
                 } else {
-                    Direction::Left
+                    DirectionAndStrength::new(Direction::Left)
                 },
                 None,
             )
         } else {
             (
                 if y_add > 0. {
-                    Direction::Down
+                    DirectionAndStrength::new(Direction::Down)
                 } else {
-                    Direction::Up
+                    DirectionAndStrength::new(Direction::Up)
                 },
                 None,
             )
@@ -383,14 +383,14 @@ impl Skeleton {
         if target_x > self_x {
             let (x_add, _) =
                 self.character
-                    .inner_check_move(map, players, npcs, Direction::Left, None, 0., 0.);
+                    .inner_check_move(map, players, npcs, DirectionAndStrength::new(Direction::Left), None, 0., 0.);
             if x_add != 0. {
                 res = Some(EnemyAction::MoveTo(vec![(self_x - 1., self_y)]));
             }
         } else if target_x < self_x {
             let (x_add, _) =
                 self.character
-                    .inner_check_move(map, players, npcs, Direction::Right, None, 0., 0.);
+                    .inner_check_move(map, players, npcs, DirectionAndStrength::new(Direction::Right), None, 0., 0.);
             if x_add != 0. {
                 res = Some(EnemyAction::MoveTo(vec![(self_x + 1., self_y)]));
             }
@@ -401,7 +401,7 @@ impl Skeleton {
                     map,
                     players,
                     npcs,
-                    Direction::Up,
+                    DirectionAndStrength::new(Direction::Up),
                     None,
                     0.,
                     0.,
@@ -414,7 +414,7 @@ impl Skeleton {
                     map,
                     players,
                     npcs,
-                    Direction::Down,
+                    DirectionAndStrength::new(Direction::Down),
                     None,
                     0.,
                     0.,
@@ -449,13 +449,13 @@ impl Enemy for Skeleton {
 
     fn update(&mut self, elapsed: u32, x: f32, y: f32) {
         if x > 0. {
-            self.character.action.direction = Direction::Right;
+            self.character.action.direction = DirectionAndStrength::new(Direction::Right);
         } else if x < 0. {
-            self.character.action.direction = Direction::Left;
+            self.character.action.direction = DirectionAndStrength::new(Direction::Left);
         } else if y > 0. {
-            self.character.action.direction = Direction::Down;
+            self.character.action.direction = DirectionAndStrength::new(Direction::Down);
         } else if y < 0. {
-            self.character.action.direction = Direction::Up;
+            self.character.action.direction = DirectionAndStrength::new(Direction::Up);
         }
         if x != 0. || y != 0. {
             if self.character.action.movement.is_none() {
@@ -468,7 +468,7 @@ impl Enemy for Skeleton {
             self.character.attack();
             if x == 0. && y == 0. {
                 match &*self.action.borrow() {
-                    EnemyAction::Attack(ref dir) => self.character.action.direction = *dir,
+                    EnemyAction::Attack(ref dir) => self.character.action.direction.direction = *dir,
                     _ => {}
                 }
             }
@@ -627,7 +627,7 @@ impl Enemy for Skeleton {
                     x - map.x,
                     y - map.y,
                     &map.data,
-                    self.character.action.direction,
+                    *self.character.action.direction,
                 ) {
                     x += 1.;
                     y += 1.;

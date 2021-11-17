@@ -45,28 +45,16 @@ pub enum Direction {
 
 impl Direction {
     pub fn is_right(&self) -> bool {
-        match *self {
-            Self::Right => true,
-            _ => false,
-        }
+        matches!(self, Self::Right)
     }
     pub fn is_left(&self) -> bool {
-        match *self {
-            Self::Left => true,
-            _ => false,
-        }
+        matches!(self, Self::Left)
     }
     pub fn is_up(&self) -> bool {
-        match *self {
-            Self::Up => true,
-            _ => false,
-        }
+        matches!(self, Self::Up)
     }
     pub fn is_down(&self) -> bool {
-        match *self {
-            Self::Down => true,
-            _ => false,
-        }
+        matches!(self, Self::Down)
     }
     pub fn get_opposite(&self) -> Direction {
         match *self {
@@ -87,10 +75,62 @@ impl Direction {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Hash, Debug)]
-pub struct Action {
+#[derive(Clone, Copy, Debug)]
+pub struct DirectionAndStrength {
     pub direction: Direction,
-    pub secondary: Option<Direction>,
+    pub strength: f32, // Very useful with joysticks!
+}
+
+impl DirectionAndStrength {
+    pub fn new_with_strength(direction: Direction, strength: f32) -> Self {
+        Self {
+            direction,
+            strength,
+        }
+    }
+    pub fn new(direction: Direction) -> Self {
+        Self {
+            direction,
+            strength: 1.,
+        }
+    }
+    pub fn convert_to_x_y(self) -> (f32, f32) {
+        match self.direction {
+            Direction::Up => (0., -self.strength),
+            Direction::Down => (0., self.strength),
+            Direction::Left => (-self.strength, 0.),
+            Direction::Right => (self.strength, 0.),
+        }
+    }
+}
+impl std::ops::Deref for DirectionAndStrength {
+    type Target = Direction;
+
+    fn deref(&self) -> &Self::Target {
+        &self.direction
+    }
+}
+impl std::hash::Hash for DirectionAndStrength {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.direction.hash(state);
+    }
+}
+
+impl PartialEq for DirectionAndStrength {
+    fn eq(&self, other: &Self) -> bool {
+        self.direction == other.direction
+    }
+}
+impl PartialEq<Direction> for DirectionAndStrength {
+    fn eq(&self, other: &Direction) -> bool {
+        self.direction == *other
+    }
+}
+
+#[derive(Clone, PartialEq, Hash, Debug)]
+pub struct Action {
+    pub direction: DirectionAndStrength,
+    pub secondary: Option<DirectionAndStrength>,
     pub movement: Option<u32>,
 }
 
@@ -98,7 +138,7 @@ impl Action {
     /// Returns `(x, y, width, height, draw_width, draw_height)`.
     pub fn compute_current(&self, textures: &TextureHandler) -> (i32, i32, u32, u32, u32, u32) {
         if let Some(ref pos) = self.movement {
-            let (info, nb_animations) = &textures.actions_moving[self.direction as usize];
+            let (info, nb_animations) = &textures.actions_moving[*self.direction as usize];
             // TODO: It shouldn't be needed but just in case...
             let pos = *pos as i32 % nb_animations;
             if let Some((tile_width, tile_height)) = textures.forced_size {
@@ -121,7 +161,7 @@ impl Action {
                 )
             }
         } else {
-            let info = &textures.actions_standing[self.direction as usize];
+            let info = &textures.actions_standing[*self.direction as usize];
             if let Some((tile_width, tile_height)) = textures.forced_size {
                 (
                     info.x,
@@ -147,13 +187,13 @@ impl Action {
     pub fn get_dimension(&self, textures: &TextureHandler) -> Dimension {
         let mut dim;
         if let Some(_) = self.movement {
-            dim = textures.actions_moving[self.direction as usize].0.clone();
+            dim = textures.actions_moving[*self.direction as usize].0.clone();
             if let Some((tile_width, tile_height)) = textures.forced_size {
                 dim.set_width(tile_width);
                 dim.set_height(tile_height);
             }
         } else {
-            dim = textures.actions_standing[self.direction as usize].clone();
+            dim = textures.actions_standing[*self.direction as usize].clone();
             if let Some((tile_width, tile_height)) = textures.forced_size {
                 dim.set_width(tile_width);
                 dim.set_height(tile_height);
@@ -204,7 +244,8 @@ pub struct CharacterStats {
     pub dodge_change: u32,
     /// It also takes into account the opponent level, agility and dexterity.
     pub critical_attack_chance: u32,
-    // FIXME: speed should be here!
+    /// How far you go in one second.
+    pub move_speed: f32,
 }
 
 pub struct CharacterPoints {
@@ -265,6 +306,8 @@ impl CharacterPoints {
             magical_defense: level / 2 + self.wisdom + self.intelligence / 2,
             dodge_change: level + self.agility,
             critical_attack_chance: level + 2 * self.dexterity + self.agility,
+            // You gain 1% of speed every four level.
+            move_speed: 1. + (level as f32) / 400.,
         }
     }
 }
@@ -449,14 +492,11 @@ impl Character {
     }
 
     // FIXME: To compute correctly move in two directions:
-    // x = Math.sin(Math.PI * 2 * angle / 360);
-    // y = Math.cos(Math.PI * 2 * angle / 360);
 
     /// `x_add` and `y_add` are used in case you want to move in two directions at once, so when
     /// checking the second direction, you actually already "moved" and don't check a bad position.
     pub fn check_move(
         &self,
-        direction: Direction,
         map: &Map,
         players: &[Player],
         npcs: &[Box<dyn Enemy>],
@@ -466,24 +506,24 @@ impl Character {
     ) -> (f32, f32) {
         let info = self
             .action
-            .get_specific_dimension(&self.texture_handler, direction);
+            .get_specific_dimension(&self.texture_handler, *self.action.direction);
+        // let (x_add, y_add) = match direction {
+        //     Direction::Down
+        //         if info.height() as f32 + y + 1. < map.y + MAP_SIZE_WITH_CASE as f32 =>
+        //     {
+        //         (0., 1.)
+        //     }
+        //     Direction::Up if y - 1. >= map.y => (0., -1.),
+        //     Direction::Left if x - 1. >= map.x => (-1., 0.),
+        //     Direction::Right
+        //         if info.width() as f32 + x + 1. < map.x + MAP_SIZE_WITH_CASE as f32 =>
+        //     {
+        //         (1., 0.)
+        //     }
+        //     _ => return (0., 0.),
+        // };
         let x = self.x() + x_add;
         let y = self.y() + y_add;
-        let (x_add, y_add) = match direction {
-            Direction::Down
-                if info.height() as f32 + y + 1. < map.y + MAP_SIZE_WITH_CASE as f32 =>
-            {
-                (0., 1.)
-            }
-            Direction::Up if y - 1. >= map.y => (0., -1.),
-            Direction::Left if x - 1. >= map.x => (-1., 0.),
-            Direction::Right
-                if info.width() as f32 + x + 1. < map.x + MAP_SIZE_WITH_CASE as f32 =>
-            {
-                (1., 0.)
-            }
-            _ => return (0., 0.),
-        };
 
         fn call(
             self_id: Id,
@@ -493,7 +533,6 @@ impl Character {
             y: f32,
             width: u32,
             height: u32,
-            direction: Direction,
         ) -> bool {
             if self_id == c.id {
                 return true;
@@ -508,41 +547,19 @@ impl Character {
             let width = move_hitbox.0 as f32;
             let height = move_hitbox.1 as f32;
 
-            !match direction {
-                Direction::Down => {
-                    self_x + width >= other_x
+            !(self_x + width >= other_x
                         && self_x <= other_x + other_width as f32
-                        && self_y + height + 1. >= other_y
-                        && self_y + height <= other_y + other_height as f32
-                }
-                Direction::Up => {
-                    self_x + width >= other_x
-                        && self_x <= other_x + other_width as f32
-                        && self_y >= other_y
-                        && self_y - 1. <= other_y + other_height as f32
-                }
-                Direction::Right => {
-                    self_x + width + 1. >= other_x
-                        && self_x + width <= other_x + other_width as f32
                         && self_y + height >= other_y
-                        && self_y <= other_y + other_height as f32
-                }
-                Direction::Left => {
-                    self_x >= other_x
-                        && self_x - 1. <= other_x + other_width as f32
-                        && self_y + height >= other_y
-                        && self_y <= other_y + other_height as f32
-                }
-            }
+                        && self_y + height <= other_y + other_height as f32)
         }
 
         let self_x = x + x_add;
         let self_y = y + y_add;
         // NPC moves are a bit more restricted than players'.
-        if if self.kind.is_player() {
+        let can_move = if self.kind.is_player() {
             let width = self.width();
             let height = self.height();
-            self.check_hitbox(self_x - map.x, self_y - map.y, &map.data, direction)
+            self.check_hitbox(self_x - map.x, self_y - map.y, &map.data, *self.action.direction)
                 && npcs.iter().all(|n| {
                     call(
                         self.id,
@@ -552,7 +569,6 @@ impl Character {
                         self_y,
                         width,
                         height,
-                        direction,
                     )
                 })
                 && players.iter().all(|p| {
@@ -564,18 +580,18 @@ impl Character {
                         self_y,
                         width,
                         height,
-                        direction,
                     )
                 })
         } else {
-            self.check_hitbox(self_x - map.x, self_y - map.y, &map.data, direction)
+            self.check_hitbox(self_x - map.x, self_y - map.y, &map.data, *self.action.direction)
                 && npcs
                     .iter()
                     .all(|n| self.check_character_move(self_x, self_y, n.character()))
                 && players
                     .iter()
                     .all(|n| self.check_character_move(self_x, self_y, &n))
-        } {
+        };
+        if can_move {
             (x_add, y_add)
         } else {
             (0., 0.)
@@ -589,25 +605,21 @@ impl Character {
         map: &Map,
         players: &[Player],
         npcs: &[Box<dyn Enemy>],
-        primary_direction: Direction,
-        secondary_direction: Option<Direction>,
+        primary_direction: DirectionAndStrength,
+        secondary_direction: Option<DirectionAndStrength>,
         x_add: f32,
         y_add: f32,
     ) -> (f32, f32) {
-        let (mut x, mut y) = self.check_move(primary_direction, map, players, npcs, x_add, y_add);
-        if let Some(secondary_direction) = secondary_direction {
-            let (x2, y2) = self.check_move(
-                secondary_direction,
-                map,
-                players,
-                npcs,
-                x_add + x,
-                y_add + y,
-            );
-            x += x2;
-            y += y2;
-        }
-        (x, y)
+        let (x1, y1) = primary_direction.convert_to_x_y();
+        let angle = if let Some(secondary_direction) = secondary_direction {
+            let (x2, y2) = secondary_direction.convert_to_x_y();
+            (x2 + x1).atan2(y2 + y1)
+        } else {
+            x1.atan2(y1)
+        };
+        let x = angle.sin();
+        let y = angle.cos();
+        self.check_move(map, players, npcs, x_add + x, y_add + y)
     }
 
     /// `x_add` and `y_add` are used in case you want to move in two directions at once, so when
@@ -724,7 +736,7 @@ impl Character {
     pub fn attack(&mut self) {
         let remaining_stamina = self.stats.stamina.value();
         if remaining_stamina >= self.weapon.weight() as _ {
-            self.weapon_action = self.weapon.use_it(self.action.direction);
+            self.weapon_action = self.weapon.use_it(*self.action.direction);
             self.blocking_direction = None;
 
             self.set_weapon_pos();
@@ -759,11 +771,6 @@ impl Character {
             while tmp > effect.2 && (effect.0 != 0. || effect.1 != 0.) {
                 if effect.0 != 0. {
                     let (x1, _) = self.check_move(
-                        if effect.0 < 0. {
-                            Direction::Left
-                        } else {
-                            Direction::Right
-                        },
                         map,
                         players,
                         npcs,
@@ -781,11 +788,6 @@ impl Character {
                 }
                 if effect.1 != 0. {
                     let (_, y1) = self.check_move(
-                        if effect.1 < 0. {
-                            Direction::Up
-                        } else {
-                            Direction::Down
-                        },
                         map,
                         players,
                         npcs,
@@ -894,7 +896,7 @@ impl Character {
                 self.tile_delay -= tile_duration;
             }
             let nb_animations =
-                self.texture_handler.actions_moving[self.action.direction as usize].1 as u32;
+                self.texture_handler.actions_moving[*self.action.direction as usize].1 as u32;
             if *pos > nb_animations {
                 *pos %= nb_animations;
             }
@@ -937,7 +939,7 @@ impl Character {
             let draw_height = draw_height;
             let width = self.weapon.width();
             let height = self.weapon.height();
-            let (x, y) = match self.action.direction {
+            let (x, y) = match *self.action.direction {
                 Direction::Up => (self.x + (width + 2) as f32, self.y - (height + 3) as f32),
                 Direction::Down => (
                     self.x + (width / 2) as f32,
@@ -954,7 +956,7 @@ impl Character {
             let draw_height = draw_height as i32;
             let width = self.weapon.width() as i32;
             let height = self.weapon.height() as i32;
-            let (x, y) = match self.action.direction {
+            let (x, y) = match *self.action.direction {
                 Direction::Up => (self.x + (draw_width / 2 - 3) as f32, self.y - height as f32),
                 Direction::Down => (
                     self.x + (draw_width / 2 - 4) as f32,
@@ -1038,7 +1040,7 @@ impl Character {
                 self.texture_handler.check_intersection(
                     textures,
                     matrix,
-                    self.action.direction,
+                    *self.action.direction,
                     self.action.movement.is_some(),
                     (self.x, self.y),
                 )
@@ -1144,7 +1146,7 @@ impl Character {
     }
 
     pub fn get_direction(&self) -> Direction {
-        self.action.direction
+        *self.action.direction
     }
 
     pub fn reset_stats(&mut self) {

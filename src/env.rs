@@ -6,7 +6,7 @@ use crate::sdl2::video::WindowContext;
 use crate::sdl2::EventPump;
 use crate::sdl2::GameControllerSubsystem;
 
-use crate::character::Direction;
+use crate::character::{Direction, DirectionAndStrength};
 use crate::debug_display::DebugDisplay;
 use crate::menu::{Menu, MenuEvent};
 use crate::player::Player;
@@ -412,19 +412,26 @@ impl<'a> Env<'a> {
                         Event::ControllerDeviceRemoved { .. } => {
                             self.controller = None;
                         }
-                        Event::ControllerButtonDown { button, .. } => match button {
-                            Button::DPadUp => players[0].handle_move(Direction::Up),
-                            Button::DPadDown => players[0].handle_move(Direction::Down),
-                            Button::DPadLeft => players[0].handle_move(Direction::Left),
-                            Button::DPadRight => players[0].handle_move(Direction::Right),
-                            Button::A => {
-                                if !self.is_attack_pressed {
-                                    players[0].attack();
-                                    self.is_attack_pressed = true;
+                        Event::ControllerButtonDown { button, .. } => {
+                            match button {
+                                Button::DPadUp => {
+                                    players[0].handle_move(DirectionAndStrength::new(Direction::Up))
                                 }
+                                Button::DPadDown => players[0]
+                                    .handle_move(DirectionAndStrength::new(Direction::Down)),
+                                Button::DPadLeft => players[0]
+                                    .handle_move(DirectionAndStrength::new(Direction::Left)),
+                                Button::DPadRight => players[0]
+                                    .handle_move(DirectionAndStrength::new(Direction::Right)),
+                                Button::A => {
+                                    if !self.is_attack_pressed {
+                                        players[0].attack();
+                                        self.is_attack_pressed = true;
+                                    }
+                                }
+                                _ => {}
                             }
-                            _ => {}
-                        },
+                        }
                         Event::ControllerButtonUp { button, .. } => match button {
                             Button::DPadUp => players[0].handle_release(Direction::Up),
                             Button::DPadDown => players[0].handle_release(Direction::Down),
@@ -455,10 +462,10 @@ impl<'a> Env<'a> {
                                     self.inventory_window.is_displayed = false;
                                 }
                             }
-                            Keycode::Left | Keycode::Q => players[0].handle_move(Direction::Left),
-                            Keycode::Right | Keycode::D => players[0].handle_move(Direction::Right),
-                            Keycode::Up | Keycode::Z => players[0].handle_move(Direction::Up),
-                            Keycode::Down | Keycode::S => players[0].handle_move(Direction::Down),
+                            Keycode::Left | Keycode::Q => players[0].handle_move(DirectionAndStrength::new(Direction::Left)),
+                            Keycode::Right | Keycode::D => players[0].handle_move(DirectionAndStrength::new(Direction::Right)),
+                            Keycode::Up | Keycode::Z => players[0].handle_move(DirectionAndStrength::new(Direction::Up)),
+                            Keycode::Down | Keycode::S => players[0].handle_move(DirectionAndStrength::new(Direction::Down)),
                             Keycode::Space => {
                                 if !self.is_attack_pressed {
                                     players[0].attack();
@@ -589,7 +596,7 @@ impl<'a> Env<'a> {
             self.closest_reward = None;
             for (i, reward) in rewards.iter().enumerate() {
                 reward.draw(system);
-                match player.action.direction {
+                match *player.action.direction {
                     Direction::Up => {
                         if player.y() >= reward.y() {
                             let distance = compute_distance(player, reward);

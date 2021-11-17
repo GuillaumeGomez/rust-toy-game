@@ -8,7 +8,7 @@ use crate::sdl2::render::TextureCreator;
 use crate::sdl2::surface::Surface;
 use crate::sdl2::video::WindowContext;
 
-use crate::character::{Action, Character, CharacterKind, CharacterPoints, Direction};
+use crate::character::{Action, Character, CharacterKind, CharacterPoints, Direction, DirectionAndStrength};
 use crate::env::Env;
 use crate::player_stats::PlayerStats;
 use crate::texture_handler::{Dimension, TextureHandler};
@@ -119,7 +119,7 @@ impl Player {
         let p = Player {
             character: Character {
                 action: Action {
-                    direction: Direction::Up,
+                    direction: DirectionAndStrength::new_with_strength(Direction::Up, 0.),
                     secondary: None,
                     movement: None,
                 },
@@ -171,7 +171,7 @@ impl Player {
         p
     }
 
-    pub fn handle_move(&mut self, dir: Direction) {
+    pub fn handle_move(&mut self, dir: DirectionAndStrength) {
         if self.character.action.movement.is_none() {
             if self.character.action.direction != dir {
                 self.character.stop_attack();
@@ -188,15 +188,16 @@ impl Player {
     }
 
     pub fn handle_release(&mut self, dir: Direction) {
-        if Some(dir) == self.character.action.secondary {
+        if self.character.action.secondary.as_ref().map(|d| *d == dir).unwrap_or(false) {
             self.character.action.secondary = None;
-        } else if dir == self.character.action.direction {
+        } else if dir == *self.character.action.direction {
             if let Some(second) = self.character.action.secondary.take() {
                 self.character.action.movement = Some(0);
                 self.character.action.direction = second;
                 self.character.stop_attack();
             } else {
                 self.character.action.movement = None;
+                self.character.action.direction.strength = 0.;
                 self.character.is_running = false;
             }
         }

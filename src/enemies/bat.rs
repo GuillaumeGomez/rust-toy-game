@@ -9,7 +9,7 @@ use crate::sdl2::surface::Surface;
 use crate::sdl2::video::WindowContext;
 
 use crate::animation::Animation;
-use crate::character::{Action, Character, CharacterKind, CharacterPoints, Direction, Obstacle};
+use crate::character::{Action, Character, CharacterKind, CharacterPoints, Direction, DirectionAndStrength,Obstacle};
 use crate::enemy::{Enemy, EnemyAction};
 use crate::map::Map;
 use crate::player::Player;
@@ -108,7 +108,7 @@ impl Bat {
         Self {
             character: Character {
                 action: Action {
-                    direction: Direction::Down,
+                    direction: DirectionAndStrength::new_with_strength(Direction::Down, 0.),
                     secondary: None,
                     movement: Some(0),
                 },
