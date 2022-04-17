@@ -171,24 +171,24 @@ fn make_enemies<'a>(
     Bat::init_textures(texture_creator, textures);
 
     let enemies: Vec<Box<dyn Enemy>> = vec![
-        Box::new(Skeleton::new(
-            texture_creator,
-            textures,
-            0.,
-            40.,
-            2,
-            width / 3,
-            height / 4,
-        )),
-        Box::new(Skeleton::new(
-            texture_creator,
-            textures,
-            40.,
-            0.,
-            3,
-            width / 3,
-            height / 4,
-        )),
+        // Box::new(Skeleton::new(
+        //     texture_creator,
+        //     textures,
+        //     0.,
+        //     40.,
+        //     2,
+        //     width / 3,
+        //     height / 4,
+        // )),
+        // Box::new(Skeleton::new(
+        //     texture_creator,
+        //     textures,
+        //     40.,
+        //     0.,
+        //     3,
+        //     width / 3,
+        //     height / 4,
+        // )),
         Box::new(Bat::new(texture_creator, textures, 40., 40., 4)),
     ];
 
