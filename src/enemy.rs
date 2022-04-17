@@ -10,24 +10,18 @@ pub enum EnemyAction {
     None,
     Attack(Direction),
     MoveTo(Vec<(f32, f32)>),
-    // Targetted player (in case of multiplayer, might be nice to have IDs for players)
-    MoveToPlayer(Vec<(f32, f32)>),
+    // Targetted player.
+    MoveToPlayer(Id, Vec<(f32, f32)>),
 }
 
 impl EnemyAction {
     #[allow(dead_code)]
     pub fn is_move_to_player(&self) -> bool {
-        match *self {
-            Self::MoveToPlayer(_) => true,
-            _ => false,
-        }
+        matches!(*self, Self::MoveToPlayer(_, _))
     }
 
     pub fn is_attack(&self) -> bool {
-        match *self {
-            Self::Attack(_) => true,
-            _ => false,
-        }
+        matches!(*self, Self::Attack(_))
     }
 }
 

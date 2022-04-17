@@ -9,7 +9,9 @@ use crate::sdl2::surface::Surface;
 use crate::sdl2::video::WindowContext;
 
 use crate::animation::Animation;
-use crate::character::{Action, Character, CharacterKind, CharacterPoints, Direction, DirectionAndStrength,Obstacle};
+use crate::character::{
+    Action, Character, CharacterKind, CharacterPoints, Direction, DirectionAndStrength, Obstacle,
+};
 use crate::enemy::{Enemy, EnemyAction};
 use crate::map::Map;
 use crate::player::Player;

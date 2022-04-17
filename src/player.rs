@@ -8,7 +8,9 @@ use crate::sdl2::render::TextureCreator;
 use crate::sdl2::surface::Surface;
 use crate::sdl2::video::WindowContext;
 
-use crate::character::{Action, Character, CharacterKind, CharacterPoints, Direction, DirectionAndStrength};
+use crate::character::{
+    Action, Character, CharacterKind, CharacterPoints, Direction, DirectionAndStrength,
+};
 use crate::env::Env;
 use crate::player_stats::PlayerStats;
 use crate::texture_handler::{Dimension, TextureHandler};
@@ -188,7 +190,14 @@ impl Player {
     }
 
     pub fn handle_release(&mut self, dir: Direction) {
-        if self.character.action.secondary.as_ref().map(|d| *d == dir).unwrap_or(false) {
+        if self
+            .character
+            .action
+            .secondary
+            .as_ref()
+            .map(|d| *d == dir)
+            .unwrap_or(false)
+        {
             self.character.action.secondary = None;
         } else if dir == *self.character.action.direction {
             if let Some(second) = self.character.action.secondary.take() {

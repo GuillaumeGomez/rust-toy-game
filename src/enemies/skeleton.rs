@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 use std::cmp::{Ordering, Reverse};
-use std::collections::BinaryHeap;
+use std::collections::{BinaryHeap, HashSet};
 
 use crate::sdl2::rect::Rect;
 use crate::sdl2::render::TextureCreator;
@@ -8,7 +8,9 @@ use crate::sdl2::video::WindowContext;
 use rand::Rng;
 
 use crate::animation::Animation;
-use crate::character::{Action, Character, CharacterKind, CharacterPoints, Direction, DirectionAndStrength, Obstacle};
+use crate::character::{
+    Action, Character, CharacterKind, CharacterPoints, Direction, DirectionAndStrength, Obstacle,
+};
 use crate::enemy::{Enemy, EnemyAction};
 use crate::map::Map;
 use crate::player::Player;
@@ -30,8 +32,8 @@ struct Node {
 }
 
 impl Node {
-    fn new(x: f32, y: f32, cost: u32) -> Node {
-        Node {
+    fn new(x: f32, y: f32, cost: u32) -> Self {
+        Self {
             x,
             y,
             cost,
@@ -42,15 +44,15 @@ impl Node {
         self.heuristic = utils::compute_distance(&(self.x, self.y), destination) as u32 + self.cost;
     }
 }
-impl PartialEq<Node> for Node {
-    fn eq(&self, other: &Node) -> bool {
-        self.x == other.x && self.y == other.y
+impl PartialEq<Self> for Node {
+    fn eq(&self, other: &Self) -> bool {
+        (self.x - other.x).abs() < FLOAT_COMPARISON_PRECISION
+            && (self.y - other.y).abs() < FLOAT_COMPARISON_PRECISION
     }
 }
-impl PartialEq<Reverse<Node>> for Node {
-    fn eq(&self, other: &Reverse<Node>) -> bool {
-        (self.x - other.0.x).abs() < FLOAT_COMPARISON_PRECISION
-            && (self.y - other.0.y).abs() < FLOAT_COMPARISON_PRECISION
+impl PartialEq<Reverse<Self>> for Node {
+    fn eq(&self, other: &Reverse<Self>) -> bool {
+        *self == other.0
     }
 }
 impl Eq for Node {}
@@ -62,6 +64,22 @@ impl PartialOrd for Node {
 impl Ord for Node {
     fn cmp(&self, other: &Self) -> Ordering {
         self.partial_cmp(&other).expect("cmp failed")
+    }
+}
+
+#[derive(Clone, Copy)]
+struct WrapNode(f32, f32);
+impl PartialEq<Self> for WrapNode {
+    fn eq(&self, other: &Self) -> bool {
+        (self.0 - other.0).abs() < FLOAT_COMPARISON_PRECISION
+            && (self.1 - other.1).abs() < FLOAT_COMPARISON_PRECISION
+    }
+}
+impl Eq for WrapNode {}
+impl std::hash::Hash for WrapNode {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        format!("{:.3}", self.0).hash(state);
+        format!("{:.3}", self.1).hash(state);
     }
 }
 
@@ -231,52 +249,49 @@ impl Skeleton {
     }
 
     fn compute_adds(&self, target_x: f32, target_y: f32) -> (f32, f32) {
-        (
-            match self.x().partial_cmp(&target_x).unwrap() {
-                Ordering::Less => 1.,
-                Ordering::Equal => 0.,
-                Ordering::Greater => -1.,
-            },
-            match self.y().partial_cmp(&target_y).unwrap() {
-                Ordering::Less => 1.,
-                Ordering::Equal => 0.,
-                Ordering::Greater => -1.,
-            },
-        )
+        let x: f32 = match self.x().partial_cmp(&target_x).unwrap() {
+            Ordering::Less => 1.,
+            Ordering::Equal => 0.,
+            Ordering::Greater => -1.,
+        };
+        let y: f32 = match self.y().partial_cmp(&target_y).unwrap() {
+            Ordering::Less => 1.,
+            Ordering::Equal => 0.,
+            Ordering::Greater => -1.,
+        };
+        let angle = x.atan2(y);
+        (angle.sin(), angle.cos())
     }
 
-    fn get_directions(&self, x_add: f32, y_add: f32) -> (DirectionAndStrength, Option<DirectionAndStrength>) {
-        if x_add != 0. && y_add != 0. {
-            (
-                if x_add > 0. {
-                    DirectionAndStrength::new(Direction::Right)
-                } else {
-                    DirectionAndStrength::new(Direction::Left)
-                },
-                Some(if y_add > 0. {
-                    DirectionAndStrength::new(Direction::Down)
-                } else {
-                    DirectionAndStrength::new(Direction::Up)
-                }),
-            )
-        } else if x_add != 0. {
-            (
-                if x_add > 0. {
-                    DirectionAndStrength::new(Direction::Right)
-                } else {
-                    DirectionAndStrength::new(Direction::Left)
-                },
-                None,
-            )
+    fn get_directions(
+        &self,
+        x_add: f32,
+        y_add: f32,
+    ) -> (DirectionAndStrength, Option<DirectionAndStrength>) {
+        let x_abs = x_add.abs();
+        let y_abs = y_add.abs();
+        let has_x_move = x_abs > FLOAT_COMPARISON_PRECISION;
+        let has_y_move = y_abs > FLOAT_COMPARISON_PRECISION;
+        let x_direction = DirectionAndStrength::new(if x_add > 0. {
+            Direction::Right
         } else {
-            (
-                if y_add > 0. {
-                    DirectionAndStrength::new(Direction::Down)
-                } else {
-                    DirectionAndStrength::new(Direction::Up)
-                },
-                None,
-            )
+            Direction::Left
+        });
+        let y_direction = DirectionAndStrength::new(if y_add > 0. {
+            Direction::Down
+        } else {
+            Direction::Up
+        });
+        if has_x_move && has_y_move {
+            if x_abs > y_abs {
+                (x_direction, Some(y_direction))
+            } else {
+                (y_direction, Some(x_direction))
+            }
+        } else if has_x_move {
+            (x_direction, None)
+        } else {
+            (y_direction, None)
         }
     }
 
@@ -304,6 +319,7 @@ impl Skeleton {
         start_node.compute_heuristic(&destination);
         // Since we always want the node with the lowest heuristic at each turn,
         open_list.push(Reverse(start_node));
+        let mut known_pos = HashSet::new();
 
         let mut limit = 200;
         while let Some(node) = open_list.pop() {
@@ -313,7 +329,10 @@ impl Skeleton {
             }
             let node = node.0;
             if node.x != self.x() || node.y != self.y() {
-                closed_list.push((node.x, node.y));
+                let n = WrapNode(node.x, node.y);
+                if known_pos.insert(n) {
+                    closed_list.push((node.x, node.y));
+                }
             }
             if node.x == destination_x && node.y == destination_y {
                 // We're done!
@@ -336,9 +355,7 @@ impl Skeleton {
                     self.character
                         .check_map_pos(map, players, npcs, entry.x, entry.y, target_id)
                         == Obstacle::None
-                        && !closed_list
-                            .iter()
-                            .any(|entry2| entry.x == entry2.0 && entry.y == entry2.1)
+                        && !known_pos.contains(&WrapNode(entry.x, entry.y))
                         && !open_list.iter().any(|entry2: &Reverse<Node>| {
                             *entry == entry2.0 && entry.cost >= entry2.0.cost
                         })
@@ -381,16 +398,28 @@ impl Skeleton {
     ) -> Option<EnemyAction> {
         let mut res = None;
         if target_x > self_x {
-            let (x_add, _) =
-                self.character
-                    .inner_check_move(map, players, npcs, DirectionAndStrength::new(Direction::Left), None, 0., 0.);
+            let (x_add, _) = self.character.inner_check_move(
+                map,
+                players,
+                npcs,
+                DirectionAndStrength::new(Direction::Left),
+                None,
+                0.,
+                0.,
+            );
             if x_add != 0. {
                 res = Some(EnemyAction::MoveTo(vec![(self_x - 1., self_y)]));
             }
         } else if target_x < self_x {
-            let (x_add, _) =
-                self.character
-                    .inner_check_move(map, players, npcs, DirectionAndStrength::new(Direction::Right), None, 0., 0.);
+            let (x_add, _) = self.character.inner_check_move(
+                map,
+                players,
+                npcs,
+                DirectionAndStrength::new(Direction::Right),
+                None,
+                0.,
+                0.,
+            );
             if x_add != 0. {
                 res = Some(EnemyAction::MoveTo(vec![(self_x + 1., self_y)]));
             }
@@ -468,7 +497,9 @@ impl Enemy for Skeleton {
             self.character.attack();
             if x == 0. && y == 0. {
                 match &*self.action.borrow() {
-                    EnemyAction::Attack(ref dir) => self.character.action.direction.direction = *dir,
+                    EnemyAction::Attack(ref dir) => {
+                        self.character.action.direction.direction = *dir
+                    }
                     _ => {}
                 }
             }
@@ -504,7 +535,7 @@ impl Enemy for Skeleton {
 
         debug_enemy!(
             "[{}] Distance to player: {} / {}, wander: {} / {}, pos: ({}, {})",
-            self.id,
+            self.id(),
             distance,
             crate::ONE_METER as i32 * 8,
             wander_target_distance,
@@ -523,6 +554,7 @@ impl Enemy for Skeleton {
                 if (distance as u32) < weapon_height + MAP_CASE_SIZE as u32
                     && wander_target_distance < MAX_DISTANCE_WANDERING as f32 =>
             {
+                debug_enemy!("[{}] ready to attack the target!", self.id());
                 // We're in attack range, however we need to check if we're not in a corner (which
                 // would prevent the attack to work!).
                 let target = &players[index];
@@ -535,23 +567,29 @@ impl Enemy for Skeleton {
                 // be able to attack him. If we can't, then we find a way to the target by creating
                 // a path.
                 if dist_x > weapon_height / 3 && dist_y > weapon_height / 2 {
-                    debug_enemy!("[{}] Re-adjusting position v1!", self.id);
+                    debug_enemy!("[{}] Re-adjusting position v1!", self.id());
                     if self
                         .character
                         .check_map_pos(map, players, npcs, target_x, self_y, None)
                         == Obstacle::None
                     {
-                        debug_enemy!("[{}] we can move to player (on x)!", self.id);
-                        Some(EnemyAction::MoveToPlayer(vec![(target_x, self_y)]))
+                        debug_enemy!("[{}] we can move to player (on x)!", self.id());
+                        Some(EnemyAction::MoveToPlayer(
+                            target.id,
+                            vec![(target_x, self_y)],
+                        ))
                     } else if self
                         .character
                         .check_map_pos(map, players, npcs, self_x, target_y, None)
                         == Obstacle::None
                     {
-                        debug_enemy!("[{}] we can move to player (on y)!", self.id);
-                        Some(EnemyAction::MoveToPlayer(vec![(self_x, target_y)]))
+                        debug_enemy!("[{}] we can move to player (on y)!", self.id());
+                        Some(EnemyAction::MoveToPlayer(
+                            target.id,
+                            vec![(self_x, target_y)],
+                        ))
                     } else {
-                        debug_enemy!("[{}] move back to move closer!", self.id);
+                        debug_enemy!("[{}] move back to move closer!", self.id());
                         // We seem to not be able to move closer to the target, let's try to move
                         // around then!
                         self.move_back_from_target(
@@ -563,27 +601,30 @@ impl Enemy for Skeleton {
                     // be able to attack him. If we can't, then we find a way to the target by creating
                     // a path.
                     if distance >= weapon_height as f32 {
-                        debug_enemy!("[{}] Re-adjusting position v2!", self.id);
-                        Some(EnemyAction::MoveToPlayer(vec![(
-                            self_x
-                                + if self_x > target_x {
-                                    MAP_CASE_SIZE * -1
-                                } else if self_x < target_x {
-                                    MAP_CASE_SIZE
-                                } else {
-                                    0
-                                } as f32, // + incr_x as f32 * MAP_CASE_SIZE,
-                            self_y
-                                + if self_y > target_y {
-                                    MAP_CASE_SIZE * -1
-                                } else if self_y < target_y {
-                                    MAP_CASE_SIZE
-                                } else {
-                                    0
-                                } as f32, // + incr_y as f32 * MAP_CASE_SIZE,
-                        )]))
+                        debug_enemy!("[{}] Re-adjusting position v2!", self.id());
+                        Some(EnemyAction::MoveToPlayer(
+                            target.id,
+                            vec![(
+                                self_x
+                                    + if self_x > target_x {
+                                        MAP_CASE_SIZE * -1
+                                    } else if self_x < target_x {
+                                        MAP_CASE_SIZE
+                                    } else {
+                                        0
+                                    } as f32, // + incr_x as f32 * MAP_CASE_SIZE,
+                                self_y
+                                    + if self_y > target_y {
+                                        MAP_CASE_SIZE * -1
+                                    } else if self_y < target_y {
+                                        MAP_CASE_SIZE
+                                    } else {
+                                        0
+                                    } as f32, // + incr_y as f32 * MAP_CASE_SIZE,
+                            )],
+                        ))
                     } else {
-                        debug_enemy!("[{}] attacking!", self.id);
+                        debug_enemy!("[{}] attacking!", self.id());
                         Some(EnemyAction::Attack(self.get_attack_direction(target)))
                     }
                 }
@@ -593,7 +634,7 @@ impl Enemy for Skeleton {
                     && wander_target_distance < MAX_DISTANCE_WANDERING as f32 =>
             {
                 let player = &players[index];
-                // debug_enemy!("Enemy is gonna chase player!");
+                debug_enemy!("Enemy is gonna chase player!");
                 if let Some(nodes) = self.path_finder(
                     self_x,
                     self_y,
@@ -606,8 +647,8 @@ impl Enemy for Skeleton {
                     // We exclude the "target" to allow the path finder to not be able to finish
                     Some(player.id),
                 ) {
-                    debug_enemy!("[{}] Moving to player {:?}", self.id, nodes);
-                    Some(EnemyAction::MoveToPlayer(nodes))
+                    debug_enemy!("[{}] Moving to player {:?}", self.id(), nodes);
+                    Some(EnemyAction::MoveToPlayer(player.id, nodes))
                 } else {
                     // We stop the movement to "watch" the enemy in case we can't reach it for
                     // whatever reason...
@@ -615,6 +656,7 @@ impl Enemy for Skeleton {
                 }
             }
             EnemyAction::None | EnemyAction::Attack(_) => {
+                debug_enemy!("[{}] Wandering around...", self.id());
                 let mut x = rand::thread_rng().gen::<i32>() % MAX_DISTANCE_WANDERING;
                 let mut y = rand::thread_rng().gen::<i32>() % MAX_DISTANCE_WANDERING;
                 if x > -20 && x < 20 && y > -20 && y < 20 {
@@ -649,11 +691,13 @@ impl Enemy for Skeleton {
                     Some(EnemyAction::None)
                 }
             }
-            EnemyAction::MoveToPlayer(nodes) => {
+            EnemyAction::MoveToPlayer(id, nodes) => {
+                debug_enemy!("[{}] Getting closer to player {}", self.id(), id);
                 if distance > MAX_DISTANCE_PURSUIT as f32
                     || utils::compute_distance(&(self.start_x, self.start_y), self)
                         > MAX_DISTANCE_WANDERING as f32
                 {
+                    debug_enemy!("[{}] Abandoning player {} pursuit", self.id(), id);
                     // We stop going after this player.
                     if let Some(nodes) = self.path_finder(
                         self_x,
@@ -686,15 +730,24 @@ impl Enemy for Skeleton {
                             MAP_CASE_SIZE as _,
                             Some(player.id),
                         ) {
-                            debug_enemy!("[{}] recomputed path to player: {:?}", self.id, nodes);
-                            Some(EnemyAction::MoveToPlayer(nodes))
+                            debug_enemy!("[{}] recomputed path to player: {:?}", self.id(), nodes);
+                            Some(EnemyAction::MoveToPlayer(player.id, nodes))
                         } else {
                             // Weird that no paths can reach the place, but whatever...
                             None
                         }
                     } else {
+                        debug_enemy!("[{}] Still pursuing player {}", self.id(), id);
                         let (target_x, target_y) = nodes[nodes.len() - 1];
                         let (x_add, y_add) = self.compute_adds(target_x, target_y);
+                        debug_enemy!(
+                            "[{}] new adds: ({}, {}) for target ({}, {})",
+                            self.id(),
+                            x_add,
+                            y_add,
+                            target_x,
+                            target_y
+                        );
                         match self.character.check_map_pos(
                             map,
                             players,
@@ -733,6 +786,7 @@ impl Enemy for Skeleton {
                 }
             }
             EnemyAction::MoveTo(nodes) => {
+                debug_enemy!("[{}] Moving to target {:?}...", self.id(), nodes.get(0));
                 if nodes.is_empty() {
                     Some(EnemyAction::None)
                 } else {
@@ -769,7 +823,7 @@ impl Enemy for Skeleton {
                             }
                         }
                         Obstacle::Character => {
-                            debug_enemy!("[{}] character in the path", self.id);
+                            debug_enemy!("[{}] character in the path", self.id());
                             // We need to recompute the path
                             if let Some(nodes) = self.path_finder(
                                 self_x,
@@ -789,7 +843,7 @@ impl Enemy for Skeleton {
                             }
                         }
                         _ => {
-                            debug_enemy!("[{}] no problem with the path apparently!", self.id);
+                            debug_enemy!("[{}] no problem with the path apparently!", self.id());
                             None
                         }
                     }
@@ -800,7 +854,7 @@ impl Enemy for Skeleton {
         let mut action = self.action.borrow_mut();
         debug_enemy!(
             "[{}] next action: {:?}{}",
-            self.id,
+            self.id(),
             if let Some(ref new_action) = new_action {
                 new_action
             } else {
@@ -818,10 +872,9 @@ impl Enemy for Skeleton {
         // Time to apply actions now!
         match &mut *action {
             EnemyAction::None | EnemyAction::Attack(_) => (0., 0.),
-            EnemyAction::MoveTo(ref mut nodes) | EnemyAction::MoveToPlayer(ref mut nodes) => {
+            EnemyAction::MoveTo(ref mut nodes) | EnemyAction::MoveToPlayer(_, ref mut nodes) => {
                 if !nodes.is_empty()
-                    && nodes[nodes.len() - 1].0 == self_x
-                    && nodes[nodes.len() - 1].1 == self_y
+                    && utils::compute_distance(&nodes[nodes.len() - 1], &(self_x, self_y)) < 2.
                 {
                     nodes.pop();
                 }
@@ -831,7 +884,7 @@ impl Enemy for Skeleton {
                     let (dir, dir2) = self.get_directions(x_add, y_add);
                     debug_enemy!(
                         "[{}] ---> [{:?}] ({}, {}) || ({}, {}) => ({}, {})",
-                        self.id,
+                        self.id(),
                         dir,
                         x_add,
                         y_add,
@@ -840,11 +893,28 @@ impl Enemy for Skeleton {
                         node.0,
                         node.1
                     );
-                    let (x_add, y_add) = self
+                    let (mut x_add, mut y_add) = self
                         .character
                         .inner_check_move(map, players, npcs, dir, dir2, 0., 0.);
-                    if x_add == 0. && y_add == 0. {
-                        debug_enemy!("[{}] Path blocked, forcing recomputation!", self.id);
+                    // Little movement correction to prevent the enemy to go too far.
+                    // if self.x() < node.0 && self.x() + x_add > node.0 {
+                    //     x_add = node.0 - self.x();
+                    //     eprintln!("1=> correcting {} {} => {}", self.x(), node.0, x_add);
+                    // } else if self.x() > node.0 && self.x() + x_add < node.0 {
+                    //     x_add = node.0 - self.x();
+                    //     eprintln!("2=> correcting {} {} => {}", self.x(), node.0, x_add);
+                    // }
+                    // if self.y() < node.1 && self.y() + y_add > node.1 {
+                    //     y_add = node.1 - self.y();
+                    //     eprintln!("3=> correcting {} {} => {}", self.y(), node.1, y_add);
+                    // } else if self.y() > node.1 && self.y() + y_add < node.1 {
+                    //     y_add = node.1 - self.y();
+                    //     eprintln!("4=> correcting {} {} => {}", self.y(), node.1, y_add);
+                    // }
+                    if x_add.abs() < FLOAT_COMPARISON_PRECISION
+                        && y_add.abs() < FLOAT_COMPARISON_PRECISION
+                    {
+                        debug_enemy!("[{}] Path blocked, forcing recomputation!", self.id());
                         nodes.clear();
                     }
                     (x_add, y_add)
@@ -859,7 +929,7 @@ impl Enemy for Skeleton {
         use crate::sdl2::rect::Point;
         if debug {
             match &*self.action.borrow() {
-                EnemyAction::MoveTo(ref nodes) | EnemyAction::MoveToPlayer(ref nodes) => {
+                EnemyAction::MoveTo(ref nodes) | EnemyAction::MoveToPlayer(_, ref nodes) => {
                     let mut iter = nodes.iter().peekable();
                     while let Some(node) = iter.next() {
                         if let Some(next) = iter.peek() {

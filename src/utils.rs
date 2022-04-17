@@ -20,9 +20,9 @@ where
     // It can be seen when a skeleton is on the left of the player: without this adjustment, its
     // attacks won't reach the player.
     let x = if b_x >= a_x + a_width {
-        b_x - a_x - (a_width - 2.)
+        b_x - a_x - a_width
     } else if a_x >= b_x + b_width {
-        b_x + (b_width - 2.) - a_x
+        b_x + b_width - a_x
     } else {
         b_x - a_x
     };

@@ -414,8 +414,7 @@ impl Character {
             }
             Direction::Right => {
                 for iy in 0..height {
-                    let map_pos =
-                        (initial_y + iy) * MAP_SIZE as i32 + initial_x + width + 1;
+                    let map_pos = (initial_y + iy) * MAP_SIZE as i32 + initial_x + width + 1;
                     if map_pos < 0 || map_data.get(map_pos as usize).unwrap_or(&1) != &0 {
                         return false;
                     }
@@ -461,10 +460,12 @@ impl Character {
         new_y: f32,
         ignore_id: Option<Id>,
     ) -> Obstacle {
-        let initial_x = ((new_x - map.x).floor() as i32 + self.width() as i32 / 2 - self.move_hitbox.0 as i32 / 2)
+        let initial_x = ((new_x - map.x).floor() as i32 + self.width() as i32 / 2
+            - self.move_hitbox.0 as i32 / 2)
             / MAP_CASE_SIZE as i32;
-        let initial_y =
-            ((new_y - map.y).floor() as i32 + self.height() as i32 - self.move_hitbox.1 as i32) / MAP_CASE_SIZE as i32;
+        let initial_y = ((new_y - map.y).floor() as i32 + self.height() as i32
+            - self.move_hitbox.1 as i32)
+            / MAP_CASE_SIZE as i32;
         let width = self.move_hitbox.0 / MAP_CASE_SIZE as u32;
         let height = self.move_hitbox.1 / MAP_CASE_SIZE as u32;
 
@@ -491,8 +492,6 @@ impl Character {
         }
     }
 
-    // FIXME: To compute correctly move in two directions:
-
     /// `x_add` and `y_add` are used in case you want to move in two directions at once, so when
     /// checking the second direction, you actually already "moved" and don't check a bad position.
     pub fn check_move(
@@ -507,21 +506,6 @@ impl Character {
         let info = self
             .action
             .get_specific_dimension(&self.texture_handler, *self.action.direction);
-        // let (x_add, y_add) = match direction {
-        //     Direction::Down
-        //         if info.height() as f32 + y + 1. < map.y + MAP_SIZE_WITH_CASE as f32 =>
-        //     {
-        //         (0., 1.)
-        //     }
-        //     Direction::Up if y - 1. >= map.y => (0., -1.),
-        //     Direction::Left if x - 1. >= map.x => (-1., 0.),
-        //     Direction::Right
-        //         if info.width() as f32 + x + 1. < map.x + MAP_SIZE_WITH_CASE as f32 =>
-        //     {
-        //         (1., 0.)
-        //     }
-        //     _ => return (0., 0.),
-        // };
         let x = self.x() + x_add;
         let y = self.y() + y_add;
 
@@ -548,9 +532,9 @@ impl Character {
             let height = move_hitbox.1 as f32;
 
             !(self_x + width >= other_x
-                        && self_x <= other_x + other_width as f32
-                        && self_y + height >= other_y
-                        && self_y + height <= other_y + other_height as f32)
+                && self_x <= other_x + other_width as f32
+                && self_y + height >= other_y
+                && self_y + height <= other_y + other_height as f32)
         }
 
         let self_x = x + x_add;
@@ -559,34 +543,41 @@ impl Character {
         let can_move = if self.kind.is_player() {
             let width = self.width();
             let height = self.height();
-            self.check_hitbox(self_x - map.x, self_y - map.y, &map.data, *self.action.direction)
-                && npcs.iter().all(|n| {
-                    call(
-                        self.id,
-                        n.character(),
-                        &self.move_hitbox,
-                        self_x,
-                        self_y,
-                        width,
-                        height,
-                    )
-                })
-                && players.iter().all(|p| {
-                    call(
-                        self.id,
-                        &p,
-                        &self.move_hitbox,
-                        self_x,
-                        self_y,
-                        width,
-                        height,
-                    )
-                })
+            self.check_hitbox(
+                self_x - map.x,
+                self_y - map.y,
+                &map.data,
+                *self.action.direction,
+            ) && npcs.iter().all(|n| {
+                call(
+                    self.id,
+                    n.character(),
+                    &self.move_hitbox,
+                    self_x,
+                    self_y,
+                    width,
+                    height,
+                )
+            }) && players.iter().all(|p| {
+                call(
+                    self.id,
+                    &p,
+                    &self.move_hitbox,
+                    self_x,
+                    self_y,
+                    width,
+                    height,
+                )
+            })
         } else {
-            self.check_hitbox(self_x - map.x, self_y - map.y, &map.data, *self.action.direction)
-                && npcs
-                    .iter()
-                    .all(|n| self.check_character_move(self_x, self_y, n.character()))
+            self.check_hitbox(
+                self_x - map.x,
+                self_y - map.y,
+                &map.data,
+                *self.action.direction,
+            ) && npcs
+                .iter()
+                .all(|n| self.check_character_move(self_x, self_y, n.character()))
                 && players
                     .iter()
                     .all(|n| self.check_character_move(self_x, self_y, &n))
@@ -770,13 +761,7 @@ impl Character {
         if let Some(ref mut effect) = &mut *self.effect.borrow_mut() {
             while tmp > effect.2 && (effect.0 != 0. || effect.1 != 0.) {
                 if effect.0 != 0. {
-                    let (x1, _) = self.check_move(
-                        map,
-                        players,
-                        npcs,
-                        x,
-                        y,
-                    );
+                    let (x1, _) = self.check_move(map, players, npcs, x, y);
                     if x1 != 0. {
                         x += x1;
                         effect.0 += x1 * -1.;
@@ -787,13 +772,7 @@ impl Character {
                     }
                 }
                 if effect.1 != 0. {
-                    let (_, y1) = self.check_move(
-                        map,
-                        players,
-                        npcs,
-                        x,
-                        y,
-                    );
+                    let (_, y1) = self.check_move(map, players, npcs, x, y);
                     if y1 != 0. {
                         y += y1;
                         effect.1 += y1 * -1.;

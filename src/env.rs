@@ -447,53 +447,60 @@ impl<'a> Env<'a> {
                         Event::Quit { .. } => return false,
                         Event::KeyDown {
                             keycode: Some(x), ..
-                        } => match x {
-                            Keycode::Escape => {
-                                let all_hidden = !self.character_window.is_displayed
-                                    && !self.inventory_window.is_displayed;
-                                if all_hidden {
-                                    self.display_menu = true;
-                                    self.menu.set_pause(textures);
-                                    // To hover buttons in case the mouse is hovering one.
-                                    self.menu.update(mouse_state.x(), mouse_state.y());
-                                } else if self.character_window.is_displayed {
-                                    self.character_window.is_displayed = false;
-                                } else if self.inventory_window.is_displayed {
-                                    self.inventory_window.is_displayed = false;
+                        } => {
+                            match x {
+                                Keycode::Escape => {
+                                    let all_hidden = !self.character_window.is_displayed
+                                        && !self.inventory_window.is_displayed;
+                                    if all_hidden {
+                                        self.display_menu = true;
+                                        self.menu.set_pause(textures);
+                                        // To hover buttons in case the mouse is hovering one.
+                                        self.menu.update(mouse_state.x(), mouse_state.y());
+                                    } else if self.character_window.is_displayed {
+                                        self.character_window.is_displayed = false;
+                                    } else if self.inventory_window.is_displayed {
+                                        self.inventory_window.is_displayed = false;
+                                    }
                                 }
-                            }
-                            Keycode::Left | Keycode::Q => players[0].handle_move(DirectionAndStrength::new(Direction::Left)),
-                            Keycode::Right | Keycode::D => players[0].handle_move(DirectionAndStrength::new(Direction::Right)),
-                            Keycode::Up | Keycode::Z => players[0].handle_move(DirectionAndStrength::new(Direction::Up)),
-                            Keycode::Down | Keycode::S => players[0].handle_move(DirectionAndStrength::new(Direction::Down)),
-                            Keycode::Space => {
-                                if !self.is_attack_pressed {
-                                    players[0].attack();
-                                    self.is_attack_pressed = true;
+                                Keycode::Left | Keycode::Q => players[0]
+                                    .handle_move(DirectionAndStrength::new(Direction::Left)),
+                                Keycode::Right | Keycode::D => players[0]
+                                    .handle_move(DirectionAndStrength::new(Direction::Right)),
+                                Keycode::Up | Keycode::Z => {
+                                    players[0].handle_move(DirectionAndStrength::new(Direction::Up))
                                 }
+                                Keycode::Down | Keycode::S => players[0]
+                                    .handle_move(DirectionAndStrength::new(Direction::Down)),
+                                Keycode::Space => {
+                                    if !self.is_attack_pressed {
+                                        players[0].attack();
+                                        self.is_attack_pressed = true;
+                                    }
+                                }
+                                Keycode::LCtrl => {
+                                    players[0].stop_attack();
+                                    players[0].block();
+                                }
+                                Keycode::LShift => {
+                                    players[0].is_run_pressed = true;
+                                    players[0].is_running = players[0].action.movement.is_some();
+                                }
+                                Keycode::F3 => {
+                                    self.debug = self.debug == false;
+                                }
+                                Keycode::F5 => self.debug_display.switch_draw_grid(),
+                                Keycode::I => {
+                                    self.inventory_window.is_displayed =
+                                        !self.inventory_window.is_displayed
+                                }
+                                Keycode::C => {
+                                    self.character_window.is_displayed =
+                                        !self.character_window.is_displayed
+                                }
+                                _ => {}
                             }
-                            Keycode::LCtrl => {
-                                players[0].stop_attack();
-                                players[0].block();
-                            }
-                            Keycode::LShift => {
-                                players[0].is_run_pressed = true;
-                                players[0].is_running = players[0].action.movement.is_some();
-                            }
-                            Keycode::F3 => {
-                                self.debug = self.debug == false;
-                            }
-                            Keycode::F5 => self.debug_display.switch_draw_grid(),
-                            Keycode::I => {
-                                self.inventory_window.is_displayed =
-                                    !self.inventory_window.is_displayed
-                            }
-                            Keycode::C => {
-                                self.character_window.is_displayed =
-                                    !self.character_window.is_displayed
-                            }
-                            _ => {}
-                        },
+                        }
                         Event::KeyUp {
                             keycode: Some(x), ..
                         } => match x {
