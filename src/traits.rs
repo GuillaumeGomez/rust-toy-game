@@ -1,3 +1,5 @@
+use crate::system::System;
+
 pub trait GetPos {
     fn x(&self) -> f32;
     fn y(&self) -> f32;
@@ -42,3 +44,7 @@ impl_get_dimension!((f32, f32));
 impl_get_dimension!(&(f32, f32));
 impl_get_dimension!((u32, u32));
 impl_get_dimension!(&(u32, u32));
+
+pub trait Draw: GetPos {
+    fn draw(&mut self, system: &mut System, debug: bool);
+}

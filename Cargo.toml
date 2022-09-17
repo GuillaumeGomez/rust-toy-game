@@ -9,7 +9,7 @@ edition = "2018"
 rand_chacha = "0.2"
 rand = "0.7"
 once_cell = "1.3"
-egui_sdl2_gl = { git = "https://github.com/GuillaumeGomez/egui_sdl2_gl", branch = "full-fixes", default-features = false, features = ["sdl2_image", "sdl2_ttf"] }
+egui_sdl2_gl = { version = "0.16", default-features = false, features = ["sdl2_image", "sdl2_ttf"] }
 parry2d = "0.7"
 
 [features]

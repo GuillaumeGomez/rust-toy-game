@@ -16,7 +16,7 @@ use crate::texture_handler::{Dimension, TextureHandler};
 use crate::texture_holder::Textures;
 use crate::weapon::{Weapon, WeaponAction};
 // use crate::window::UpdateKind;
-use crate::{GetDimension, GetPos, Id, MAP_CASE_SIZE, MAP_SIZE, MAP_SIZE_WITH_CASE, ONE_SECOND};
+use crate::{Draw, GetDimension, GetPos, Id, MAP_CASE_SIZE, MAP_SIZE, MAP_SIZE_WITH_CASE, ONE_SECOND};
 
 use parry2d::shape::ConvexPolygon;
 
@@ -638,91 +638,6 @@ impl Character {
         }
     }
 
-    pub fn draw(&mut self, system: &mut System, debug: bool) {
-        let (tile_x, tile_y, tile_width, tile_height, draw_width, draw_height) =
-            self.action.compute_current(&self.texture_handler);
-        if self.is_dead() {
-            if let Some(ref death) = self.death_animation {
-                death.draw(
-                    system,
-                    self.x + (draw_width / 2) as f32,
-                    self.y + (draw_height / 2) as f32,
-                );
-                return;
-            }
-        }
-        let mut x = self.x - system.x();
-        let mut y = self.y - system.y();
-        let is_in_viewport = x + draw_width as f32 >= 0.
-            && x < system.width() as f32
-            && y + draw_height as f32 >= 0.
-            && y < system.height() as f32;
-        if !is_in_viewport {
-            return;
-        }
-        if let Some(direction) = self.blocking_direction {
-            self.weapon.draw_blocking(system, direction);
-        } else if let Some(ref action) = self.weapon_action {
-            if let Some((x_add, y_add)) = action.get_attack_by_move_target() {
-                x += x_add;
-                y += y_add;
-            } else {
-                self.weapon.draw(system, action);
-            }
-        }
-
-        system.copy_to_canvas(
-            self.texture_handler.texture,
-            Rect::new(tile_x, tile_y, tile_width, tile_height),
-            Rect::new(x as i32, y as i32, draw_width, draw_height),
-        );
-
-        for animation in self.animations.iter() {
-            animation.draw(
-                system,
-                self.x + (draw_width / 2) as f32,
-                self.y + (draw_height - animation.sprite_display_height / 2) as f32,
-            );
-        }
-        if debug {
-            system
-                .canvas
-                .draw_rect(Rect::new(x as _, y as _, draw_width, draw_height))
-                .unwrap();
-            system
-                .canvas
-                .draw_rect(Rect::new(
-                    (x + (self.width() / 2 - self.move_hitbox.0 / 2) as f32) as i32,
-                    (y + (self.height() - self.move_hitbox.1) as f32) as i32,
-                    self.move_hitbox.0,
-                    self.move_hitbox.1,
-                ))
-                .unwrap();
-        }
-        // if let Some(matrix) = weapon.compute_angle() {
-        //     for (x, y) in matrix.iter() {
-        //         canvas.fill_rect(Rect::new(x - screen.x, y - screen.y, 8, 8));
-        //     }
-        // }
-
-        if self.show_health_bar && !self.stats.health.is_full() {
-            system.health_bar.draw(
-                self.x + ((draw_width as i32 - system.health_bar.width as i32) / 2) as f32,
-                self.y - (system.health_bar.height + 2) as f32,
-                self.stats.health.pourcent(),
-                system,
-            );
-        }
-
-        let x = self.x + (self.width() / 2) as f32;
-        for it in (0..self.statuses.len()).rev() {
-            self.statuses[it].draw(system, x, self.y);
-            if self.statuses[it].should_be_removed() {
-                self.statuses.remove(it);
-            }
-        }
-    }
-
     // TODO: add stamina consumption when attacking, depending on the weight of the weapon!
     pub fn attack(&mut self) {
         let remaining_stamina = self.stats.stamina.value();
@@ -1147,6 +1062,93 @@ impl Character {
             self.xp = 0;
         }
         // TODO: also reset its position
+    }
+}
+
+impl Draw for Character {
+    fn draw(&mut self, system: &mut System, debug: bool) {
+        let (tile_x, tile_y, tile_width, tile_height, draw_width, draw_height) =
+            self.action.compute_current(&self.texture_handler);
+        if self.is_dead() {
+            if let Some(ref death) = self.death_animation {
+                death.draw(
+                    system,
+                    self.x + (draw_width / 2) as f32,
+                    self.y + (draw_height / 2) as f32,
+                );
+                return;
+            }
+        }
+        let mut x = self.x - system.x();
+        let mut y = self.y - system.y();
+        let is_in_viewport = x + draw_width as f32 >= 0.
+            && x < system.width() as f32
+            && y + draw_height as f32 >= 0.
+            && y < system.height() as f32;
+        if !is_in_viewport {
+            return;
+        }
+        if let Some(direction) = self.blocking_direction {
+            self.weapon.draw_blocking(system, direction);
+        } else if let Some(ref action) = self.weapon_action {
+            if let Some((x_add, y_add)) = action.get_attack_by_move_target() {
+                x += x_add;
+                y += y_add;
+            } else {
+                self.weapon.draw(system, action);
+            }
+        }
+
+        system.copy_to_canvas(
+            self.texture_handler.texture,
+            Rect::new(tile_x, tile_y, tile_width, tile_height),
+            Rect::new(x as i32, y as i32, draw_width, draw_height),
+        );
+
+        for animation in self.animations.iter() {
+            animation.draw(
+                system,
+                self.x + (draw_width / 2) as f32,
+                self.y + (draw_height - animation.sprite_display_height / 2) as f32,
+            );
+        }
+        if debug {
+            system
+                .canvas
+                .draw_rect(Rect::new(x as _, y as _, draw_width, draw_height))
+                .unwrap();
+            system
+                .canvas
+                .draw_rect(Rect::new(
+                    (x + (self.width() / 2 - self.move_hitbox.0 / 2) as f32) as i32,
+                    (y + (self.height() - self.move_hitbox.1) as f32) as i32,
+                    self.move_hitbox.0,
+                    self.move_hitbox.1,
+                ))
+                .unwrap();
+        }
+        // if let Some(matrix) = weapon.compute_angle() {
+        //     for (x, y) in matrix.iter() {
+        //         canvas.fill_rect(Rect::new(x - screen.x, y - screen.y, 8, 8));
+        //     }
+        // }
+
+        if self.show_health_bar && !self.stats.health.is_full() {
+            system.health_bar.draw(
+                self.x + ((draw_width as i32 - system.health_bar.width as i32) / 2) as f32,
+                self.y - (system.health_bar.height + 2) as f32,
+                self.stats.health.pourcent(),
+                system,
+            );
+        }
+
+        let x = self.x + (self.width() / 2) as f32;
+        for it in (0..self.statuses.len()).rev() {
+            self.statuses[it].draw(system, x, self.y);
+            if self.statuses[it].should_be_removed() {
+                self.statuses.remove(it);
+            }
+        }
     }
 }
 

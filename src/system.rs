@@ -149,6 +149,10 @@ impl<'a> System<'a> {
             )
             .unwrap();
     }
+
+    pub fn window(&self) -> &Window {
+        self.canvas.window()
+    }
 }
 
 impl GetDimension for System<'_> {

@@ -24,6 +24,7 @@ mod debug_display;
 mod enemies;
 mod enemy;
 mod env;
+mod environment;
 mod font_handler;
 mod health_bar;
 mod hud;
@@ -41,6 +42,7 @@ mod traits;
 mod weapon;
 mod weapons;
 
+use environment::Building;
 use enemies::{Bat, Skeleton};
 use enemy::Enemy;
 use env::Env;
@@ -89,6 +91,7 @@ pub fn draw_in_good_order(
     players: &mut Vec<Player>,
     enemies: &mut Vec<Box<dyn Enemy>>,
     dead_enemies: &mut Vec<Box<dyn Enemy>>,
+    buildings: &mut Vec<Building>,
     sort: bool,
 ) {
     if sort {
@@ -101,35 +104,33 @@ pub fn draw_in_good_order(
     let mut player_iter = players.iter_mut().peekable();
     let mut enemy_iter = enemies.iter_mut().peekable();
     let mut dead_enemy_iter = dead_enemies.iter_mut().peekable();
+    let mut building_iter = buildings.iter_mut().peekable();
 
-    while player_iter.peek().is_some()
-        || enemy_iter.peek().is_some()
-        || dead_enemy_iter.peek().is_some()
-    {
-        if let Some(ref player) = player_iter.peek() {
-            let y = player.y();
-            if y < enemy_iter.peek().map(|x| x.y()).unwrap_or_else(|| y + 1.)
-                && y < dead_enemy_iter
-                    .peek()
-                    .map(|x| x.y())
-                    .unwrap_or_else(|| y + 1.)
-            {
-                player_iter.next().unwrap().draw(system, debug);
-                continue;
-            }
+    let player_y = player_iter.peek().map(|p| p.y());
+    let enemy_y = enemy_iter.peek().map(|p| p.y());
+    let dead_enemy_y = dead_enemy_iter.peek().map(|p| p.y());
+    let building_y = building_iter.peek().map(|p| p.y());
+
+    let mut poses = [(player_y, 0), (enemy_y, 1), (dead_enemy_y, 2), (building_y, 3)];
+
+    macro_rules! handle_it {
+        ($name:ident, $system:ident, $debug:ident, $pos:ident) => {{
+            $name.next().unwrap().draw($system, $debug);
+            $pos.0 = $name.peek().map(|p| p.y());
+        }}
+    }
+
+    while poses.iter().any(|x| x.0.is_some()) {
+        poses.sort_unstable_by(|c1, c2| c1.0.partial_cmp(&c2.0).unwrap_or(Ordering::Equal));
+        let pos = poses.iter_mut().filter(|x| x.0.is_some()).next().unwrap();
+
+        match pos.1 {
+            0 => handle_it!(player_iter, system, debug, pos),
+            1 => handle_it!(enemy_iter, system, debug, pos),
+            2 => handle_it!(dead_enemy_iter, system, debug, pos),
+            3 => handle_it!(building_iter, system, debug, pos),
+            _ => unreachable!(),
         }
-        if let Some(ref enemy) = enemy_iter.peek() {
-            let y = enemy.y();
-            if y < dead_enemy_iter
-                .peek()
-                .map(|x| x.y())
-                .unwrap_or_else(|| y + 1.)
-            {
-                enemy_iter.next().unwrap().draw(system, debug);
-                continue;
-            }
-        }
-        dead_enemy_iter.next().unwrap().draw(system, false);
     }
 }
 
@@ -260,17 +261,19 @@ pub fn main() {
     let texture_creator = canvas.texture_creator();
     let health_bar = HealthBar::new(&texture_creator, 30, 5);
 
-    let native_pixels_per_point = 150f32 / video_subsystem.display_dpi(0).unwrap().0;
-    let mut painter = egui_sdl2_gl::Painter::new(&video_subsystem, WIDTH as _, HEIGHT as _);
-    let mut egui_ctx = egui::CtxRef::default();
-    let mut egui_input_state = egui_sdl2_gl::EguiInputState::new(egui::RawInput {
-        screen_rect: Some(egui::Rect::from_min_size(
-            egui::Pos2::new(0f32, 0f32),
-            egui::vec2(width as f32, height as f32) / native_pixels_per_point,
-        )),
-        pixels_per_point: Some(native_pixels_per_point),
-        ..Default::default()
-    });
+    // let native_pixels_per_point = 150f32 / video_subsystem.display_dpi(0).unwrap().0;
+    let (mut painter, mut egui_input_state) =
+        egui_sdl2_gl::with_sdl2(canvas.window(), egui_sdl2_gl::ShaderVersion::Adaptive, egui_sdl2_gl::DpiScaling::Custom(1.5));
+    // let mut painter = egui_sdl2_gl::Painter::new(&video_subsystem, WIDTH as _, HEIGHT as _);
+    let mut egui_ctx = egui_sdl2_gl::egui::CtxRef::default();
+    // let mut egui_input_state = egui_sdl2_gl::EguiInputState::new(egui::RawInput {
+    //     screen_rect: Some(egui::Rect::from_min_size(
+    //         egui::Pos2::new(0f32, 0f32),
+    //         egui::vec2(width as f32, height as f32) / native_pixels_per_point,
+    //     )),
+    //     pixels_per_point: Some(native_pixels_per_point),
+    //     ..Default::default()
+    // });
 
     let font_10 = load_font!(ttf_context, 10);
     let font_12 = load_font!(ttf_context, 12);
@@ -344,6 +347,7 @@ pub fn main() {
         Some(Default::default()),
         Some(&mut env),
     )];
+    let mut buildings: Vec<Building> = Vec::new();
     let (mut enemies, mut dead_enemies) = make_enemies(&texture_creator, &mut system.textures);
     let mut sort_update = 0u8;
     let start_time = Instant::now();
@@ -351,7 +355,7 @@ pub fn main() {
     loop {
         egui_input_state.input.time = Some(start_time.elapsed().as_secs_f64());
         egui_ctx.begin_frame(egui_input_state.input.take());
-        egui_input_state.input.pixels_per_point = Some(native_pixels_per_point);
+        // egui_input_state.input.pixels_per_point = Some(native_pixels_per_point);
 
         if !env.handle_events(
             &mut event_pump,
@@ -359,6 +363,8 @@ pub fn main() {
             &mut rewards,
             &system.textures,
             &mut egui_input_state,
+            system.window(),
+            &mut painter,
         ) {
             break;
         }
@@ -523,6 +529,7 @@ pub fn main() {
             &mut players,
             &mut enemies,
             &mut dead_enemies,
+            &mut buildings,
             sort_update == 10,
         );
         map.draw_layer(&mut system);
@@ -660,7 +667,6 @@ pub fn main() {
                 None,
                 paint_jobs,
                 &egui_ctx.texture(),
-                native_pixels_per_point,
             );
         }
 

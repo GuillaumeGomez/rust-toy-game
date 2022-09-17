@@ -333,7 +333,9 @@ impl<'a> Env<'a> {
         players: &mut [Player],
         rewards: &mut Vec<Reward>,
         textures: &Textures<'_>,
-        egui_input_state: &mut egui_sdl2_gl::EguiInputState,
+        egui_input_state: &mut egui_sdl2_gl::EguiStateHandler,
+        window: &crate::sdl2::video::Window,
+        painter: &mut egui_sdl2_gl::painter::Painter,
     ) -> bool {
         let mouse_state = event_pump.mouse_state();
         for event in event_pump.poll_iter() {
@@ -535,7 +537,7 @@ impl<'a> Env<'a> {
                             _ => {}
                         },
                         ev => {
-                            egui_sdl2_gl::input_to_egui(ev, egui_input_state);
+                            egui_input_state.process_input(window, ev, painter);
                             // let take_focus = if let Event::MouseMotion { .. } = ev {
                             //     false
                             // } else {

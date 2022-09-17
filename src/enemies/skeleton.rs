@@ -19,7 +19,7 @@ use crate::texture_holder::Textures;
 use crate::utils;
 use crate::weapons::Sword;
 use crate::{
-    GetDimension, GetPos, Id, FLOAT_COMPARISON_PRECISION, MAP_CASE_SIZE, MAX_DISTANCE_PURSUIT,
+    Draw, GetDimension, GetPos, Id, FLOAT_COMPARISON_PRECISION, MAP_CASE_SIZE, MAX_DISTANCE_PURSUIT,
     MAX_DISTANCE_WANDERING, ONE_SECOND,
 };
 

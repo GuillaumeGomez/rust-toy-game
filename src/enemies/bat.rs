@@ -20,7 +20,7 @@ use crate::texture_holder::{TextureHolder, TextureId, Textures};
 use crate::utils;
 use crate::weapons::Nothing;
 use crate::{
-    GetDimension, GetPos, Id, MAP_CASE_SIZE, MAX_DISTANCE_PURSUIT, MAX_DISTANCE_WANDERING,
+    Draw, GetDimension, GetPos, Id, MAP_CASE_SIZE, MAX_DISTANCE_PURSUIT, MAX_DISTANCE_WANDERING,
     ONE_SECOND,
 };
 
