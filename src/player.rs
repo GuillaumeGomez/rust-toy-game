@@ -139,7 +139,11 @@ pub fn spawn_player(
         .insert(RigidBody::Dynamic)
         .insert(Velocity::zero())
         .insert(LockedAxes::ROTATION_LOCKED)
-        .insert(Collider::cuboid(2.0, 2.0))
+        .with_children(|children| {
+            children.spawn()
+                .insert(Collider::cuboid(10.0, 8.0))
+                .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, -4.0, 0.0)));
+        })
         .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, 210.0, 0.0)));
 }
 
@@ -154,6 +158,7 @@ pub fn player_movement_system(
     // }
 
     for (mut player, mut sprite, mut rb_vels) in player_info.iter_mut() {
+        let was_running = player.is_running;
         player.is_running = keyboard_input.pressed(KeyCode::LShift);
         let mut speed = player.speed;
         if player.is_running {
@@ -181,7 +186,7 @@ pub fn player_movement_system(
             if player.animation_type.is_idle() || !player.animation_type.is_equal(x_axis, y_axis)
             {
                 player.animation_type.set_move(x_axis, y_axis);
-            } else {
+            } else if player.is_running == was_running {
                 // Nothing to be updated.
                 continue;
             }
@@ -190,7 +195,11 @@ pub fn player_movement_system(
         sprite.index = player
             .animation_type
             .get_index(PlayerComponent::NB_ANIMATIONS);
-        player.timer = Timer::from_seconds(PlayerComponent::ANIMATION_TIME, true);
+        if player.is_running {
+            player.timer = Timer::from_seconds(PlayerComponent::ANIMATION_TIME / 2., true);
+        } else {
+            player.timer = Timer::from_seconds(PlayerComponent::ANIMATION_TIME, true);
+        }
         break;
     }
 }

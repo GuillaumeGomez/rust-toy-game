@@ -1,5 +1,6 @@
 #![allow(unused)]
 
+mod building;
 mod character;
 mod player;
 mod stat;
@@ -265,9 +266,10 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0))
         .add_plugin(EguiPlugin)
-        // .add_plugin(RapierDebugRenderPlugin::default())
+        .add_plugin(RapierDebugRenderPlugin::default())
         .add_startup_system(setup_world)
         .add_startup_system(player::spawn_player)
+        .add_startup_system(building::spawn_buildings)
         .add_system(animate_sprite)
         .add_system(player::player_movement_system.label("player_movement_system"))
         .add_system(player::animate_character_system.after("player_movement_system"))
