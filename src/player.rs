@@ -140,7 +140,8 @@ pub fn spawn_player(
         .insert(Velocity::zero())
         .insert(LockedAxes::ROTATION_LOCKED)
         .with_children(|children| {
-            children.spawn()
+            children
+                .spawn()
                 .insert(Collider::cuboid(10.0, 8.0))
                 .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, -4.0, 0.0)));
         })
@@ -183,8 +184,7 @@ pub fn player_movement_system(
             move_delta /= move_delta.length();
             rb_vels.linvel = move_delta * speed;
 
-            if player.animation_type.is_idle() || !player.animation_type.is_equal(x_axis, y_axis)
-            {
+            if player.animation_type.is_idle() || !player.animation_type.is_equal(x_axis, y_axis) {
                 player.animation_type.set_move(x_axis, y_axis);
             } else if player.is_running == was_running {
                 // Nothing to be updated.

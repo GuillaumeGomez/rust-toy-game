@@ -10,8 +10,8 @@ use bevy::input::InputPlugin;
 use bevy::prelude::*;
 use bevy::render::texture::ImageSettings;
 use bevy::window::{PresentMode, WindowPlugin};
-use bevy_rapier2d::prelude::*;
 use bevy_egui::{egui, EguiContext, EguiPlugin};
+use bevy_rapier2d::prelude::*;
 
 pub const ONE_SECOND: u32 = 1_000_000;
 pub const STAT_POINTS_PER_LEVEL: u32 = 3;
@@ -58,17 +58,20 @@ fn setup_world(
     let texture_atlas = TextureAtlas::from_grid(skeleton_texture, Vec2::new(48., 48.), 3, 4);
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
 
-    let wrap = (1600. - 200.) / 4.;
     for row in 0..4 {
         commands
             .spawn_bundle(SpriteSheetBundle {
                 texture_atlas: texture_atlas_handle.clone(),
                 transform: Transform {
                     translation: Vec3 {
-                        x: 1400. / -2. + wrap * (row as f32),
+                        x: 200. + (30 * row) as f32,
                         y: 900. / 3.,
                         z: 0.,
                     },
+                    ..default()
+                },
+                sprite: TextureAtlasSprite {
+                    custom_size: Some(Vec2 { x: 23., y: 23. }),
                     ..default()
                 },
                 ..default()
@@ -236,10 +239,7 @@ fn handle_windows(
         });
 }
 
-pub fn handle_input(
-    keyboard_input: Res<Input<KeyCode>>,
-    mut app_state: ResMut<GameState>,
-) {
+pub fn handle_input(keyboard_input: Res<Input<KeyCode>>, mut app_state: ResMut<GameState>) {
     if keyboard_input.just_released(KeyCode::C) {
         app_state.show_character_window = !app_state.show_character_window;
     }
@@ -266,7 +266,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0))
         .add_plugin(EguiPlugin)
-        .add_plugin(RapierDebugRenderPlugin::default())
+        // .add_plugin(RapierDebugRenderPlugin::default())
         .add_startup_system(setup_world)
         .add_startup_system(player::spawn_player)
         .add_startup_system(building::spawn_buildings)
