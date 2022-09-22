@@ -71,7 +71,7 @@ fn setup_world(
                     ..default()
                 },
                 sprite: TextureAtlasSprite {
-                    custom_size: Some(Vec2 { x: 23., y: 23. }),
+                    custom_size: Some(Vec2 { x: 26., y: 26. }),
                     ..default()
                 },
                 ..default()
@@ -117,8 +117,8 @@ fn animate_sprite(
 }
 
 fn update_camera(
-    mut camera: Query<(&mut Transform, &Camera), Without<player::PlayerComponent>>,
-    player: Query<(&Transform, &player::PlayerComponent), Without<Camera>>,
+    mut camera: Query<(&mut Transform, &Camera), Without<player::Player>>,
+    player: Query<(&Transform, &player::Player), Without<Camera>>,
 ) {
     let player = player.single();
     let mut camera = camera.single_mut().0;
@@ -138,7 +138,7 @@ fn update_text(
 fn handle_windows(
     mut egui_context: ResMut<EguiContext>,
     mut app_state: ResMut<GameState>,
-    mut player: Query<&mut player::PlayerComponent>,
+    mut player: Query<&mut player::Player>,
 ) {
     if !app_state.show_character_window {
         return;
@@ -251,6 +251,74 @@ pub fn handle_input(keyboard_input: Res<Input<KeyCode>>, mut app_state: ResMut<G
 #[derive(Default)]
 pub struct GameState {
     pub show_character_window: bool,
+    pub player_id: Option<Entity>,
+}
+
+fn handle_events(
+    mut collision_events: EventReader<CollisionEvent>,
+    mut buildings: Query<(
+        &mut building::House,
+        &mut TextureAtlasSprite,
+        &Transform,
+        &Children,
+    )>,
+    positions: Query<(&Transform)>,
+    app_state: Res<GameState>,
+) {
+    use bevy_rapier2d::rapier::geometry::CollisionEventFlags;
+
+    let player_id = match app_state.player_id {
+        Some(x) => x,
+        _ => return,
+    };
+
+    for collision_event in collision_events.iter() {
+        println!("==> {:?}", collision_event);
+        match collision_event {
+            CollisionEvent::Started(x, y, CollisionEventFlags::SENSOR) => {
+                let building_id = if *x == player_id {
+                    y
+                } else if *y == player_id {
+                    x
+                } else {
+                    continue;
+                };
+                for mut building in buildings.iter_mut() {
+                    if building.3.contains(building_id) {
+                        building.0.is_open = true;
+                        building.0.contact_with_sensor += 1;
+                        if building.0.contact_with_sensor > 1 {
+                            eprintln!("ENTER THE HOUSE");
+                        }
+
+                        let player = positions.get(player_id).unwrap().translation;
+                        let sensor = positions.get(*building_id).unwrap().translation;
+                        building.1.index = building.0.is_open as _;
+                        break;
+                    }
+                }
+            }
+            CollisionEvent::Stopped(x, y, CollisionEventFlags::SENSOR) => {
+                let building_id = if *x == player_id {
+                    y
+                } else if *y == player_id {
+                    x
+                } else {
+                    continue;
+                };
+                for mut building in buildings.iter_mut() {
+                    if building.3.contains(building_id) {
+                        building.0.contact_with_sensor =
+                            building.0.contact_with_sensor.saturating_sub(1);
+                        building.0.is_open = building.0.contact_with_sensor > 0;
+                        building.1.index = building.0.is_open as _;
+                        break;
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
 }
 
 fn main() {
@@ -266,7 +334,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0))
         .add_plugin(EguiPlugin)
-        // .add_plugin(RapierDebugRenderPlugin::default())
+        .add_plugin(RapierDebugRenderPlugin::default())
         .add_startup_system(setup_world)
         .add_startup_system(player::spawn_player)
         .add_startup_system(building::spawn_buildings)
@@ -277,5 +345,6 @@ fn main() {
         .add_system(update_text)
         .add_system(handle_input)
         .add_system(handle_windows)
+        .add_system_to_stage(CoreStage::PostUpdate, handle_events)
         .run();
 }

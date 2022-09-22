@@ -73,17 +73,14 @@ impl CharacterAnimationType {
 
 pub fn animate_character_system(
     time: Res<Time>,
-    mut animation_query: Query<(&mut PlayerComponent, &mut TextureAtlasSprite)>,
+    mut animation_query: Query<(&mut Player, &mut TextureAtlasSprite)>,
 ) {
     for (mut player, mut sprite) in animation_query.iter_mut() {
         if !player.animation_type.is_idle() {
             player.timer.tick(time.delta());
 
             if player.timer.finished() {
-                let max = player
-                    .animation_type
-                    .get_index(PlayerComponent::NB_ANIMATIONS)
-                    + 9;
+                let max = player.animation_type.get_index(Player::NB_ANIMATIONS) + 9;
                 if sprite.index == max {
                     sprite.index -= 9;
                 } else {
@@ -95,7 +92,7 @@ pub fn animate_character_system(
 }
 
 #[derive(Debug, Component)]
-pub struct PlayerComponent {
+pub struct Player {
     pub speed: f32,
     pub timer: Timer,
     pub animation_type: CharacterAnimationType,
@@ -103,7 +100,7 @@ pub struct PlayerComponent {
     pub is_running: bool,
 }
 
-impl PlayerComponent {
+impl Player {
     const ANIMATION_TIME: f32 = 0.08;
     const NB_ANIMATIONS: usize = 10;
 }
@@ -111,6 +108,7 @@ impl PlayerComponent {
 pub fn spawn_player(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    mut app_state: ResMut<crate::GameState>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
     // spawn player
@@ -118,16 +116,16 @@ pub fn spawn_player(
     let texture_atlas = TextureAtlas::from_grid(
         texture_handle,
         Vec2::new(22., 24.),
-        PlayerComponent::NB_ANIMATIONS,
+        Player::NB_ANIMATIONS,
         5,
     );
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
 
     commands
         .spawn()
-        .insert(PlayerComponent {
+        .insert(Player {
             speed: 100.0,
-            timer: Timer::from_seconds(PlayerComponent::ANIMATION_TIME, true),
+            timer: Timer::from_seconds(Player::ANIMATION_TIME, true),
             animation_type: CharacterAnimationType::ForwardIdle,
             character: Character::new(1, 0, CharacterPoints::level_1()),
             is_running: false,
@@ -140,17 +138,23 @@ pub fn spawn_player(
         .insert(Velocity::zero())
         .insert(LockedAxes::ROTATION_LOCKED)
         .with_children(|children| {
-            children
-                .spawn()
-                .insert(Collider::cuboid(10.0, 8.0))
-                .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, -4.0, 0.0)));
+            app_state.player_id = Some(
+                children
+                    .spawn()
+                    .insert(Collider::cuboid(10.0, 7.0))
+                    .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, -5.0, 0.0)))
+                    .insert(ActiveEvents::COLLISION_EVENTS)
+                    .id(),
+            );
         })
         .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, 210.0, 0.0)));
+
+    println!("player id: {:?}", app_state.player_id);
 }
 
 pub fn player_movement_system(
     keyboard_input: Res<Input<KeyCode>>,
-    mut player_info: Query<(&mut PlayerComponent, &mut TextureAtlasSprite, &mut Velocity)>,
+    mut player_info: Query<(&mut Player, &mut TextureAtlasSprite, &mut Velocity)>,
     // app_state: Res<State<GameState>>,
 ) {
     // if we are not playing the game prevent the player from moving
@@ -192,13 +196,11 @@ pub fn player_movement_system(
             }
         }
 
-        sprite.index = player
-            .animation_type
-            .get_index(PlayerComponent::NB_ANIMATIONS);
+        sprite.index = player.animation_type.get_index(Player::NB_ANIMATIONS);
         if player.is_running {
-            player.timer = Timer::from_seconds(PlayerComponent::ANIMATION_TIME / 2., true);
+            player.timer = Timer::from_seconds(Player::ANIMATION_TIME / 2., true);
         } else {
-            player.timer = Timer::from_seconds(PlayerComponent::ANIMATION_TIME, true);
+            player.timer = Timer::from_seconds(Player::ANIMATION_TIME, true);
         }
         break;
     }
