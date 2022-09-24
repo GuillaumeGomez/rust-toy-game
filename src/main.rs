@@ -25,6 +25,13 @@ struct AnimationHandler {
 struct EnableText;
 #[derive(Component, Default)]
 struct CameraPosition(Vec3);
+#[derive(Component)]
+pub struct OutsideWorld;
+#[derive(Component)]
+pub struct NotOutsideWorld;
+
+pub const OUTSIDE_WORLD: u32 = 1;
+pub const NOT_OUTSIDE_WORLD: u32 = 2;
 
 fn setup_world(
     mut commands: Commands,
@@ -79,7 +86,8 @@ fn setup_world(
             .insert(AnimationHandler {
                 timer: Timer::from_seconds(0.1, true),
                 row,
-            });
+            })
+            .insert(OutsideWorld);
     }
     let font = asset_server.load("fonts/kreon-regular.ttf");
     commands
@@ -252,20 +260,28 @@ pub fn handle_input(keyboard_input: Res<Input<KeyCode>>, mut app_state: ResMut<G
 pub struct GameState {
     pub show_character_window: bool,
     pub player_id: Option<Entity>,
+    pub is_inside_building: bool,
 }
 
-fn handle_events(
+fn handle_outside_events(
     mut collision_events: EventReader<CollisionEvent>,
     mut buildings: Query<(
         &mut building::House,
         &mut TextureAtlasSprite,
-        &Transform,
         &Children,
     )>,
-    positions: Query<(&Transform)>,
-    app_state: Res<GameState>,
+    mut visibilities: Query<(&mut Visibility), With<OutsideWorld>>,
+    mut player: Query<(&Children, &mut Transform, &mut player::Player)>,
+    mut collisions: Query<(&mut CollisionGroups)>,
+    mut app_state: ResMut<GameState>,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
 ) {
     use bevy_rapier2d::rapier::geometry::CollisionEventFlags;
+
+    if app_state.is_inside_building {
+        return;
+    }
 
     let player_id = match app_state.player_id {
         Some(x) => x,
@@ -283,17 +299,47 @@ fn handle_events(
                 } else {
                     continue;
                 };
+                let elem1 = match collisions.get(*x) {
+                    Ok(e) => e,
+                    _ => continue,
+                };
+                let elem2 = match collisions.get(*y) {
+                    Ok(e) => e,
+                    _ => continue,
+                };
+                if elem1.memberships != elem2.memberships {
+                    continue;
+                }
+                println!("Handling event!");
                 for mut building in buildings.iter_mut() {
-                    if building.3.contains(building_id) {
+                    if building.2.contains(building_id) {
                         building.0.is_open = true;
                         building.0.contact_with_sensor += 1;
                         if building.0.contact_with_sensor > 1 {
-                            eprintln!("ENTER THE HOUSE");
+                            // When we get out, the sensor will be triggered so we put back to 0.
+                            building.0.contact_with_sensor = 0;
+                            for mut visibility in visibilities.iter_mut() {
+                                visibility.is_visible = false;
+                            }
+                            {
+                                let (children, mut pos, mut player) = player.single_mut();
+                                for child in children {
+                                    if let Ok(mut collision) = collisions.get_mut(*child) {
+                                        collision.memberships = NOT_OUTSIDE_WORLD;
+                                        collision.filters = NOT_OUTSIDE_WORLD;
+                                        break;
+                                    }
+                                }
+                                player.old_x = pos.translation.x;
+                                player.old_y = pos.translation.y - 10.;
+                                pos.translation.x = -0.;
+                                pos.translation.y = -30.;
+                                app_state.is_inside_building = true;
+                            }
+                            building::spawn_inside_building(&mut commands, &asset_server);
+                        } else {
+                            building.1.index = building.0.is_open as _;
                         }
-
-                        let player = positions.get(player_id).unwrap().translation;
-                        let sensor = positions.get(*building_id).unwrap().translation;
-                        building.1.index = building.0.is_open as _;
                         break;
                     }
                 }
@@ -307,13 +353,76 @@ fn handle_events(
                     continue;
                 };
                 for mut building in buildings.iter_mut() {
-                    if building.3.contains(building_id) {
+                    if building.2.contains(building_id) {
                         building.0.contact_with_sensor =
                             building.0.contact_with_sensor.saturating_sub(1);
                         building.0.is_open = building.0.contact_with_sensor > 0;
                         building.1.index = building.0.is_open as _;
                         break;
                     }
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+fn handle_inside_events(
+    mut collision_events: EventReader<CollisionEvent>,
+    mut visibilities: Query<&mut Visibility, With<OutsideWorld>>,
+    mut inside_elems: Query<Entity, With<NotOutsideWorld>>,
+    mut player: Query<(&Children, &mut Transform, &mut player::Player)>,
+    mut collisions: Query<&mut CollisionGroups>,
+    mut app_state: ResMut<GameState>,
+    mut commands: Commands,
+) {
+    use bevy_rapier2d::rapier::geometry::CollisionEventFlags;
+
+    if !app_state.is_inside_building {
+        return;
+    }
+
+    let player_id = match app_state.player_id {
+        Some(x) => x,
+        _ => return,
+    };
+
+    for collision_event in collision_events.iter() {
+        match collision_event {
+            CollisionEvent::Started(x, y, CollisionEventFlags::SENSOR) => {
+                if *x != player_id && *y != player_id {
+                    continue;
+                }
+                let elem1 = match collisions.get(*x) {
+                    Ok(e) => e,
+                    _ => continue,
+                };
+                let elem2 = match collisions.get(*y) {
+                    Ok(e) => e,
+                    _ => continue,
+                };
+                if elem1.memberships != elem2.memberships {
+                    continue;
+                }
+                println!("NEW ONE ==> {:?} {:?}", collision_event, player.single().1.translation);
+                for mut visibility in visibilities.iter_mut() {
+                    visibility.is_visible = true;
+                }
+                {
+                    for entity in inside_elems.iter() {
+                        commands.entity(entity).despawn_recursive();
+                    }
+                    let (children, mut pos, mut player) = player.single_mut();
+                    for child in children {
+                        if let Ok(mut collision) = collisions.get_mut(*child) {
+                            collision.memberships = OUTSIDE_WORLD;
+                            collision.filters = OUTSIDE_WORLD;
+                            break;
+                        }
+                    }
+                    pos.translation.x = player.old_x;
+                    pos.translation.y = player.old_y;
+                    app_state.is_inside_building = false;
                 }
             }
             _ => {}
@@ -334,7 +443,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0))
         .add_plugin(EguiPlugin)
-        .add_plugin(RapierDebugRenderPlugin::default())
+        // .add_plugin(RapierDebugRenderPlugin::default())
         .add_startup_system(setup_world)
         .add_startup_system(player::spawn_player)
         .add_startup_system(building::spawn_buildings)
@@ -345,6 +454,7 @@ fn main() {
         .add_system(update_text)
         .add_system(handle_input)
         .add_system(handle_windows)
-        .add_system_to_stage(CoreStage::PostUpdate, handle_events)
+        .add_system_to_stage(CoreStage::PostUpdate, handle_outside_events)
+        .add_system_to_stage(CoreStage::PostUpdate, handle_inside_events)
         .run();
 }

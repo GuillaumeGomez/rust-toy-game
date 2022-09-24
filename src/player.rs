@@ -98,6 +98,8 @@ pub struct Player {
     pub animation_type: CharacterAnimationType,
     pub character: Character,
     pub is_running: bool,
+    pub old_x: f32,
+    pub old_y: f32,
 }
 
 impl Player {
@@ -129,6 +131,8 @@ pub fn spawn_player(
             animation_type: CharacterAnimationType::ForwardIdle,
             character: Character::new(1, 0, CharacterPoints::level_1()),
             is_running: false,
+            old_x: 0.,
+            old_y: 0.,
         })
         .insert_bundle(SpriteSheetBundle {
             texture_atlas: texture_atlas_handle,
@@ -144,6 +148,7 @@ pub fn spawn_player(
                     .insert(Collider::cuboid(10.0, 7.0))
                     .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, -5.0, 0.0)))
                     .insert(ActiveEvents::COLLISION_EVENTS)
+                    .insert(CollisionGroups::new(crate::OUTSIDE_WORLD, crate::OUTSIDE_WORLD))
                     .id(),
             );
         })
