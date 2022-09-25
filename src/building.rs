@@ -2,21 +2,18 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
 #[derive(Debug, Component)]
-pub struct House {
-    pub is_open: bool,
-    pub contact_with_sensor: u8,
-}
+pub struct House;
 
 #[derive(Debug, Component)]
-pub struct InsideHouse;
+pub struct Door;
+#[derive(Debug, Component)]
+pub struct EnterArea;
 
 fn insert_building(texture: Handle<TextureAtlas>, commands: &mut Commands, x: f32, y: f32) {
     commands
         .spawn()
-        .insert(House {
-            is_open: false,
-            contact_with_sensor: 0,
-        })
+        .insert(House)
+        .insert(crate::game::OutsideWorld)
         .insert_bundle(SpriteSheetBundle {
             texture_atlas: texture,
             sprite: TextureAtlasSprite {
@@ -35,36 +32,49 @@ fn insert_building(texture: Handle<TextureAtlas>, commands: &mut Commands, x: f3
                     crate::OUTSIDE_WORLD,
                 ))
                 .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, 7.0, 0.0)));
+            // The porch (left).
             children
                 .spawn()
-                .insert(Collider::cuboid(14., 8.))
+                .insert(Collider::cuboid(2., 8.))
                 .insert(CollisionGroups::new(
                     crate::OUTSIDE_WORLD,
                     crate::OUTSIDE_WORLD,
                 ))
-                .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, -26.0, 0.0)));
-            // Same but as a sensor.
+                .insert_bundle(TransformBundle::from(Transform::from_xyz(14.0, -30.0, 0.0)));
+            // The porch (right).
+            children
+                .spawn()
+                .insert(Collider::cuboid(2., 8.))
+                .insert(CollisionGroups::new(
+                    crate::OUTSIDE_WORLD,
+                    crate::OUTSIDE_WORLD,
+                ))
+                .insert_bundle(TransformBundle::from(Transform::from_xyz(-14.0, -30.0, 0.0)));
+            // The "enter area" sensor.
             children
                 .spawn()
                 .insert(Collider::cuboid(0.5, 8.))
+                .insert(EnterArea)
                 .insert(CollisionGroups::new(
                     crate::OUTSIDE_WORLD,
                     crate::OUTSIDE_WORLD,
                 ))
                 .insert(Sensor)
-                .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, -26.0, 0.0)));
+                .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, -20.0, 0.0)));
+            // The door sensor.
             children
                 .spawn()
-                .insert(Collider::cuboid(12., 9.))
+                .insert(Collider::cuboid(14., 9.))
+                .insert(Door)
                 .insert(CollisionGroups::new(
                     crate::OUTSIDE_WORLD,
                     crate::OUTSIDE_WORLD,
                 ))
                 .insert(Sensor)
-                .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, -38.0, 0.0)));
+                .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, -36.0, 0.0)));
         })
         .insert_bundle(TransformBundle::from(Transform::from_xyz(x, y, 0.0)))
-        .insert(crate::OutsideWorld);
+        .insert(crate::game::OutsideWorld);
 }
 
 pub fn spawn_buildings(
@@ -92,18 +102,17 @@ pub fn spawn_buildings(
     }
 }
 
-pub fn spawn_inside_building(commands: &mut Commands, asset_server: &Res<AssetServer>) {
+pub fn spawn_inside_building(mut commands: Commands, asset_server: Res<AssetServer>) {
     let house_texture = asset_server.load("textures/inside-house.png");
 
     commands
         .spawn()
-        .insert(InsideHouse)
         .insert_bundle(SpriteBundle {
             texture: house_texture,
             ..default()
         })
         .insert(RigidBody::Fixed)
-        .insert(crate::NotOutsideWorld)
+        .insert(crate::game::InsideHouse)
         .with_children(|children| {
             // The left and right walls.
             children
@@ -160,6 +169,7 @@ pub fn spawn_inside_building(commands: &mut Commands, asset_server: &Res<AssetSe
                     crate::NOT_OUTSIDE_WORLD,
                 ))
                 .insert(Sensor)
+                .insert(EnterArea)
                 .insert_bundle(TransformBundle::from(Transform::from_xyz(0., -70.0, 0.0)));
         })
         .insert_bundle(TransformBundle::from(Transform::from_xyz(0., 0., 0.0)));

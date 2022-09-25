@@ -1,6 +1,6 @@
 use bevy::{app::AppExit, prelude::*};
 
-use crate::GameState;
+use crate::{AppState, despawn_kind};
 
 const TEXT_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
 
@@ -17,15 +17,15 @@ impl Plugin for MenuPlugin {
     fn build(&self, app: &mut App) {
         app
             // At start, the menu is not enabled. This will be changed in `menu_setup` when
-            // entering the `GameState::Menu` state.
-            // Current screen in the menu is handled by an independent state from `GameState`
+            // entering the `AppState::Menu` state.
+            // Current screen in the menu is handled by an independent state from `AppState`
             .add_state(MenuState::Disabled)
             .insert_resource(Volume(7))
-            .add_system_set(SystemSet::on_enter(GameState::Menu).with_system(menu_setup))
+            .add_system_set(SystemSet::on_enter(AppState::Menu).with_system(menu_setup))
             // Systems to handle the main menu screen
             .add_system_set(SystemSet::on_enter(MenuState::Main).with_system(main_menu_setup))
             .add_system_set(
-                SystemSet::on_exit(MenuState::Main).with_system(despawn_screen::<OnMainMenuScreen>),
+                SystemSet::on_exit(MenuState::Main).with_system(despawn_kind::<OnMainMenuScreen>),
             )
             // Systems to handle the settings menu screen
             .add_system_set(
@@ -33,7 +33,7 @@ impl Plugin for MenuPlugin {
             )
             .add_system_set(
                 SystemSet::on_exit(MenuState::Settings)
-                    .with_system(despawn_screen::<OnSettingsMenuScreen>),
+                    .with_system(despawn_kind::<OnSettingsMenuScreen>),
             )
             // Systems to handle the sound settings screen
             .add_system_set(
@@ -46,11 +46,11 @@ impl Plugin for MenuPlugin {
             )
             .add_system_set(
                 SystemSet::on_exit(MenuState::SettingsSound)
-                    .with_system(despawn_screen::<OnSoundSettingsMenuScreen>),
+                    .with_system(despawn_kind::<OnSoundSettingsMenuScreen>),
             )
             // Common systems to all screens that handles buttons behaviour
             .add_system_set(
-                SystemSet::on_update(GameState::Menu)
+                SystemSet::on_update(AppState::Menu)
                     .with_system(menu_action)
                     .with_system(button_system),
             );
@@ -142,19 +142,19 @@ fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/kreon-regular.ttf");
     // Common style for all buttons on the screen
     let button_style = Style {
-        size: Size::new(Val::Px(250.0), Val::Px(65.0)),
-        margin: UiRect::all(Val::Px(20.0)),
+        size: Size::new(Val::Px(125.0), Val::Px(32.0)),
+        margin: UiRect::all(Val::Px(10.0)),
         justify_content: JustifyContent::Center,
         align_items: AlignItems::Center,
         ..default()
     };
     let button_icon_style = Style {
-        size: Size::new(Val::Px(30.0), Val::Auto),
+        size: Size::new(Val::Px(15.0), Val::Auto),
         // This takes the icons out of the flexbox flow, to be positioned exactly
         position_type: PositionType::Absolute,
         // The icon will be close to the left border of the button
         position: UiRect {
-            left: Val::Px(10.0),
+            left: Val::Px(5.0),
             right: Val::Auto,
             top: Val::Auto,
             bottom: Val::Auto,
@@ -163,7 +163,7 @@ fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     };
     let button_text_style = TextStyle {
         font: font.clone(),
-        font_size: 40.0,
+        font_size: 20.0,
         color: TEXT_COLOR,
     };
 
@@ -186,12 +186,12 @@ fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     "Bevy Game Menu UI",
                     TextStyle {
                         font: font.clone(),
-                        font_size: 80.0,
+                        font_size: 40.0,
                         color: TEXT_COLOR,
                     },
                 )
                 .with_style(Style {
-                    margin: UiRect::all(Val::Px(50.0)),
+                    margin: UiRect::all(Val::Px(25.0)),
                     ..default()
                 }),
             );
@@ -259,8 +259,8 @@ fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn settings_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let button_style = Style {
-        size: Size::new(Val::Px(200.0), Val::Px(65.0)),
-        margin: UiRect::all(Val::Px(20.0)),
+        size: Size::new(Val::Px(100.0), Val::Px(32.0)),
+        margin: UiRect::all(Val::Px(10.0)),
         justify_content: JustifyContent::Center,
         align_items: AlignItems::Center,
         ..default()
@@ -268,7 +268,7 @@ fn settings_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let button_text_style = TextStyle {
         font: asset_server.load("fonts/kreon-regular.ttf"),
-        font_size: 40.0,
+        font_size: 20.0,
         color: TEXT_COLOR,
     };
 
@@ -312,15 +312,15 @@ fn sound_settings_menu_setup(
     volume: Res<Volume>,
 ) {
     let button_style = Style {
-        size: Size::new(Val::Px(200.0), Val::Px(65.0)),
-        margin: UiRect::all(Val::Px(20.0)),
+        size: Size::new(Val::Px(100.0), Val::Px(32.0)),
+        margin: UiRect::all(Val::Px(10.0)),
         justify_content: JustifyContent::Center,
         align_items: AlignItems::Center,
         ..default()
     };
     let button_text_style = TextStyle {
         font: asset_server.load("fonts/kreon-regular.ttf"),
-        font_size: 40.0,
+        font_size: 20.0,
         color: TEXT_COLOR,
     };
 
@@ -354,7 +354,7 @@ fn sound_settings_menu_setup(
                     for volume_setting in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] {
                         let mut entity = parent.spawn_bundle(ButtonBundle {
                             style: Style {
-                                size: Size::new(Val::Px(30.0), Val::Px(65.0)),
+                                size: Size::new(Val::Px(15.0), Val::Px(32.0)),
                                 ..button_style.clone()
                             },
                             color: NORMAL_BUTTON.into(),
@@ -386,14 +386,14 @@ fn menu_action(
     >,
     mut app_exit_events: EventWriter<AppExit>,
     mut menu_state: ResMut<State<MenuState>>,
-    mut game_state: ResMut<State<GameState>>,
+    mut app_state: ResMut<State<AppState>>,
 ) {
     for (interaction, menu_button_action) in &interaction_query {
         if *interaction == Interaction::Clicked {
             match menu_button_action {
                 MenuButtonAction::Quit => app_exit_events.send(AppExit),
                 MenuButtonAction::Play => {
-                    game_state.set(GameState::Game).unwrap();
+                    app_state.pop().unwrap();
                     menu_state.set(MenuState::Disabled).unwrap();
                 }
                 MenuButtonAction::Settings => menu_state.set(MenuState::Settings).unwrap(),
@@ -406,11 +406,5 @@ fn menu_action(
                 }
             }
         }
-    }
-}
-
-fn despawn_screen<T: Component>(to_despawn: Query<Entity, With<T>>, mut commands: Commands) {
-    for entity in &to_despawn {
-        commands.entity(entity).despawn_recursive();
     }
 }

@@ -7,7 +7,7 @@ use bevy::window::{PresentMode, WindowPlugin};
 use bevy_egui::{egui, EguiContext, EguiPlugin};
 use bevy_rapier2d::prelude::*;
 
-use crate::{building, player};
+use crate::{building, player, AppState, GameInfo, NOT_OUTSIDE_WORLD, OUTSIDE_WORLD};
 
 pub const ONE_SECOND: u32 = 1_000_000;
 pub const STAT_POINTS_PER_LEVEL: u32 = 3;
@@ -17,14 +17,24 @@ struct AnimationHandler {
     timer: Timer,
     row: usize,
 }
-#[derive(Component)]
-struct EnableText;
-#[derive(Component, Default)]
-struct CameraPosition(Vec3);
-
-use crate::{GameInfo, GameState, NotOutsideWorld, OutsideWorld, NOT_OUTSIDE_WORLD, OUTSIDE_WORLD};
+// #[derive(Component)]
+// struct EnableText;
 
 pub struct GamePlugin;
+
+#[derive(Component)]
+pub struct InsideHouse;
+#[derive(Component)]
+pub struct OutsideWorld;
+
+#[derive(Clone, Eq, PartialEq, Debug, Hash)]
+pub enum GameState {
+    Outside,
+    /// Contains the hash to be used to generate the inside.
+    InsideHouse,
+    /// Contains the hash to be used to generate the inside.
+    InsideDungeon,
+}
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
@@ -35,25 +45,46 @@ impl Plugin for GamePlugin {
                 .with_system(player::player_movement_system.label("player_movement_system"))
                 .with_system(player::animate_character_system.after("player_movement_system"))
                 .with_system(update_camera)
-                .with_system(update_text)
+                // .with_system(update_text)
                 .with_system(handle_input)
                 .with_system(handle_windows),
         )
         .add_system_set_to_stage(
             CoreStage::PostUpdate,
-            SystemSet::new()
+            SystemSet::on_update(GameState::InsideHouse)
                 .with_run_criteria(run_if_game)
-                .with_system(handle_outside_events)
-                .with_system(handle_inside_events),
+                .with_system(handle_door_events::<InsideHouse>)
+                .with_system(handle_enter_area_events::<InsideHouse>),
         )
-        .add_startup_system(setup_world)
-        .add_startup_system(player::spawn_player)
-        .add_startup_system(building::spawn_buildings);
+        .add_system_set_to_stage(
+            CoreStage::PostUpdate,
+            SystemSet::on_update(GameState::Outside)
+                .with_run_criteria(run_if_game)
+                .with_system(handle_door_events::<OutsideWorld>)
+                .with_system(handle_enter_area_events::<OutsideWorld>),
+        )
+        .add_system_set(
+            SystemSet::on_enter(AppState::Game)
+                .with_system(setup_world)
+                .with_system(player::spawn_player)
+                .with_system(building::spawn_buildings),
+        )
+        .add_system_set(
+            SystemSet::on_enter(GameState::InsideHouse)
+                .with_system(building::spawn_inside_building)
+                .with_system(hide_outside)
+        )
+        .add_system_set(
+            SystemSet::on_exit(GameState::InsideHouse)
+                .with_system(crate::despawn_kind::<InsideHouse>)
+                .with_system(show_outside)
+        )
+        .add_state(GameState::Outside);
     }
 }
 
-fn run_if_game(mode: Res<State<GameState>>) -> ShouldRun {
-    if *mode.current() == GameState::Game {
+fn run_if_game(mode: Res<State<AppState>>) -> ShouldRun {
+    if *mode.current() == AppState::Game {
         ShouldRun::Yes
     } else {
         ShouldRun::No
@@ -62,32 +93,9 @@ fn run_if_game(mode: Res<State<GameState>>) -> ShouldRun {
 
 fn setup_world(
     mut commands: Commands,
-    mut windows: ResMut<Windows>,
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
-    mut rapier_config: ResMut<RapierConfiguration>,
-    mut egui_context: ResMut<EguiContext>,
 ) {
-    // Disable gravity.
-    rapier_config.gravity = Vec2::ZERO;
-
-    // Add the 2D camera/
-    commands
-        .spawn_bundle(Camera2dBundle::default())
-        .insert(CameraPosition::default());
-
-    // Set the window size and its resolution.
-    {
-        let window = windows.get_primary_mut().unwrap();
-        window.set_resolution(1600., 900.);
-        window.update_scale_factor_from_backend(1.0);
-    }
-
-    let mut visuals = egui::Visuals::dark();
-    visuals.window_shadow.extrusion = 0.;
-    visuals.popup_shadow.extrusion = 0.;
-    egui_context.ctx_mut().set_visuals(visuals);
-
     let skeleton_texture = asset_server.load("textures/skeleton.png");
     let texture_atlas = TextureAtlas::from_grid(skeleton_texture, Vec2::new(48., 48.), 3, 4);
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
@@ -116,21 +124,21 @@ fn setup_world(
             })
             .insert(OutsideWorld);
     }
-    let font = asset_server.load("fonts/kreon-regular.ttf");
-    commands
-        .spawn_bundle(Text2dBundle {
-            text: Text::from_section(
-                "hello",
-                TextStyle {
-                    font,
-                    font_size: 60.0,
-                    color: Color::WHITE,
-                },
-            )
-            .with_alignment(TextAlignment::CENTER),
-            ..default()
-        })
-        .insert(EnableText);
+    // let font = asset_server.load("fonts/kreon-regular.ttf");
+    // commands
+    //     .spawn_bundle(Text2dBundle {
+    //         text: Text::from_section(
+    //             "hello",
+    //             TextStyle {
+    //                 font,
+    //                 font_size: 60.0,
+    //                 color: Color::WHITE,
+    //             },
+    //         )
+    //         .with_alignment(TextAlignment::CENTER),
+    //         ..default()
+    //     })
+    //     .insert(EnableText);
 }
 
 fn animate_sprite(
@@ -155,20 +163,23 @@ fn update_camera(
     mut camera: Query<(&mut Transform, &Camera), Without<player::Player>>,
     player: Query<(&Transform, &player::Player), Without<Camera>>,
 ) {
-    let player = player.single();
+    let player = match player.get_single() {
+        Ok(p) => p,
+        _ => return,
+    };
     let mut camera = camera.single_mut().0;
 
     camera.translation.x = player.0.translation.x;
     camera.translation.y = player.0.translation.y;
 }
 
-fn update_text(
-    mut text: Query<&mut Text, With<EnableText>>,
-    camera: Query<&Transform, With<Camera>>,
-) {
-    let camera = camera.single().translation;
-    text.single_mut().sections[0].value = format!("({:.2}, {:.2})", camera.x, camera.y);
-}
+// fn update_text(
+//     mut text: Query<&mut Text, With<EnableText>>,
+//     camera: Query<&Transform, With<Camera>>,
+// ) {
+//     let camera = camera.single().translation;
+//     text.single_mut().sections[0].value = format!("({:.2}, {:.2})", camera.x, camera.y);
+// }
 
 fn handle_windows(
     mut egui_context: ResMut<EguiContext>,
@@ -275,7 +286,7 @@ fn handle_windows(
 }
 
 pub fn handle_input(
-    mut game_state: ResMut<State<GameState>>,
+    mut game_state: ResMut<State<AppState>>,
     keyboard_input: Res<Input<KeyCode>>,
     mut app_state: ResMut<GameInfo>,
 ) {
@@ -286,26 +297,89 @@ pub fn handle_input(
         if app_state.show_character_window {
             app_state.show_character_window = false;
         } else {
-            game_state.set(GameState::Menu).unwrap();
+            game_state.push(AppState::Menu).unwrap();
         }
     }
 }
 
-fn handle_outside_events(
-    mut collision_events: EventReader<CollisionEvent>,
-    mut buildings: Query<(&mut building::House, &mut TextureAtlasSprite, &Children)>,
+#[inline]
+fn update_player_collisions(
+    player: &mut Query<(&Children, &mut Transform, &mut player::Player)>,
+    collisions: &mut Query<&mut CollisionGroups>,
+    filter: u32,
+) {
+    let (children, mut pos, mut player) = player.single_mut();
+    for child in children {
+        if let Ok(mut collision) = collisions.get_mut(*child) {
+            collision.memberships = filter;
+            collision.filters = filter;
+            break;
+        }
+    }
+}
+
+fn hide_outside(
     mut visibilities: Query<(&mut Visibility), With<OutsideWorld>>,
     mut player: Query<(&Children, &mut Transform, &mut player::Player)>,
-    mut collisions: Query<(&mut CollisionGroups)>,
-    mut app_state: ResMut<GameInfo>,
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
+    mut collisions: Query<&mut CollisionGroups>,
+) {
+    for mut visibility in visibilities.iter_mut() {
+        visibility.is_visible = false;
+    }
+
+    update_player_collisions(&mut player, &mut collisions, NOT_OUTSIDE_WORLD);
+
+    let (children, mut pos, mut player) = player.single_mut();
+    player.old_x = pos.translation.x;
+    player.old_y = pos.translation.y - 10.;
+    pos.translation.x = -0.;
+    pos.translation.y = -40.;
+}
+
+fn show_outside(
+    mut visibilities: Query<(&mut Visibility), With<OutsideWorld>>,
+    mut player: Query<(&Children, &mut Transform, &mut player::Player)>,
+    mut collisions: Query<&mut CollisionGroups>,
+) {
+    for mut visibility in visibilities.iter_mut() {
+        visibility.is_visible = true;
+    }
+
+    update_player_collisions(&mut player, &mut collisions, OUTSIDE_WORLD);
+
+    let (children, mut pos, mut player) = player.single_mut();
+    pos.translation.x = player.old_x;
+    pos.translation.y = player.old_y;
+}
+
+macro_rules! get_building_and_player {
+    ($x:ident, $y:ident, $player_id:ident, $buildings:ident, $door_captors:ident, $value:expr) => {
+        let building_id = if *$x == $player_id {
+            $y
+        } else if *$y == $player_id {
+            $x
+        } else {
+            continue;
+        };
+        if !$door_captors.contains(*building_id) {
+            continue;
+        }
+        for mut building in $buildings.iter_mut() {
+            if building.1.contains(building_id) {
+                building.0.index = $value;
+                break;
+            }
+        }
+    };
+}
+
+fn handle_door_events<T: Component>(
+    mut collision_events: EventReader<CollisionEvent>,
+    mut buildings: Query<(&mut TextureAtlasSprite, &Children, &T), With<building::House>>,
+    door_captors: Query<&building::Door>,
+    app_state: ResMut<GameInfo>,
 ) {
     use bevy_rapier2d::rapier::geometry::CollisionEventFlags;
-
-    if app_state.is_inside_building {
-        return;
-    }
 
     let player_id = match app_state.player_id {
         Some(x) => x,
@@ -313,98 +387,26 @@ fn handle_outside_events(
     };
 
     for collision_event in collision_events.iter() {
-        println!("==> {:?}", collision_event);
         match collision_event {
             CollisionEvent::Started(x, y, CollisionEventFlags::SENSOR) => {
-                let building_id = if *x == player_id {
-                    y
-                } else if *y == player_id {
-                    x
-                } else {
-                    continue;
-                };
-                let elem1 = match collisions.get(*x) {
-                    Ok(e) => e,
-                    _ => continue,
-                };
-                let elem2 = match collisions.get(*y) {
-                    Ok(e) => e,
-                    _ => continue,
-                };
-                if elem1.memberships != elem2.memberships {
-                    continue;
-                }
-                println!("Handling event!");
-                for mut building in buildings.iter_mut() {
-                    if building.2.contains(building_id) {
-                        building.0.is_open = true;
-                        building.0.contact_with_sensor += 1;
-                        if building.0.contact_with_sensor > 1 {
-                            // When we get out, the sensor will be triggered so we put back to 0.
-                            building.0.contact_with_sensor = 0;
-                            for mut visibility in visibilities.iter_mut() {
-                                visibility.is_visible = false;
-                            }
-                            {
-                                let (children, mut pos, mut player) = player.single_mut();
-                                for child in children {
-                                    if let Ok(mut collision) = collisions.get_mut(*child) {
-                                        collision.memberships = NOT_OUTSIDE_WORLD;
-                                        collision.filters = NOT_OUTSIDE_WORLD;
-                                        break;
-                                    }
-                                }
-                                player.old_x = pos.translation.x;
-                                player.old_y = pos.translation.y - 10.;
-                                pos.translation.x = -0.;
-                                pos.translation.y = -30.;
-                                app_state.is_inside_building = true;
-                            }
-                            building::spawn_inside_building(&mut commands, &asset_server);
-                        } else {
-                            building.1.index = building.0.is_open as _;
-                        }
-                        break;
-                    }
-                }
+                get_building_and_player!(x, y, player_id, buildings, door_captors, 1);
             }
             CollisionEvent::Stopped(x, y, CollisionEventFlags::SENSOR) => {
-                let building_id = if *x == player_id {
-                    y
-                } else if *y == player_id {
-                    x
-                } else {
-                    continue;
-                };
-                for mut building in buildings.iter_mut() {
-                    if building.2.contains(building_id) {
-                        building.0.contact_with_sensor =
-                            building.0.contact_with_sensor.saturating_sub(1);
-                        building.0.is_open = building.0.contact_with_sensor > 0;
-                        building.1.index = building.0.is_open as _;
-                        break;
-                    }
-                }
+                get_building_and_player!(x, y, player_id, buildings, door_captors, 0);
             }
             _ => {}
         }
     }
 }
 
-fn handle_inside_events(
+fn handle_enter_area_events<T: Component>(
     mut collision_events: EventReader<CollisionEvent>,
-    mut visibilities: Query<&mut Visibility, With<OutsideWorld>>,
-    mut inside_elems: Query<Entity, With<NotOutsideWorld>>,
-    mut player: Query<(&Children, &mut Transform, &mut player::Player)>,
-    mut collisions: Query<&mut CollisionGroups>,
+    buildings: Query<&Children, With<T>>,
+    enter_area_captors: Query<&building::EnterArea>,
     mut app_state: ResMut<GameInfo>,
-    mut commands: Commands,
+    mut game_state: ResMut<State<GameState>>,
 ) {
     use bevy_rapier2d::rapier::geometry::CollisionEventFlags;
-
-    if !app_state.is_inside_building {
-        return;
-    }
 
     let player_id = match app_state.player_id {
         Some(x) => x,
@@ -414,43 +416,27 @@ fn handle_inside_events(
     for collision_event in collision_events.iter() {
         match collision_event {
             CollisionEvent::Started(x, y, CollisionEventFlags::SENSOR) => {
-                if *x != player_id && *y != player_id {
+                let building_id = if *x == player_id {
+                    y
+                } else if *y == player_id {
+                    x
+                } else {
+                    continue;
+                };
+                if !enter_area_captors.contains(*building_id) {
                     continue;
                 }
-                let elem1 = match collisions.get(*x) {
-                    Ok(e) => e,
-                    _ => continue,
-                };
-                let elem2 = match collisions.get(*y) {
-                    Ok(e) => e,
-                    _ => continue,
-                };
-                if elem1.memberships != elem2.memberships {
-                    continue;
-                }
-                println!(
-                    "NEW ONE ==> {:?} {:?}",
-                    collision_event,
-                    player.single().1.translation
-                );
-                for mut visibility in visibilities.iter_mut() {
-                    visibility.is_visible = true;
-                }
-                {
-                    for entity in inside_elems.iter() {
-                        commands.entity(entity).despawn_recursive();
-                    }
-                    let (children, mut pos, mut player) = player.single_mut();
-                    for child in children {
-                        if let Ok(mut collision) = collisions.get_mut(*child) {
-                            collision.memberships = OUTSIDE_WORLD;
-                            collision.filters = OUTSIDE_WORLD;
-                            break;
+                for mut building in buildings.iter() {
+                    if building.contains(building_id) {
+                        // FIXME: compute real hash
+                        app_state.building_hash = 0;
+                        if *game_state.current() == GameState::Outside {
+                            game_state.set(GameState::InsideHouse);
+                        } else {
+                            game_state.set(GameState::Outside);
                         }
+                        return;
                     }
-                    pos.translation.x = player.old_x;
-                    pos.translation.y = player.old_y;
-                    app_state.is_inside_building = false;
                 }
             }
             _ => {}
