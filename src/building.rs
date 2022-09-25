@@ -30,24 +30,36 @@ fn insert_building(texture: Handle<TextureAtlas>, commands: &mut Commands, x: f3
             children
                 .spawn()
                 .insert(Collider::cuboid(40., 35.))
-                .insert(CollisionGroups::new(crate::OUTSIDE_WORLD, crate::OUTSIDE_WORLD))
+                .insert(CollisionGroups::new(
+                    crate::OUTSIDE_WORLD,
+                    crate::OUTSIDE_WORLD,
+                ))
                 .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, 7.0, 0.0)));
             children
                 .spawn()
                 .insert(Collider::cuboid(14., 8.))
-                .insert(CollisionGroups::new(crate::OUTSIDE_WORLD, crate::OUTSIDE_WORLD))
+                .insert(CollisionGroups::new(
+                    crate::OUTSIDE_WORLD,
+                    crate::OUTSIDE_WORLD,
+                ))
                 .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, -26.0, 0.0)));
             // Same but as a sensor.
             children
                 .spawn()
                 .insert(Collider::cuboid(0.5, 8.))
-                .insert(CollisionGroups::new(crate::OUTSIDE_WORLD, crate::OUTSIDE_WORLD))
+                .insert(CollisionGroups::new(
+                    crate::OUTSIDE_WORLD,
+                    crate::OUTSIDE_WORLD,
+                ))
                 .insert(Sensor)
                 .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, -26.0, 0.0)));
             children
                 .spawn()
                 .insert(Collider::cuboid(12., 9.))
-                .insert(CollisionGroups::new(crate::OUTSIDE_WORLD, crate::OUTSIDE_WORLD))
+                .insert(CollisionGroups::new(
+                    crate::OUTSIDE_WORLD,
+                    crate::OUTSIDE_WORLD,
+                ))
                 .insert(Sensor)
                 .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, -38.0, 0.0)));
         })
@@ -80,10 +92,7 @@ pub fn spawn_buildings(
     }
 }
 
-pub fn spawn_inside_building(
-    commands: &mut Commands,
-    asset_server: &Res<AssetServer>,
-) {
+pub fn spawn_inside_building(commands: &mut Commands, asset_server: &Res<AssetServer>) {
     let house_texture = asset_server.load("textures/inside-house.png");
 
     commands
@@ -100,36 +109,56 @@ pub fn spawn_inside_building(
             children
                 .spawn()
                 .insert(Collider::cuboid(16., 57.))
-                .insert(CollisionGroups::new(crate::NOT_OUTSIDE_WORLD, crate::NOT_OUTSIDE_WORLD))
+                .insert(CollisionGroups::new(
+                    crate::NOT_OUTSIDE_WORLD,
+                    crate::NOT_OUTSIDE_WORLD,
+                ))
                 .insert_bundle(TransformBundle::from(Transform::from_xyz(-106.0, 0.0, 0.0)));
             children
                 .spawn()
                 .insert(Collider::cuboid(16., 57.))
-                .insert(CollisionGroups::new(crate::NOT_OUTSIDE_WORLD, crate::NOT_OUTSIDE_WORLD))
+                .insert(CollisionGroups::new(
+                    crate::NOT_OUTSIDE_WORLD,
+                    crate::NOT_OUTSIDE_WORLD,
+                ))
                 .insert_bundle(TransformBundle::from(Transform::from_xyz(106.0, 0.0, 0.0)));
             // The top wall.
             children
                 .spawn()
                 .insert(Collider::cuboid(92., 16.))
-                .insert(CollisionGroups::new(crate::NOT_OUTSIDE_WORLD, crate::NOT_OUTSIDE_WORLD))
+                .insert(CollisionGroups::new(
+                    crate::NOT_OUTSIDE_WORLD,
+                    crate::NOT_OUTSIDE_WORLD,
+                ))
                 .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, 66.0, 0.0)));
             // The bottom wall (left part).
             children
                 .spawn()
                 .insert(Collider::cuboid(55., 16.))
-                .insert(CollisionGroups::new(crate::NOT_OUTSIDE_WORLD, crate::NOT_OUTSIDE_WORLD))
-                .insert_bundle(TransformBundle::from(Transform::from_xyz(-68.0, -65.0, 0.0)));
+                .insert(CollisionGroups::new(
+                    crate::NOT_OUTSIDE_WORLD,
+                    crate::NOT_OUTSIDE_WORLD,
+                ))
+                .insert_bundle(TransformBundle::from(Transform::from_xyz(
+                    -68.0, -65.0, 0.0,
+                )));
             // The bottom wall (right part).
             children
                 .spawn()
                 .insert(Collider::cuboid(55., 16.))
-                .insert(CollisionGroups::new(crate::NOT_OUTSIDE_WORLD, crate::NOT_OUTSIDE_WORLD))
+                .insert(CollisionGroups::new(
+                    crate::NOT_OUTSIDE_WORLD,
+                    crate::NOT_OUTSIDE_WORLD,
+                ))
                 .insert_bundle(TransformBundle::from(Transform::from_xyz(68.0, -65.0, 0.0)));
             // The exit door.
             children
                 .spawn()
                 .insert(Collider::cuboid(8., 4.))
-                .insert(CollisionGroups::new(crate::NOT_OUTSIDE_WORLD, crate::NOT_OUTSIDE_WORLD))
+                .insert(CollisionGroups::new(
+                    crate::NOT_OUTSIDE_WORLD,
+                    crate::NOT_OUTSIDE_WORLD,
+                ))
                 .insert(Sensor)
                 .insert_bundle(TransformBundle::from(Transform::from_xyz(0., -70.0, 0.0)));
         })

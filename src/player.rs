@@ -110,7 +110,7 @@ impl Player {
 pub fn spawn_player(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut app_state: ResMut<crate::GameState>,
+    mut app_state: ResMut<crate::GameInfo>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
     // spawn player
@@ -148,7 +148,10 @@ pub fn spawn_player(
                     .insert(Collider::cuboid(10.0, 7.0))
                     .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, -5.0, 0.0)))
                     .insert(ActiveEvents::COLLISION_EVENTS)
-                    .insert(CollisionGroups::new(crate::OUTSIDE_WORLD, crate::OUTSIDE_WORLD))
+                    .insert(CollisionGroups::new(
+                        crate::OUTSIDE_WORLD,
+                        crate::OUTSIDE_WORLD,
+                    ))
                     .id(),
             );
         })
@@ -160,10 +163,10 @@ pub fn spawn_player(
 pub fn player_movement_system(
     keyboard_input: Res<Input<KeyCode>>,
     mut player_info: Query<(&mut Player, &mut TextureAtlasSprite, &mut Velocity)>,
-    // app_state: Res<State<GameState>>,
+    // app_state: Res<State<GameInfo>>,
 ) {
     // if we are not playing the game prevent the player from moving
-    // if app_state.current() != &GameState::MainGame {
+    // if app_state.current() != &GameInfo::MainGame {
     //     return;
     // }
 
