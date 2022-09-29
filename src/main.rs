@@ -30,6 +30,8 @@ pub enum AppState {
 #[derive(Component, Default)]
 struct CameraPosition(Vec3);
 
+pub const SCALE: f32 = 1.8;
+
 #[derive(Default)]
 pub struct GameInfo {
     pub show_character_window: bool,
@@ -48,6 +50,7 @@ pub fn setup_components(
     mut windows: ResMut<Windows>,
     mut rapier_config: ResMut<RapierConfiguration>,
     mut egui_context: ResMut<EguiContext>,
+    mut egui_settings: ResMut<bevy_egui::EguiSettings>,
 ) {
     // Disable gravity.
     rapier_config.gravity = Vec2::ZERO;
@@ -61,13 +64,14 @@ pub fn setup_components(
     {
         let window = windows.get_primary_mut().unwrap();
         window.set_resolution(1600., 900.);
-        window.update_scale_factor_from_backend(1.8);
+        window.update_scale_factor_from_backend(SCALE as _);
     }
 
     let mut visuals = egui::Visuals::dark();
     visuals.window_shadow.extrusion = 0.;
     visuals.popup_shadow.extrusion = 0.;
     egui_context.ctx_mut().set_visuals(visuals);
+    egui_settings.scale_factor = 1. / SCALE as f64;
 }
 
 fn main() {

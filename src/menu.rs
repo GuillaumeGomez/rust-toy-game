@@ -1,6 +1,6 @@
 use bevy::{app::AppExit, prelude::*};
 
-use crate::{AppState, despawn_kind};
+use crate::{SCALE, AppState, despawn_kind};
 
 const TEXT_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
 
@@ -142,19 +142,19 @@ fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/kreon-regular.ttf");
     // Common style for all buttons on the screen
     let button_style = Style {
-        size: Size::new(Val::Px(125.0), Val::Px(32.0)),
-        margin: UiRect::all(Val::Px(10.0)),
+        size: Size::new(Val::Px(250.0 / SCALE), Val::Px(65.0 / SCALE)),
+        margin: UiRect::all(Val::Px(20.0 / SCALE)),
         justify_content: JustifyContent::Center,
         align_items: AlignItems::Center,
         ..default()
     };
     let button_icon_style = Style {
-        size: Size::new(Val::Px(15.0), Val::Auto),
+        size: Size::new(Val::Px(30.0 / SCALE), Val::Auto),
         // This takes the icons out of the flexbox flow, to be positioned exactly
         position_type: PositionType::Absolute,
         // The icon will be close to the left border of the button
         position: UiRect {
-            left: Val::Px(5.0),
+            left: Val::Px(10.0 / SCALE),
             right: Val::Auto,
             top: Val::Auto,
             bottom: Val::Auto,
@@ -163,7 +163,7 @@ fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     };
     let button_text_style = TextStyle {
         font: font.clone(),
-        font_size: 20.0,
+        font_size: 40.0 / SCALE,
         color: TEXT_COLOR,
     };
 
@@ -186,12 +186,12 @@ fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     "Bevy Game Menu UI",
                     TextStyle {
                         font: font.clone(),
-                        font_size: 40.0,
+                        font_size: 80.0 / SCALE,
                         color: TEXT_COLOR,
                     },
                 )
                 .with_style(Style {
-                    margin: UiRect::all(Val::Px(25.0)),
+                    margin: UiRect::all(Val::Px(50.0 / SCALE)),
                     ..default()
                 }),
             );
@@ -259,8 +259,8 @@ fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn settings_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let button_style = Style {
-        size: Size::new(Val::Px(100.0), Val::Px(32.0)),
-        margin: UiRect::all(Val::Px(10.0)),
+        size: Size::new(Val::Px(200.0 / SCALE), Val::Px(65.0 / SCALE)),
+        margin: UiRect::all(Val::Px(20.0 / SCALE)),
         justify_content: JustifyContent::Center,
         align_items: AlignItems::Center,
         ..default()
@@ -268,7 +268,7 @@ fn settings_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let button_text_style = TextStyle {
         font: asset_server.load("fonts/kreon-regular.ttf"),
-        font_size: 20.0,
+        font_size: 40.0 / SCALE,
         color: TEXT_COLOR,
     };
 
@@ -312,15 +312,15 @@ fn sound_settings_menu_setup(
     volume: Res<Volume>,
 ) {
     let button_style = Style {
-        size: Size::new(Val::Px(100.0), Val::Px(32.0)),
-        margin: UiRect::all(Val::Px(10.0)),
+        size: Size::new(Val::Px(200.0 / SCALE), Val::Px(65.0 / SCALE)),
+        margin: UiRect::all(Val::Px(20.0 / SCALE)),
         justify_content: JustifyContent::Center,
         align_items: AlignItems::Center,
         ..default()
     };
     let button_text_style = TextStyle {
         font: asset_server.load("fonts/kreon-regular.ttf"),
-        font_size: 20.0,
+        font_size: 40.0 / SCALE,
         color: TEXT_COLOR,
     };
 
@@ -354,7 +354,7 @@ fn sound_settings_menu_setup(
                     for volume_setting in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] {
                         let mut entity = parent.spawn_bundle(ButtonBundle {
                             style: Style {
-                                size: Size::new(Val::Px(15.0), Val::Px(32.0)),
+                                size: Size::new(Val::Px(30.0 / SCALE), Val::Px(65.0 / SCALE)),
                                 ..button_style.clone()
                             },
                             color: NORMAL_BUTTON.into(),
@@ -387,7 +387,15 @@ fn menu_action(
     mut app_exit_events: EventWriter<AppExit>,
     mut menu_state: ResMut<State<MenuState>>,
     mut app_state: ResMut<State<AppState>>,
+    keyboard_input: Res<Input<KeyCode>>,
 ) {
+    if *menu_state.current() != MenuState::Disabled && keyboard_input.just_released(KeyCode::Escape) {
+        app_state.pop().unwrap();
+        menu_state.set(MenuState::Disabled).unwrap();
+        // No need to check anything beyond this point.
+        return;
+    }
+
     for (interaction, menu_button_action) in &interaction_query {
         if *interaction == Interaction::Clicked {
             match menu_button_action {
