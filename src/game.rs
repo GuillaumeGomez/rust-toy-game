@@ -7,7 +7,9 @@ use bevy::window::{PresentMode, WindowPlugin};
 use bevy_egui::{egui, EguiContext, EguiPlugin};
 use bevy_rapier2d::prelude::*;
 
-use crate::{building, player, AppState, GameInfo, NOT_OUTSIDE_WORLD, OUTSIDE_WORLD};
+use crate::{
+    building, character, hud, player, AppState, GameInfo, NOT_OUTSIDE_WORLD, OUTSIDE_WORLD,
+};
 
 pub const ONE_SECOND: u32 = 1_000_000;
 pub const STAT_POINTS_PER_LEVEL: u32 = 3;
@@ -44,7 +46,8 @@ impl Plugin for GamePlugin {
                 .with_system(animate_sprite)
                 .with_system(player::player_movement_system.label("player_movement_system"))
                 .with_system(player::animate_character_system.after("player_movement_system"))
-                .with_system(update_camera)
+                .with_system(hud::update_hud.after("player_movement_system"))
+                .with_system(update_camera.after("player_movement_system"))
                 // .with_system(update_text)
                 .with_system(handle_input)
                 .with_system(handle_windows),
@@ -67,17 +70,18 @@ impl Plugin for GamePlugin {
             SystemSet::on_enter(AppState::Game)
                 .with_system(setup_world)
                 .with_system(player::spawn_player)
-                .with_system(building::spawn_buildings),
+                .with_system(building::spawn_buildings)
+                .with_system(hud::build_stat_hud),
         )
         .add_system_set(
             SystemSet::on_enter(GameState::InsideHouse)
                 .with_system(building::spawn_inside_building)
-                .with_system(hide_outside)
+                .with_system(hide_outside),
         )
         .add_system_set(
             SystemSet::on_exit(GameState::InsideHouse)
                 .with_system(crate::despawn_kind::<InsideHouse>)
-                .with_system(show_outside)
+                .with_system(show_outside),
         )
         .add_state(GameState::Outside);
     }
@@ -184,12 +188,11 @@ fn update_camera(
 fn handle_windows(
     mut egui_context: ResMut<EguiContext>,
     mut app_state: ResMut<GameInfo>,
-    mut player: Query<&mut player::Player>,
+    mut player: Query<&mut character::Character, With<player::Player>>,
 ) {
     if !app_state.show_character_window {
         return;
     }
-    let player = &mut player.single_mut().character;
     egui::Window::new("Character information")
         .collapsible(false)
         .resizable(false)
@@ -201,15 +204,20 @@ fn handle_windows(
             ui.separator();
 
             egui::Grid::new("character_infos").show(ui, |ui| {
+                let character = player.single();
+
                 ui.label("Level");
-                ui.label(&player.level.to_string());
+                ui.label(&character.level.to_string());
                 ui.end_row();
 
                 ui.label("Experience");
-                ui.label(&format!("{} / {}", player.xp, player.xp_to_next_level));
+                ui.label(&format!(
+                    "{} / {}",
+                    character.xp, character.xp_to_next_level
+                ));
                 ui.end_row();
 
-                let stats = &player.stats;
+                let stats = &character.stats;
 
                 ui.label("Health");
                 ui.label(&stats.health.to_string());
@@ -242,17 +250,22 @@ fn handle_windows(
             ui.separator();
 
             egui::Grid::new("character_points").show(ui, |ui| {
-                let entries = [
-                    ("Strength", &mut player.points.strength),
-                    ("Constitution", &mut player.points.constitution),
-                    ("Intelligence", &mut player.points.intelligence),
-                    ("Wisdom", &mut player.points.wisdom),
-                    ("Stamina", &mut player.points.stamina),
-                    ("Agility", &mut player.points.agility),
-                    ("Dexterity", &mut player.points.dexterity),
-                ];
+                let character = player.single();
 
-                if player.unused_points == 0 {
+                let entries = [
+                    ("Strength", character.points.strength),
+                    ("Constitution", character.points.constitution),
+                    ("Intelligence", character.points.intelligence),
+                    ("Wisdom", character.points.wisdom),
+                    ("Stamina", character.points.stamina),
+                    ("Agility", character.points.agility),
+                    ("Dexterity", character.points.dexterity),
+                ];
+                let mut updates = Vec::with_capacity(entries.len());
+
+                let unused_points = character.unused_points;
+                drop(character);
+                if unused_points == 0 {
                     for (label, value) in entries {
                         ui.label(label);
                         ui.label(&value.to_string());
@@ -260,13 +273,13 @@ fn handle_windows(
                     }
                 } else {
                     let mut need_to_use_points = false;
-                    for (label, value) in entries {
+                    for (pos, (label, value)) in entries.into_iter().enumerate() {
                         ui.label(label);
                         ui.horizontal(|ui| {
                             ui.label(&value.to_string());
                             ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
                                 if ui.button("+").clicked() {
-                                    *value += 1;
+                                    updates.push(pos);
                                     need_to_use_points = true;
                                 }
                             });
@@ -274,12 +287,26 @@ fn handle_windows(
                         ui.end_row();
                     }
                     if need_to_use_points {
-                        player.use_stat_point();
+                        // We do it in two steps to avoid triggering a `Changed` event to the HUD.
+                        let mut character = &mut *player.single_mut();
+                        character.use_stat_point();
+                        let parts = [
+                            &mut character.points.strength,
+                            &mut character.points.constitution,
+                            &mut character.points.intelligence,
+                            &mut character.points.wisdom,
+                            &mut character.points.stamina,
+                            &mut character.points.agility,
+                            &mut character.points.dexterity,
+                        ];
+                        for update in updates {
+                            *parts[update] += 1;
+                        }
                     }
                 }
 
                 ui.label("Points available");
-                ui.label(&player.unused_points.to_string());
+                ui.label(&unused_points.to_string());
                 ui.end_row();
             });
         });

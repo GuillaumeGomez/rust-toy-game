@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
 use crate::character::{Character, CharacterPoints};
+use crate::RUN_STAMINA_CONSUMPTION_PER_SEC;
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub enum CharacterAnimationType {
@@ -96,8 +97,10 @@ pub struct Player {
     pub speed: f32,
     pub timer: Timer,
     pub animation_type: CharacterAnimationType,
-    pub character: Character,
     pub is_running: bool,
+    // Once stamina is completely consumed, we need to wait for SHIFT to be released before
+    // running again.
+    pub waiting_for_rerun: bool,
     pub old_x: f32,
     pub old_y: f32,
 }
@@ -129,11 +132,12 @@ pub fn spawn_player(
             speed: 100.0,
             timer: Timer::from_seconds(Player::ANIMATION_TIME, true),
             animation_type: CharacterAnimationType::ForwardIdle,
-            character: Character::new(1, 0, CharacterPoints::level_1()),
             is_running: false,
+            waiting_for_rerun: false,
             old_x: 0.,
             old_y: 0.,
         })
+        .insert(Character::new(1, 0, CharacterPoints::level_1()))
         .insert_bundle(SpriteSheetBundle {
             texture_atlas: texture_atlas_handle,
             ..default()
@@ -161,8 +165,14 @@ pub fn spawn_player(
 }
 
 pub fn player_movement_system(
+    timer: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
-    mut player_info: Query<(&mut Player, &mut TextureAtlasSprite, &mut Velocity)>,
+    mut player_info: Query<(
+        &mut Player,
+        &mut TextureAtlasSprite,
+        &mut Velocity,
+        &mut Character,
+    )>,
     // app_state: Res<State<GameInfo>>,
 ) {
     // if we are not playing the game prevent the player from moving
@@ -170,9 +180,22 @@ pub fn player_movement_system(
     //     return;
     // }
 
-    for (mut player, mut sprite, mut rb_vels) in player_info.iter_mut() {
+    for (mut player, mut sprite, mut rb_vels, mut character) in player_info.iter_mut() {
         let was_running = player.is_running;
-        player.is_running = keyboard_input.pressed(KeyCode::LShift);
+        if keyboard_input.pressed(KeyCode::LShift) {
+            if !player.waiting_for_rerun {
+                let required_to_run = timer.delta().as_secs_f32() * RUN_STAMINA_CONSUMPTION_PER_SEC;
+                player.is_running = character.stats.stamina.value() >= required_to_run;
+                if was_running && !player.is_running {
+                    player.waiting_for_rerun = true;
+                }
+            } else if player.is_running {
+                player.is_running = false;
+            }
+        } else if player.waiting_for_rerun {
+            player.waiting_for_rerun = false;
+        }
+
         let mut speed = player.speed;
         if player.is_running {
             speed *= 2.;
@@ -187,10 +210,15 @@ pub fn player_movement_system(
         let x_axis = -(left as i8) + right as i8;
         let y_axis = -(down as i8) + up as i8;
 
+        let mut skip_animation_update = false;
         if x_axis == 0 && y_axis == 0 {
             player.animation_type.stop_movement();
             rb_vels.linvel.x = 0.;
             rb_vels.linvel.y = 0.;
+
+            // If we don't move, nothing to update.
+            player.is_running = false;
+            player.waiting_for_rerun = false;
         } else {
             let mut move_delta = Vec2::new(x_axis as f32, y_axis as f32);
             move_delta /= move_delta.length();
@@ -200,8 +228,32 @@ pub fn player_movement_system(
                 player.animation_type.set_move(x_axis, y_axis);
             } else if player.is_running == was_running {
                 // Nothing to be updated.
-                continue;
+                skip_animation_update = true;
             }
+        }
+
+        if player.is_running {
+            // When runnning, 10 stamina a secs are computed.
+            character
+                .stats
+                .stamina
+                .subtract(timer.delta().as_secs_f32() * RUN_STAMINA_CONSUMPTION_PER_SEC);
+            if character.stats.stamina.is_empty() {
+                player.waiting_for_rerun = true;
+            }
+        } else if !character.stats.stamina.is_full() {
+            character.stats.stamina.refresh(timer.delta().as_secs_f32());
+            // If the character regained enough stamina to run again for at least 3 seconds, we
+            // switch it back automatically to running.
+            if player.waiting_for_rerun
+                && character.stats.stamina.value() > RUN_STAMINA_CONSUMPTION_PER_SEC * 3.
+            {
+                player.waiting_for_rerun = false;
+            }
+        }
+
+        if skip_animation_update {
+            continue;
         }
 
         sprite.index = player.animation_type.get_index(Player::NB_ANIMATIONS);

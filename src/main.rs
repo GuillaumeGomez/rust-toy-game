@@ -3,6 +3,7 @@
 mod building;
 mod character;
 mod game;
+mod hud;
 mod menu;
 mod player;
 mod stat;
@@ -20,6 +21,7 @@ pub const STAT_POINTS_PER_LEVEL: u32 = 3;
 
 pub const OUTSIDE_WORLD: u32 = 1;
 pub const NOT_OUTSIDE_WORLD: u32 = 2;
+pub const RUN_STAMINA_CONSUMPTION_PER_SEC: f32 = 10.;
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 pub enum AppState {

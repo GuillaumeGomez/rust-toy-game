@@ -2,43 +2,42 @@ use crate::ONE_SECOND;
 
 #[derive(Clone, Debug)]
 pub struct Stat {
-    /// How much got regenerated in a thousand second
-    pub regen_rate: u32,
-    max_value: u32,
-    value: u32,
+    /// How much got regenerated in a second.
+    pub regen_rate: f32,
+    max_value: f32,
+    value: f32,
 }
 
 impl Stat {
-    pub fn new(regen_rate: f32, max_value: u32) -> Stat {
+    pub fn new(regen_rate: f32, max_value: f32) -> Stat {
         Stat {
-            regen_rate: (regen_rate * 1_000.) as _,
-            max_value: max_value * 1_000,
-            value: max_value * 1_000,
+            regen_rate: regen_rate,
+            max_value: max_value,
+            value: max_value,
         }
     }
 
-    pub fn add(&mut self, add: u32) {
-        self.value += add * 1_000;
+    pub fn add(&mut self, add: f32) {
+        self.value += add;
         if self.value > self.max_value {
             self.value = self.max_value
         }
     }
 
-    pub fn subtract(&mut self, sub: u32) {
-        let sub = sub * 1_000;
+    pub fn subtract(&mut self, sub: f32) {
         if sub > self.value {
-            self.value = 0;
+            self.value = 0.;
         } else {
             self.value -= sub;
         }
     }
 
-    pub fn value(&self) -> u32 {
-        self.value / 1_000
+    pub fn value(&self) -> f32 {
+        self.value
     }
 
-    pub fn max_value(&self) -> u32 {
-        self.max_value / 1_000
+    pub fn max_value(&self) -> f32 {
+        self.max_value
     }
 
     pub fn is_full(&self) -> bool {
@@ -46,18 +45,19 @@ impl Stat {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.value < 1_000
+        self.value < 0.1
     }
 
-    pub fn pourcent(&self) -> u32 {
-        self.value * 100 / self.max_value
+    pub fn pourcent(&self) -> f32 {
+        self.value * 100. / self.max_value
     }
 
-    pub fn refresh(&mut self, elapsed: u32) -> bool {
+    // Duration.as_secs_f32
+    pub fn refresh(&mut self, elapsed: f32) -> bool {
         if self.value >= self.max_value {
             return false;
         }
-        self.value += elapsed / (ONE_SECOND / 1_000) * self.regen_rate / 1_000;
+        self.value += elapsed * self.regen_rate;
         if self.value > self.max_value {
             self.value = self.max_value;
         }

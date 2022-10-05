@@ -167,10 +167,7 @@ impl Character {
         }
     }
 
-    pub fn increase_xp(
-        &mut self,
-        xp_to_add: u64, /*, textures: &Textures<'_>, _env: Option<&mut Env>*/
-    ) {
+    pub fn increase_xp(&mut self, xp_to_add: u64) {
         self.xp += xp_to_add;
         if self.xp >= self.xp_to_next_level {
             self.level += 1;

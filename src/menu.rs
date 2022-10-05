@@ -1,6 +1,6 @@
 use bevy::{app::AppExit, prelude::*};
 
-use crate::{SCALE, AppState, despawn_kind};
+use crate::{despawn_kind, AppState, SCALE};
 
 const TEXT_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
 
@@ -389,7 +389,8 @@ fn menu_action(
     mut app_state: ResMut<State<AppState>>,
     keyboard_input: Res<Input<KeyCode>>,
 ) {
-    if *menu_state.current() != MenuState::Disabled && keyboard_input.just_released(KeyCode::Escape) {
+    if *menu_state.current() != MenuState::Disabled && keyboard_input.just_released(KeyCode::Escape)
+    {
         app_state.pop().unwrap();
         menu_state.set(MenuState::Disabled).unwrap();
         // No need to check anything beyond this point.

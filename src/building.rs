@@ -49,7 +49,9 @@ fn insert_building(texture: Handle<TextureAtlas>, commands: &mut Commands, x: f3
                     crate::OUTSIDE_WORLD,
                     crate::OUTSIDE_WORLD,
                 ))
-                .insert_bundle(TransformBundle::from(Transform::from_xyz(-14.0, -30.0, 0.0)));
+                .insert_bundle(TransformBundle::from(Transform::from_xyz(
+                    -14.0, -30.0, 0.0,
+                )));
             // The "enter area" sensor.
             children
                 .spawn()
