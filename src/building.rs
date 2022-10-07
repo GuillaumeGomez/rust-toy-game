@@ -75,8 +75,7 @@ fn insert_building(texture: Handle<TextureAtlas>, commands: &mut Commands, x: f3
                 .insert(Sensor)
                 .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, -36.0, 0.0)));
         })
-        .insert_bundle(TransformBundle::from(Transform::from_xyz(x, y, 0.0)))
-        .insert(crate::game::OutsideWorld);
+        .insert_bundle(TransformBundle::from(Transform::from_xyz(x, y, 0.0)));
 }
 
 pub fn spawn_buildings(

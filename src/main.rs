@@ -2,6 +2,7 @@
 
 mod building;
 mod character;
+mod environment;
 mod game;
 mod hud;
 mod menu;
@@ -19,8 +20,8 @@ use bevy_rapier2d::prelude::*;
 pub const ONE_SECOND: u32 = 1_000_000;
 pub const STAT_POINTS_PER_LEVEL: u32 = 3;
 
-pub const OUTSIDE_WORLD: u32 = 1;
-pub const NOT_OUTSIDE_WORLD: u32 = 2;
+pub const OUTSIDE_WORLD: Group = Group::GROUP_1;
+pub const NOT_OUTSIDE_WORLD: Group = Group::GROUP_2;
 pub const RUN_STAMINA_CONSUMPTION_PER_SEC: f32 = 10.;
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
@@ -29,8 +30,11 @@ pub enum AppState {
     Game,
 }
 
-#[derive(Component, Default)]
-struct CameraPosition(Vec3);
+#[derive(Clone, Eq, PartialEq, Debug, Hash)]
+pub enum DebugState {
+    Disabled,
+    Enabled,
+}
 
 pub const SCALE: f32 = 1.8;
 
@@ -47,20 +51,39 @@ pub fn despawn_kind<T: Component>(to_despawn: Query<Entity, With<T>>, mut comman
     }
 }
 
+pub fn debug_disabled(
+    mut rapier_debug: ResMut<DebugRenderContext>,
+    mut text: Query<&mut Visibility, With<hud::DebugText>>,
+) {
+    rapier_debug.enabled = false;
+    if let Ok(mut text) = text.get_single_mut() {
+        text.is_visible = false;
+    }
+}
+
+pub fn debug_enabled(
+    mut rapier_debug: ResMut<DebugRenderContext>,
+    mut text: Query<&mut Visibility, With<hud::DebugText>>,
+) {
+    rapier_debug.enabled = true;
+    if let Ok(mut text) = text.get_single_mut() {
+        text.is_visible = true;
+    }
+}
+
 pub fn setup_components(
     mut commands: Commands,
     mut windows: ResMut<Windows>,
     mut rapier_config: ResMut<RapierConfiguration>,
     mut egui_context: ResMut<EguiContext>,
     mut egui_settings: ResMut<bevy_egui::EguiSettings>,
+    mut rapier_debug: ResMut<DebugRenderContext>,
 ) {
     // Disable gravity.
     rapier_config.gravity = Vec2::ZERO;
 
     // Add the 2D camera/
-    commands
-        .spawn_bundle(Camera2dBundle::default())
-        .insert(CameraPosition::default());
+    commands.spawn_bundle(Camera2dBundle::default());
 
     // Set the window size and its resolution.
     {
@@ -74,6 +97,10 @@ pub fn setup_components(
     visuals.popup_shadow.extrusion = 0.;
     egui_context.ctx_mut().set_visuals(visuals);
     egui_settings.scale_factor = 1. / SCALE as f64;
+
+    // Setting up the debug display of the physics engine.
+    // rapier_debug.enabled = false;
+    rapier_debug.pipeline.mode = DebugRenderMode::from_bits_truncate(OUTSIDE_WORLD.bits());
 }
 
 fn main() {
@@ -90,7 +117,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0))
         .add_plugin(EguiPlugin)
-        // .add_plugin(RapierDebugRenderPlugin::default())
+        .add_plugin(RapierDebugRenderPlugin::default())
         .add_plugin(menu::MenuPlugin)
         .add_plugin(game::GamePlugin)
         .add_startup_system(setup_components)

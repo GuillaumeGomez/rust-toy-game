@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::ecs::schedule::ShouldRun;
 
 use crate::{character, player};
 
@@ -54,14 +55,39 @@ fn spawn_stat_bar(commands: &mut Commands, stat: StatKind, color: UiColor) {
         });
 }
 
-pub fn build_stat_hud(
+pub fn build_hud(
     mut commands: Commands,
-    ass: ResMut<AssetServer>,
+    asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     spawn_stat_bar(&mut commands, StatKind::Health, Color::RED.into());
     spawn_stat_bar(&mut commands, StatKind::Mana, Color::CYAN.into());
     spawn_stat_bar(&mut commands, StatKind::Stamina, Color::YELLOW.into());
+
+    let font = asset_server.load("fonts/kreon-regular.ttf");
+    commands
+        .spawn_bundle(
+            TextBundle::from_section(
+                "",
+                TextStyle {
+                    font,
+                    font_size: 40.0 / crate::SCALE,
+                    color: Color::WHITE,
+                },
+            )
+            .with_text_alignment(TextAlignment::TOP_RIGHT)
+            .with_style(Style {
+                position_type: PositionType::Absolute,
+                position: UiRect {
+                    top: Val::Px(2.0),
+                    right: Val::Px(2.0),
+                    ..default()
+                },
+                ..default()
+            })
+        )
+        .insert(Visibility { is_visible: false })
+        .insert(DebugText);
 }
 
 pub fn update_hud(
@@ -79,5 +105,24 @@ pub fn update_hud(
                 StatKind::Stamina => character.stats.stamina.pourcent(),
             });
         }
+    }
+}
+
+#[derive(Component)]
+pub struct DebugText;
+
+pub fn update_text(
+    mut text: Query<&mut Text, With<DebugText>>,
+    camera: Query<&Transform, With<Camera>>,
+) {
+    let camera = camera.single().translation;
+    text.single_mut().sections[0].value = format!("({:.2}, {:.2})", camera.x, camera.y);
+}
+
+pub fn run_if_debug(mode: Res<State<crate::DebugState>>) -> ShouldRun {
+    if *mode.current() == crate::DebugState::Enabled {
+        ShouldRun::Yes
+    } else {
+        ShouldRun::No
     }
 }

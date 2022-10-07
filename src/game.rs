@@ -8,7 +8,7 @@ use bevy_egui::{egui, EguiContext, EguiPlugin};
 use bevy_rapier2d::prelude::*;
 
 use crate::{
-    building, character, hud, player, AppState, GameInfo, NOT_OUTSIDE_WORLD, OUTSIDE_WORLD,
+    building, character, environment, hud, player, AppState, GameInfo, NOT_OUTSIDE_WORLD, OUTSIDE_WORLD,
 };
 
 pub const ONE_SECOND: u32 = 1_000_000;
@@ -19,8 +19,6 @@ struct AnimationHandler {
     timer: Timer,
     row: usize,
 }
-// #[derive(Component)]
-// struct EnableText;
 
 pub struct GamePlugin;
 
@@ -48,9 +46,21 @@ impl Plugin for GamePlugin {
                 .with_system(player::animate_character_system.after("player_movement_system"))
                 .with_system(hud::update_hud.after("player_movement_system"))
                 .with_system(update_camera.after("player_movement_system"))
-                // .with_system(update_text)
                 .with_system(handle_input)
                 .with_system(handle_windows),
+        )
+        .add_system_set(
+            SystemSet::new()
+                .with_run_criteria(hud::run_if_debug)
+                .with_system(hud::update_text.after("player_movement_system"))
+        )
+        .add_system_set(
+            SystemSet::on_enter(crate::DebugState::Disabled)
+                .with_system(crate::debug_disabled)
+        )
+        .add_system_set(
+            SystemSet::on_exit(crate::DebugState::Disabled)
+                .with_system(crate::debug_enabled)
         )
         .add_system_set_to_stage(
             CoreStage::PostUpdate,
@@ -71,7 +81,8 @@ impl Plugin for GamePlugin {
                 .with_system(setup_world)
                 .with_system(player::spawn_player)
                 .with_system(building::spawn_buildings)
-                .with_system(hud::build_stat_hud),
+                .with_system(environment::spawn_nature)
+                .with_system(hud::build_hud)
         )
         .add_system_set(
             SystemSet::on_enter(GameState::InsideHouse)
@@ -83,7 +94,8 @@ impl Plugin for GamePlugin {
                 .with_system(crate::despawn_kind::<InsideHouse>)
                 .with_system(show_outside),
         )
-        .add_state(GameState::Outside);
+        .add_state(GameState::Outside)
+        .add_state(crate::DebugState::Disabled);
     }
 }
 
@@ -128,21 +140,6 @@ fn setup_world(
             })
             .insert(OutsideWorld);
     }
-    // let font = asset_server.load("fonts/kreon-regular.ttf");
-    // commands
-    //     .spawn_bundle(Text2dBundle {
-    //         text: Text::from_section(
-    //             "hello",
-    //             TextStyle {
-    //                 font,
-    //                 font_size: 60.0,
-    //                 color: Color::WHITE,
-    //             },
-    //         )
-    //         .with_alignment(TextAlignment::CENTER),
-    //         ..default()
-    //     })
-    //     .insert(EnableText);
 }
 
 fn animate_sprite(
@@ -164,26 +161,18 @@ fn animate_sprite(
 }
 
 fn update_camera(
-    mut camera: Query<(&mut Transform, &Camera), Without<player::Player>>,
-    player: Query<(&Transform, &player::Player), Without<Camera>>,
+    mut camera: Query<&mut Transform, (Without<player::Player>, With<Camera>)>,
+    player: Query<&Transform, (Without<Camera>, With<player::Player>, Changed<Transform>)>,
 ) {
     let player = match player.get_single() {
         Ok(p) => p,
         _ => return,
     };
-    let mut camera = camera.single_mut().0;
+    let mut camera = camera.single_mut();
 
-    camera.translation.x = player.0.translation.x;
-    camera.translation.y = player.0.translation.y;
+    camera.translation.x = player.translation.x;
+    camera.translation.y = player.translation.y;
 }
-
-// fn update_text(
-//     mut text: Query<&mut Text, With<EnableText>>,
-//     camera: Query<&Transform, With<Camera>>,
-// ) {
-//     let camera = camera.single().translation;
-//     text.single_mut().sections[0].value = format!("({:.2}, {:.2})", camera.x, camera.y);
-// }
 
 fn handle_windows(
     mut egui_context: ResMut<EguiContext>,
@@ -316,6 +305,8 @@ pub fn handle_input(
     mut game_state: ResMut<State<AppState>>,
     keyboard_input: Res<Input<KeyCode>>,
     mut app_state: ResMut<GameInfo>,
+    mut rapier_debug: ResMut<DebugRenderContext>,
+    mut debug_state: ResMut<State<crate::DebugState>>,
 ) {
     if keyboard_input.just_released(KeyCode::C) {
         app_state.show_character_window = !app_state.show_character_window;
@@ -327,13 +318,20 @@ pub fn handle_input(
             game_state.push(AppState::Menu).unwrap();
         }
     }
+    if keyboard_input.just_released(KeyCode::F5) {
+        if *debug_state.current() == crate::DebugState::Enabled {
+            debug_state.set(crate::DebugState::Disabled);
+        } else {
+            debug_state.set(crate::DebugState::Enabled);
+        }
+    }
 }
 
 #[inline]
 fn update_player_collisions(
     player: &mut Query<(&Children, &mut Transform, &mut player::Player)>,
     collisions: &mut Query<&mut CollisionGroups>,
-    filter: u32,
+    filter: Group,
 ) {
     let (children, mut pos, mut player) = player.single_mut();
     for child in children {
@@ -349,11 +347,14 @@ fn hide_outside(
     mut visibilities: Query<(&mut Visibility), With<OutsideWorld>>,
     mut player: Query<(&Children, &mut Transform, &mut player::Player)>,
     mut collisions: Query<&mut CollisionGroups>,
+    mut rapier_debug: ResMut<DebugRenderContext>,
 ) {
     for mut visibility in visibilities.iter_mut() {
         visibility.is_visible = false;
     }
 
+    // FIXME: https://github.com/dimforge/rapier/issues/398
+    // rapier_debug.pipeline.mode = DebugRenderMode::from_bits_truncate(NOT_OUTSIDE_WORLD.bits());
     update_player_collisions(&mut player, &mut collisions, NOT_OUTSIDE_WORLD);
 
     let (children, mut pos, mut player) = player.single_mut();
@@ -367,11 +368,14 @@ fn show_outside(
     mut visibilities: Query<(&mut Visibility), With<OutsideWorld>>,
     mut player: Query<(&Children, &mut Transform, &mut player::Player)>,
     mut collisions: Query<&mut CollisionGroups>,
+    mut rapier_debug: ResMut<DebugRenderContext>,
 ) {
     for mut visibility in visibilities.iter_mut() {
         visibility.is_visible = true;
     }
 
+    // FIXME: https://github.com/dimforge/rapier/issues/398
+    // rapier_debug.pipeline.mode = DebugRenderMode::from_bits_truncate(OUTSIDE_WORLD.bits());
     update_player_collisions(&mut player, &mut collisions, OUTSIDE_WORLD);
 
     let (children, mut pos, mut player) = player.single_mut();
