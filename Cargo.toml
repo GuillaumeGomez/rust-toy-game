@@ -15,3 +15,4 @@ opt-level = 3
 bevy = "0.8.1"
 bevy_rapier2d = { version = "0.17.0", features = ["simd-stable"] }
 bevy_egui = "0.16.1"
+bevy_pixel_camera = "0.2"

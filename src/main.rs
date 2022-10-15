@@ -16,6 +16,8 @@ use bevy::render::texture::ImageSettings;
 use bevy::window::{PresentMode, WindowPlugin};
 use bevy_egui::{egui, EguiContext, EguiPlugin};
 use bevy_rapier2d::prelude::*;
+// FIXME: to be removed once https://github.com/bevyengine/bevy/issues/1856 is fixed.
+use bevy_pixel_camera::*;
 
 pub const ONE_SECOND: u32 = 1_000_000;
 pub const STAT_POINTS_PER_LEVEL: u32 = 3;
@@ -82,13 +84,15 @@ pub fn setup_components(
     // Disable gravity.
     rapier_config.gravity = Vec2::ZERO;
 
-    // Add the 2D camera/
-    commands.spawn_bundle(Camera2dBundle::default());
+    // Add the 2D camera.
+    // commands.spawn_bundle(Camera2dBundle::default());
+    let resolution = (1600., 900.);
+    commands.spawn_bundle(PixelCameraBundle::from_resolution(resolution.0 as _, resolution.1 as _));
 
     // Set the window size and its resolution.
     {
         let window = windows.get_primary_mut().unwrap();
-        window.set_resolution(1600., 900.);
+        window.set_resolution(resolution.0, resolution.1);
         window.update_scale_factor_from_backend(SCALE as _);
     }
 
@@ -118,6 +122,10 @@ fn main() {
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0))
         .add_plugin(EguiPlugin)
         .add_plugin(RapierDebugRenderPlugin::default())
+        .add_plugin(PixelCameraPlugin)
+        .add_plugin(PixelBorderPlugin {
+            color: Color::rgb(0.1, 0.1, 0.1),
+        })
         .add_plugin(menu::MenuPlugin)
         .add_plugin(game::GamePlugin)
         .add_startup_system(setup_components)

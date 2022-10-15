@@ -8,7 +8,8 @@ use bevy_egui::{egui, EguiContext, EguiPlugin};
 use bevy_rapier2d::prelude::*;
 
 use crate::{
-    building, character, environment, hud, player, AppState, GameInfo, NOT_OUTSIDE_WORLD, OUTSIDE_WORLD,
+    building, character, environment, hud, player, AppState, GameInfo, NOT_OUTSIDE_WORLD,
+    OUTSIDE_WORLD,
 };
 
 pub const ONE_SECOND: u32 = 1_000_000;
@@ -52,15 +53,13 @@ impl Plugin for GamePlugin {
         .add_system_set(
             SystemSet::new()
                 .with_run_criteria(hud::run_if_debug)
-                .with_system(hud::update_text.after("player_movement_system"))
+                .with_system(hud::update_text.after("player_movement_system")),
         )
         .add_system_set(
-            SystemSet::on_enter(crate::DebugState::Disabled)
-                .with_system(crate::debug_disabled)
+            SystemSet::on_enter(crate::DebugState::Disabled).with_system(crate::debug_disabled),
         )
         .add_system_set(
-            SystemSet::on_exit(crate::DebugState::Disabled)
-                .with_system(crate::debug_enabled)
+            SystemSet::on_exit(crate::DebugState::Disabled).with_system(crate::debug_enabled),
         )
         .add_system_set_to_stage(
             CoreStage::PostUpdate,
@@ -82,7 +81,7 @@ impl Plugin for GamePlugin {
                 .with_system(player::spawn_player)
                 .with_system(building::spawn_buildings)
                 .with_system(environment::spawn_nature)
-                .with_system(hud::build_hud)
+                .with_system(hud::build_hud),
         )
         .add_system_set(
             SystemSet::on_enter(GameState::InsideHouse)

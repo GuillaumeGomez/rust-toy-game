@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use bevy::ecs::schedule::ShouldRun;
+use bevy::prelude::*;
 
 use crate::{character, player};
 
@@ -84,7 +84,7 @@ pub fn build_hud(
                     ..default()
                 },
                 ..default()
-            })
+            }),
         )
         .insert(Visibility { is_visible: false })
         .insert(DebugText);
