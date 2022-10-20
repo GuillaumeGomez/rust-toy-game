@@ -85,7 +85,7 @@ impl CharacterPoints {
             health: Stat::new(health_regen_speed, total_health as _),
             mana: Stat::new(mana_regen_speed, total_mana as _),
             stamina: Stat::new(stamina_regen_speed, total_stamina as _),
-            defense: 2 * self.constitution + 1 * self.stamina,
+            defense: (2 * self.constitution + 1) * self.stamina,
             attack: level + 5 * self.strength + self.constitution / 2 + self.dexterity / 2,
             // FIXME: for now this is useless.
             attack_speed: 1 + 2 * self.agility + self.dexterity,
@@ -171,7 +171,7 @@ impl Character {
         self.xp += xp_to_add;
         if self.xp >= self.xp_to_next_level {
             self.level += 1;
-            self.xp = self.xp - self.xp_to_next_level;
+            self.xp -= self.xp_to_next_level;
             self.xp_to_next_level = self.xp_to_next_level + self.xp_to_next_level / 2;
             self.reset_stats();
             self.stats = self.points.generate_stats(self.level);
@@ -182,10 +182,8 @@ impl Character {
 
     pub fn use_stat_point(&mut self) {
         // FIXME: save the new character status on disk?
-        self.unused_points = self.level as u32
-            * STAT_POINTS_PER_LEVEL
-                .checked_sub(self.points.assigned_points())
-                .unwrap_or(0);
+        self.unused_points =
+            self.level as u32 * STAT_POINTS_PER_LEVEL.saturating_sub(self.points.assigned_points());
         self.stats = self.points.generate_stats(self.level);
     }
 

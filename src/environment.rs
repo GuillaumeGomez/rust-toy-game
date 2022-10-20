@@ -55,14 +55,26 @@ impl Tree {
             Tree::Scary => {
                 children
                     .spawn()
-                    .insert(Collider::cuboid(32., 35.5))
-                    .insert(CollisionGroups::new(group, group));
+                    .insert(Collider::ball(29.))
+                    .insert(CollisionGroups::new(group, group))
+                    .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, 6.0, 0.0)));
             }
             Tree::Dead => {
                 children
                     .spawn()
-                    .insert(Collider::cuboid(21., 32.))
-                    .insert(CollisionGroups::new(group, group));
+                    .insert(Collider::cuboid(8., 24.))
+                    .insert(CollisionGroups::new(group, group))
+                    .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, 8.0, 0.0)));
+                children
+                    .spawn()
+                    .insert(Collider::cuboid(4., 8.))
+                    .insert(CollisionGroups::new(group, group))
+                    .insert_bundle(TransformBundle::from(Transform::from_xyz(14.0, 10.0, 0.0)));
+                children
+                    .spawn()
+                    .insert(Collider::cuboid(4., 3.))
+                    .insert(CollisionGroups::new(group, group))
+                    .insert_bundle(TransformBundle::from(Transform::from_xyz(-14.0, 11.0, 0.0)));
             }
         }
     }
@@ -125,23 +137,24 @@ pub fn spawn_nature(
 
     let trees_texture = asset_server.load("textures/trees.png");
     let mut texture_atlas = TextureAtlas::new_empty(trees_texture, Vec2::new(234., 71.));
-    let mut trees = Vec::with_capacity(4);
-    trees.push(texture_atlas.add_texture(Rect {
-        min: Vec2::new(0., 0.),
-        max: Vec2::new(64., 64.),
-    }));
-    trees.push(texture_atlas.add_texture(Rect {
-        min: Vec2::new(64., 0.),
-        max: Vec2::new(128., 64.),
-    }));
-    trees.push(texture_atlas.add_texture(Rect {
-        min: Vec2::new(128., 0.),
-        max: Vec2::new(192., 71.),
-    }));
-    trees.push(texture_atlas.add_texture(Rect {
-        min: Vec2::new(192., 0.),
-        max: Vec2::new(234., 64.),
-    }));
+    let trees = vec![
+        texture_atlas.add_texture(Rect {
+            min: Vec2::new(0., 0.),
+            max: Vec2::new(64., 64.),
+        }),
+        texture_atlas.add_texture(Rect {
+            min: Vec2::new(64., 0.),
+            max: Vec2::new(128., 64.),
+        }),
+        texture_atlas.add_texture(Rect {
+            min: Vec2::new(128., 0.),
+            max: Vec2::new(192., 71.),
+        }),
+        texture_atlas.add_texture(Rect {
+            min: Vec2::new(193., 0.),
+            max: Vec2::new(234., 64.),
+        }),
+    ];
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
 
     let mut x = -100.;

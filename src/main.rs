@@ -87,7 +87,10 @@ pub fn setup_components(
     // Add the 2D camera.
     // commands.spawn_bundle(Camera2dBundle::default());
     let resolution = (1600., 900.);
-    commands.spawn_bundle(PixelCameraBundle::from_resolution(resolution.0 as _, resolution.1 as _));
+    commands.spawn_bundle(PixelCameraBundle::from_resolution(
+        resolution.0 as _,
+        resolution.1 as _,
+    ));
 
     // Set the window size and its resolution.
     {

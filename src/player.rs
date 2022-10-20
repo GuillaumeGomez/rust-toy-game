@@ -149,7 +149,7 @@ pub fn spawn_player(
             app_state.player_id = Some(
                 children
                     .spawn()
-                    .insert(Collider::cuboid(10.0, 7.0))
+                    .insert(Collider::cuboid(8.0, 7.0))
                     .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, -5.0, 0.0)))
                     .insert(ActiveEvents::COLLISION_EVENTS)
                     .insert(CollisionGroups::new(

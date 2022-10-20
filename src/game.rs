@@ -252,7 +252,7 @@ fn handle_windows(
                 let mut updates = Vec::with_capacity(entries.len());
 
                 let unused_points = character.unused_points;
-                drop(character);
+                // drop(character);
                 if unused_points == 0 {
                     for (label, value) in entries {
                         ui.label(label);
@@ -444,32 +444,29 @@ fn handle_enter_area_events<T: Component>(
     };
 
     for collision_event in collision_events.iter() {
-        match collision_event {
-            CollisionEvent::Started(x, y, CollisionEventFlags::SENSOR) => {
-                let building_id = if *x == player_id {
-                    y
-                } else if *y == player_id {
-                    x
-                } else {
-                    continue;
-                };
-                if !enter_area_captors.contains(*building_id) {
-                    continue;
-                }
-                for mut building in buildings.iter() {
-                    if building.contains(building_id) {
-                        // FIXME: compute real hash
-                        app_state.building_hash = 0;
-                        if *game_state.current() == GameState::Outside {
-                            game_state.set(GameState::InsideHouse);
-                        } else {
-                            game_state.set(GameState::Outside);
-                        }
-                        return;
+        if let CollisionEvent::Started(x, y, CollisionEventFlags::SENSOR) = collision_event {
+            let building_id = if *x == player_id {
+                y
+            } else if *y == player_id {
+                x
+            } else {
+                continue;
+            };
+            if !enter_area_captors.contains(*building_id) {
+                continue;
+            }
+            for mut building in buildings.iter() {
+                if building.contains(building_id) {
+                    // FIXME: compute real hash
+                    app_state.building_hash = 0;
+                    if *game_state.current() == GameState::Outside {
+                        game_state.set(GameState::InsideHouse);
+                    } else {
+                        game_state.set(GameState::Outside);
                     }
+                    return;
                 }
             }
-            _ => {}
         }
     }
 }

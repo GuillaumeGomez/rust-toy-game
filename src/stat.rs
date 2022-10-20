@@ -11,8 +11,8 @@ pub struct Stat {
 impl Stat {
     pub fn new(regen_rate: f32, max_value: f32) -> Stat {
         Stat {
-            regen_rate: regen_rate,
-            max_value: max_value,
+            regen_rate,
+            max_value,
             value: max_value,
         }
     }
