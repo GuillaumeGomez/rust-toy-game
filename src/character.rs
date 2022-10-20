@@ -2,6 +2,7 @@ use crate::stat::Stat;
 use crate::STAT_POINTS_PER_LEVEL;
 
 use bevy::ecs::component::Component;
+use bevy::prelude::*;
 
 #[derive(Debug)]
 pub struct CharacterStats {
@@ -93,8 +94,8 @@ impl CharacterPoints {
             magical_defense: level / 2 + self.wisdom + self.intelligence / 2,
             dodge_change: level + self.agility,
             critical_attack_chance: level + 2 * self.dexterity + self.agility,
-            // You gain 1% of speed every four level.
-            move_speed: 1. + (level as f32) / 400.,
+            // You gain 1% of speed every eight level.
+            move_speed: 100. + ((level - 1) as f32) / 800.,
         }
     }
 }
@@ -191,5 +192,97 @@ impl Character {
         self.stats.health.reset();
         self.stats.mana.reset();
         self.stats.stamina.reset();
+    }
+}
+
+#[derive(Component)]
+pub struct CharacterAnimationInfo {
+    pub animation_time: f32,
+    pub nb_animations: usize,
+    pub timer: Timer,
+    pub animation_type: CharacterAnimationType,
+}
+
+pub fn animate_character_system(
+    time: Res<Time>,
+    mut animation_query: Query<(&mut CharacterAnimationInfo, &mut TextureAtlasSprite)>,
+) {
+    for (mut character, mut sprite) in animation_query.iter_mut() {
+        if !character.animation_type.is_idle() {
+            character.timer.tick(time.delta());
+
+            if character.timer.finished() {
+                sprite.index = (sprite.index + 1) % character.nb_animations
+                    + character.animation_type.get_index(character.nb_animations);
+            }
+        }
+    }
+}
+
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
+pub enum CharacterAnimationType {
+    ForwardIdle,
+    BackwardIdle,
+    LeftIdle,
+    RightIdle,
+    ForwardMove,
+    BackwardMove,
+    LeftMove,
+    RightMove,
+}
+
+impl CharacterAnimationType {
+    pub fn is_idle(self) -> bool {
+        matches!(
+            self,
+            CharacterAnimationType::ForwardIdle
+                | CharacterAnimationType::BackwardIdle
+                | CharacterAnimationType::LeftIdle
+                | CharacterAnimationType::RightIdle
+        )
+    }
+
+    pub fn get_index(self, nb_animations: usize) -> usize {
+        match self {
+            Self::ForwardMove => 0,
+            Self::BackwardMove => nb_animations,
+            Self::LeftMove => nb_animations * 2,
+            Self::RightMove => nb_animations * 3,
+            Self::ForwardIdle => nb_animations * 4,
+            Self::BackwardIdle => nb_animations * 4 + 1,
+            Self::LeftIdle => nb_animations * 4 + 2,
+            Self::RightIdle => nb_animations * 4 + 3,
+        }
+    }
+
+    pub fn stop_movement(&mut self) {
+        match *self {
+            Self::ForwardMove => *self = Self::ForwardIdle,
+            Self::BackwardMove => *self = Self::BackwardIdle,
+            Self::LeftMove => *self = Self::LeftIdle,
+            Self::RightMove => *self = Self::RightIdle,
+            _ => {}
+        }
+    }
+
+    pub fn is_equal(self, x_axis: i8, y_axis: i8) -> bool {
+        match self {
+            Self::ForwardMove | Self::ForwardIdle => y_axis < 0,
+            Self::BackwardMove | Self::BackwardIdle => y_axis > 0,
+            Self::LeftMove | Self::LeftIdle => x_axis < 0,
+            Self::RightMove | Self::RightIdle => x_axis > 0,
+        }
+    }
+
+    pub fn set_move(&mut self, x_axis: i8, y_axis: i8) {
+        if x_axis < 0 {
+            *self = Self::LeftMove;
+        } else if x_axis > 0 {
+            *self = Self::RightMove;
+        } else if y_axis < 0 {
+            *self = Self::ForwardMove;
+        } else {
+            *self = Self::BackwardMove;
+        }
     }
 }

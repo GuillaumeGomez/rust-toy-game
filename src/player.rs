@@ -1,113 +1,20 @@
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
-use crate::character::{Character, CharacterPoints};
+use crate::character::{
+    Character, CharacterAnimationInfo, CharacterAnimationType, CharacterPoints,
+};
 use crate::RUN_STAMINA_CONSUMPTION_PER_SEC;
-
-#[derive(PartialEq, Eq, Copy, Clone, Debug)]
-pub enum CharacterAnimationType {
-    ForwardIdle,
-    BackwardIdle,
-    LeftIdle,
-    RightIdle,
-    ForwardMove,
-    BackwardMove,
-    LeftMove,
-    RightMove,
-}
-
-impl CharacterAnimationType {
-    fn is_idle(self) -> bool {
-        matches!(
-            self,
-            CharacterAnimationType::ForwardIdle
-                | CharacterAnimationType::BackwardIdle
-                | CharacterAnimationType::LeftIdle
-                | CharacterAnimationType::RightIdle
-        )
-    }
-
-    fn get_index(self, nb_animations: usize) -> usize {
-        match self {
-            Self::ForwardIdle => 0,
-            Self::BackwardIdle => 1,
-            Self::LeftIdle => 2,
-            Self::RightIdle => 3,
-            Self::ForwardMove => nb_animations,
-            Self::BackwardMove => nb_animations * 2,
-            Self::LeftMove => nb_animations * 3,
-            Self::RightMove => nb_animations * 4,
-        }
-    }
-
-    fn stop_movement(&mut self) {
-        match *self {
-            Self::ForwardMove => *self = Self::ForwardIdle,
-            Self::BackwardMove => *self = Self::BackwardIdle,
-            Self::LeftMove => *self = Self::LeftIdle,
-            Self::RightMove => *self = Self::RightIdle,
-            _ => {}
-        }
-    }
-
-    fn is_equal(self, x_axis: i8, y_axis: i8) -> bool {
-        match self {
-            Self::ForwardMove | Self::ForwardIdle => y_axis < 0,
-            Self::BackwardMove | Self::BackwardIdle => y_axis > 0,
-            Self::LeftMove | Self::LeftIdle => x_axis < 0,
-            Self::RightMove | Self::RightIdle => x_axis > 0,
-        }
-    }
-
-    fn set_move(&mut self, x_axis: i8, y_axis: i8) {
-        if x_axis < 0 {
-            *self = Self::LeftMove;
-        } else if x_axis > 0 {
-            *self = Self::RightMove;
-        } else if y_axis < 0 {
-            *self = Self::ForwardMove;
-        } else {
-            *self = Self::BackwardMove;
-        }
-    }
-}
-
-pub fn animate_character_system(
-    time: Res<Time>,
-    mut animation_query: Query<(&mut Player, &mut TextureAtlasSprite)>,
-) {
-    for (mut player, mut sprite) in animation_query.iter_mut() {
-        if !player.animation_type.is_idle() {
-            player.timer.tick(time.delta());
-
-            if player.timer.finished() {
-                let max = player.animation_type.get_index(Player::NB_ANIMATIONS) + 9;
-                if sprite.index == max {
-                    sprite.index -= 9;
-                } else {
-                    sprite.index += 1;
-                }
-            }
-        }
-    }
-}
 
 #[derive(Debug, Component)]
 pub struct Player {
-    pub speed: f32,
-    pub timer: Timer,
-    pub animation_type: CharacterAnimationType,
     pub is_running: bool,
     // Once stamina is completely consumed, we need to wait for SHIFT to be released before
     // running again.
     pub waiting_for_rerun: bool,
+    // Used when switching between outside/inside.
     pub old_x: f32,
     pub old_y: f32,
-}
-
-impl Player {
-    const ANIMATION_TIME: f32 = 0.08;
-    const NB_ANIMATIONS: usize = 10;
 }
 
 pub fn spawn_player(
@@ -116,28 +23,30 @@ pub fn spawn_player(
     mut app_state: ResMut<crate::GameInfo>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
+    const NB_ANIMATIONS: usize = 10;
+    const ANIMATION_TIME: f32 = 0.08;
+
     // spawn player
     let texture_handle = asset_server.load("textures/player.png");
-    let texture_atlas = TextureAtlas::from_grid(
-        texture_handle,
-        Vec2::new(22., 24.),
-        Player::NB_ANIMATIONS,
-        5,
-    );
+    let texture_atlas =
+        TextureAtlas::from_grid(texture_handle, Vec2::new(22., 24.), NB_ANIMATIONS, 5);
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
 
     commands
         .spawn()
         .insert(Player {
-            speed: 100.0,
-            timer: Timer::from_seconds(Player::ANIMATION_TIME, true),
-            animation_type: CharacterAnimationType::ForwardIdle,
             is_running: false,
             waiting_for_rerun: false,
             old_x: 0.,
             old_y: 0.,
         })
         .insert(Character::new(1, 0, CharacterPoints::level_1()))
+        .insert(CharacterAnimationInfo {
+            animation_time: ANIMATION_TIME,
+            nb_animations: NB_ANIMATIONS,
+            timer: Timer::from_seconds(ANIMATION_TIME, true),
+            animation_type: CharacterAnimationType::ForwardIdle,
+        })
         .insert_bundle(SpriteSheetBundle {
             texture_atlas: texture_atlas_handle,
             ..default()
@@ -172,15 +81,12 @@ pub fn player_movement_system(
         &mut TextureAtlasSprite,
         &mut Velocity,
         &mut Character,
+        &mut CharacterAnimationInfo,
     )>,
-    // app_state: Res<State<GameInfo>>,
 ) {
-    // if we are not playing the game prevent the player from moving
-    // if app_state.current() != &GameInfo::MainGame {
-    //     return;
-    // }
-
-    for (mut player, mut sprite, mut rb_vels, mut character) in player_info.iter_mut() {
+    for (mut player, mut sprite, mut rb_vels, mut character, mut animation) in
+        player_info.iter_mut()
+    {
         let was_running = player.is_running;
         if keyboard_input.pressed(KeyCode::LShift) {
             if !player.waiting_for_rerun {
@@ -196,7 +102,7 @@ pub fn player_movement_system(
             player.waiting_for_rerun = false;
         }
 
-        let mut speed = player.speed;
+        let mut speed = character.stats.move_speed;
         if player.is_running {
             speed *= 2.;
         }
@@ -212,7 +118,7 @@ pub fn player_movement_system(
 
         let mut skip_animation_update = false;
         if x_axis == 0 && y_axis == 0 {
-            player.animation_type.stop_movement();
+            animation.animation_type.stop_movement();
             rb_vels.linvel.x = 0.;
             rb_vels.linvel.y = 0.;
 
@@ -224,8 +130,10 @@ pub fn player_movement_system(
             move_delta /= move_delta.length();
             rb_vels.linvel = move_delta * speed;
 
-            if player.animation_type.is_idle() || !player.animation_type.is_equal(x_axis, y_axis) {
-                player.animation_type.set_move(x_axis, y_axis);
+            if animation.animation_type.is_idle()
+                || !animation.animation_type.is_equal(x_axis, y_axis)
+            {
+                animation.animation_type.set_move(x_axis, y_axis);
             } else if player.is_running == was_running {
                 // Nothing to be updated.
                 skip_animation_update = true;
@@ -256,11 +164,11 @@ pub fn player_movement_system(
             continue;
         }
 
-        sprite.index = player.animation_type.get_index(Player::NB_ANIMATIONS);
+        sprite.index = animation.animation_type.get_index(animation.nb_animations);
         if player.is_running {
-            player.timer = Timer::from_seconds(Player::ANIMATION_TIME / 2., true);
+            animation.timer = Timer::from_seconds(animation.animation_time / 2., true);
         } else {
-            player.timer = Timer::from_seconds(Player::ANIMATION_TIME, true);
+            animation.timer = Timer::from_seconds(animation.animation_time, true);
         }
         break;
     }

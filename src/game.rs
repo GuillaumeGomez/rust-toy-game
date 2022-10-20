@@ -8,18 +8,12 @@ use bevy_egui::{egui, EguiContext, EguiPlugin};
 use bevy_rapier2d::prelude::*;
 
 use crate::{
-    building, character, environment, hud, player, AppState, GameInfo, NOT_OUTSIDE_WORLD,
+    building, character, environment, hud, monster, player, AppState, GameInfo, NOT_OUTSIDE_WORLD,
     OUTSIDE_WORLD,
 };
 
 pub const ONE_SECOND: u32 = 1_000_000;
 pub const STAT_POINTS_PER_LEVEL: u32 = 3;
-
-#[derive(Component)]
-struct AnimationHandler {
-    timer: Timer,
-    row: usize,
-}
 
 pub struct GamePlugin;
 
@@ -42,9 +36,8 @@ impl Plugin for GamePlugin {
         app.add_system_set(
             SystemSet::new()
                 .with_run_criteria(run_if_game)
-                .with_system(animate_sprite)
                 .with_system(player::player_movement_system.label("player_movement_system"))
-                .with_system(player::animate_character_system.after("player_movement_system"))
+                .with_system(character::animate_character_system.after("player_movement_system"))
                 .with_system(hud::update_hud.after("player_movement_system"))
                 .with_system(update_camera.after("player_movement_system"))
                 .with_system(handle_input)
@@ -77,8 +70,8 @@ impl Plugin for GamePlugin {
         )
         .add_system_set(
             SystemSet::on_enter(AppState::Game)
-                .with_system(setup_world)
                 .with_system(player::spawn_player)
+                .with_system(monster::spawn_monsters)
                 .with_system(building::spawn_buildings)
                 .with_system(environment::spawn_nature)
                 .with_system(hud::build_hud),
@@ -103,59 +96,6 @@ fn run_if_game(mode: Res<State<AppState>>) -> ShouldRun {
         ShouldRun::Yes
     } else {
         ShouldRun::No
-    }
-}
-
-fn setup_world(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
-) {
-    let skeleton_texture = asset_server.load("textures/skeleton.png");
-    let texture_atlas = TextureAtlas::from_grid(skeleton_texture, Vec2::new(48., 48.), 3, 4);
-    let texture_atlas_handle = texture_atlases.add(texture_atlas);
-
-    for row in 0..4 {
-        commands
-            .spawn_bundle(SpriteSheetBundle {
-                texture_atlas: texture_atlas_handle.clone(),
-                transform: Transform {
-                    translation: Vec3 {
-                        x: 200. + (30 * row) as f32,
-                        y: 900. / 3.,
-                        z: 0.,
-                    },
-                    ..default()
-                },
-                sprite: TextureAtlasSprite {
-                    custom_size: Some(Vec2 { x: 26., y: 26. }),
-                    ..default()
-                },
-                ..default()
-            })
-            .insert(AnimationHandler {
-                timer: Timer::from_seconds(0.1, true),
-                row,
-            })
-            .insert(OutsideWorld);
-    }
-}
-
-fn animate_sprite(
-    time: Res<Time>,
-    texture_atlases: Res<Assets<TextureAtlas>>,
-    mut query: Query<(
-        &mut AnimationHandler,
-        &mut TextureAtlasSprite,
-        &Handle<TextureAtlas>,
-    )>,
-) {
-    for (mut handler, mut sprite, texture_atlas_handle) in &mut query {
-        handler.timer.tick(time.delta());
-        if handler.timer.just_finished() {
-            let texture_atlas = texture_atlases.get(texture_atlas_handle).unwrap();
-            sprite.index = (sprite.index + 1) % 3 + handler.row * 3;
-        }
     }
 }
 

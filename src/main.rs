@@ -6,6 +6,7 @@ mod environment;
 mod game;
 mod hud;
 mod menu;
+mod monster;
 mod player;
 mod stat;
 
