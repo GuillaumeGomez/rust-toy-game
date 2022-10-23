@@ -4,7 +4,14 @@ use bevy_rapier2d::prelude::*;
 use crate::character::{
     Character, CharacterAnimationInfo, CharacterAnimationType, CharacterPoints,
 };
+use crate::weapon::Weapon;
 use crate::RUN_STAMINA_CONSUMPTION_PER_SEC;
+
+#[derive(Component)]
+pub struct IsPlayer;
+
+const PLAYER_WIDTH: f32 = 22.;
+const PLAYER_HEIGHT: f32 = 24.;
 
 #[derive(Debug, Component)]
 pub struct Player {
@@ -28,9 +35,14 @@ pub fn spawn_player(
 
     // spawn player
     let texture_handle = asset_server.load("textures/player.png");
-    let texture_atlas =
-        TextureAtlas::from_grid(texture_handle, Vec2::new(22., 24.), NB_ANIMATIONS, 5);
+    let texture_atlas = TextureAtlas::from_grid(
+        texture_handle,
+        Vec2::new(PLAYER_WIDTH, PLAYER_HEIGHT),
+        NB_ANIMATIONS,
+        5,
+    );
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
+    let weapon_handle = asset_server.load("textures/weapon.png");
 
     commands
         .spawn()
@@ -49,12 +61,20 @@ pub fn spawn_player(
         })
         .insert_bundle(SpriteSheetBundle {
             texture_atlas: texture_atlas_handle,
+            sprite: TextureAtlasSprite {
+                custom_size: Some(Vec2 {
+                    x: PLAYER_WIDTH,
+                    y: PLAYER_HEIGHT,
+                }),
+                ..default()
+            },
             ..default()
         })
         .insert(RigidBody::Dynamic)
         .insert(Velocity::zero())
         .insert(LockedAxes::ROTATION_LOCKED)
         .with_children(|children| {
+            // The "move" box.
             app_state.player_id = Some(
                 children
                     .spawn()
@@ -67,6 +87,31 @@ pub fn spawn_player(
                     ))
                     .id(),
             );
+            // The hitbox.
+            children
+                .spawn()
+                .insert(Collider::cuboid(PLAYER_WIDTH - 2., PLAYER_HEIGHT - 2.))
+                .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, 0.0, 0.0)))
+                .insert(Sensor)
+                .insert(CollisionGroups::new(crate::HITBOX, crate::HITBOX));
+            // The weapon (invisible for the moment).
+            children
+                .spawn()
+                .insert(Weapon { weight: 1. })
+                .insert(IsPlayer)
+                .insert_bundle(SpriteBundle {
+                    texture: weapon_handle,
+                    sprite: Sprite {
+                        custom_size: Some(Vec2 { x: 7., y: 20. }),
+                        ..default()
+                    },
+                    ..default()
+                })
+                .insert(Collider::cuboid(5., 20.))
+                .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, 0.0, 0.0)))
+                .insert(Visibility { is_visible: false })
+                .insert(ActiveEvents::COLLISION_EVENTS)
+                .insert(CollisionGroups::new(crate::HITBOX, crate::HITBOX));
         })
         .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, 210.0, 0.0)));
 
@@ -130,9 +175,12 @@ pub fn player_movement_system(
             move_delta /= move_delta.length();
             rb_vels.linvel = move_delta * speed;
 
-            if animation.animation_type.is_idle()
-                || !animation.animation_type.is_equal(x_axis, y_axis)
-            {
+            let is_equal = animation.animation_type.is_equal(x_axis, y_axis);
+            if animation.animation_type.is_idle() || !is_equal {
+                if !is_equal {
+                    // If the character changes direction, it stops the attack.
+                    character.is_attacking = false;
+                }
                 animation.animation_type.set_move(x_axis, y_axis);
             } else if player.is_running == was_running {
                 // Nothing to be updated.
@@ -171,5 +219,63 @@ pub fn player_movement_system(
             animation.timer = Timer::from_seconds(animation.animation_time, true);
         }
         break;
+    }
+}
+
+pub fn player_attack_system(
+    timer: Res<Time>,
+    keyboard_input: Res<Input<KeyCode>>,
+    mut player: Query<(&mut Character, &CharacterAnimationInfo), With<Player>>,
+    mut weapon_info: Query<(&Weapon, &mut Visibility, &mut Transform), With<IsPlayer>>,
+) {
+    let (weapon, mut visibility, mut transform) = match weapon_info.get_single_mut() {
+        Ok(p) => p,
+        Err(_) => return,
+    };
+    let (mut character, animation_info) = player.single_mut();
+
+    if character.is_attacking {
+        character
+            .stats
+            .stamina
+            .subtract(timer.delta().as_secs_f32() * weapon.weight * 10.);
+        if character.stats.stamina.is_empty() {
+            character.is_attacking = false;
+            visibility.is_visible = false;
+        } else {
+            // update animation.
+        }
+        return;
+    } else if visibility.is_visible {
+        visibility.is_visible = false;
+    }
+    if keyboard_input.pressed(KeyCode::Space) {
+        character.is_attacking = character.stats.stamina.value() > weapon.weight * 9.;
+        if !character.is_attacking {
+            return;
+        }
+        match animation_info.animation_type {
+            CharacterAnimationType::ForwardIdle | CharacterAnimationType::ForwardMove => {
+                transform.translation.y = PLAYER_HEIGHT / -2. - 6.;
+                transform.translation.x = 0.;
+                transform.rotation = Quat::from_rotation_z(std::f32::consts::PI);
+            }
+            CharacterAnimationType::BackwardIdle | CharacterAnimationType::BackwardMove => {
+                transform.translation.y = PLAYER_HEIGHT / 2. + 5.;
+                transform.translation.x = 0.;
+                transform.rotation = Quat::IDENTITY;
+            }
+            CharacterAnimationType::LeftIdle | CharacterAnimationType::LeftMove => {
+                transform.translation.y = 0.;
+                transform.translation.x = PLAYER_WIDTH / -2. - 5.;
+                transform.rotation = Quat::from_rotation_z(std::f32::consts::PI / 2.);
+            }
+            CharacterAnimationType::RightIdle | CharacterAnimationType::RightMove => {
+                transform.translation.y = 0.;
+                transform.translation.x = PLAYER_WIDTH / 2. + 5.;
+                transform.rotation = Quat::from_rotation_z(std::f32::consts::PI / -2.);
+            }
+        }
+        visibility.is_visible = true;
     }
 }

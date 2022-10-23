@@ -110,17 +110,8 @@ pub struct Character {
     pub stats: CharacterStats,
     pub points: CharacterPoints,
     pub unused_points: u32,
-    // pub texture_handler: TextureHandler,
-    // pub weapon: Weapon,
-    // pub is_running: bool,
-    // /// How much time you need to move of 1.
-    // pub speed: u32,
-    // /// When "move_delay" is superior than "speed", we trigger the movement.
-    // pub move_delay: u32,
-    // /// How much time we show a tile before going to the next one.
-    // pub tile_duration: u32,
-    // /// When "tile_delay" is superior to "tile_duration", we change the tile.
-    // pub tile_delay: u32,
+    pub is_attacking: bool,
+    pub attack_received_by: Vec<u32>,
     // /// This ID is used when this character is attacking someone else. This "someone else" will
     // /// invincible to any other attack from your ID until the total attack time is over.
     // pub id: Id,
@@ -165,6 +156,8 @@ impl Character {
             stats,
             points,
             unused_points: unassigned + compute_total_nb_points(level),
+            is_attacking: false,
+            attack_received_by: Vec::with_capacity(3),
         }
     }
 

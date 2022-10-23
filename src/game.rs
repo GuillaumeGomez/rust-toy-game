@@ -8,8 +8,8 @@ use bevy_egui::{egui, EguiContext, EguiPlugin};
 use bevy_rapier2d::prelude::*;
 
 use crate::{
-    building, character, environment, hud, monster, player, AppState, GameInfo, NOT_OUTSIDE_WORLD,
-    OUTSIDE_WORLD,
+    building, character, environment, hud, monster, player, weapon, AppState, GameInfo,
+    NOT_OUTSIDE_WORLD, OUTSIDE_WORLD,
 };
 
 pub const ONE_SECOND: u32 = 1_000_000;
@@ -36,7 +36,9 @@ impl Plugin for GamePlugin {
         app.add_system_set(
             SystemSet::new()
                 .with_run_criteria(run_if_game)
+                .with_system(player::player_attack_system.before("player_movement_system"))
                 .with_system(player::player_movement_system.label("player_movement_system"))
+                .with_system(weapon::handle_attacks.after("player_movement_system"))
                 .with_system(character::animate_character_system.after("player_movement_system"))
                 .with_system(hud::update_hud.after("player_movement_system"))
                 .with_system(update_camera.after("player_movement_system"))
@@ -275,15 +277,17 @@ fn update_player_collisions(
     let (children, mut pos, mut player) = player.single_mut();
     for child in children {
         if let Ok(mut collision) = collisions.get_mut(*child) {
-            collision.memberships = filter;
-            collision.filters = filter;
-            break;
+            if collision.memberships != crate::HITBOX {
+                collision.memberships = filter;
+                collision.filters = filter;
+                break;
+            }
         }
     }
 }
 
 fn hide_outside(
-    mut visibilities: Query<(&mut Visibility), With<OutsideWorld>>,
+    mut visibilities: Query<&mut Visibility, With<OutsideWorld>>,
     mut player: Query<(&Children, &mut Transform, &mut player::Player)>,
     mut collisions: Query<&mut CollisionGroups>,
     mut rapier_debug: ResMut<DebugRenderContext>,
