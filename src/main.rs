@@ -110,7 +110,8 @@ pub fn setup_components(
 
     // Setting up the debug display of the physics engine.
     // rapier_debug.enabled = false;
-    rapier_debug.pipeline.mode = DebugRenderMode::from_bits_truncate(OUTSIDE_WORLD.bits());
+    rapier_debug.pipeline.mode = DebugRenderMode::from_bits_truncate(OUTSIDE_WORLD.bits())
+        .union(DebugRenderMode::from_bits_truncate(HITBOX.bits()));
 }
 
 fn main() {

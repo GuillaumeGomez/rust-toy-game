@@ -90,25 +90,40 @@ pub fn spawn_player(
             // The hitbox.
             children
                 .spawn()
-                .insert(Collider::cuboid(PLAYER_WIDTH - 2., PLAYER_HEIGHT - 2.))
-                .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, 0.0, 0.0)))
+                .insert(Collider::cuboid(
+                    PLAYER_WIDTH / 2. - 2.,
+                    PLAYER_HEIGHT / 2. - 2.,
+                ))
+                .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, 2.0, 0.0)))
                 .insert(Sensor)
                 .insert(CollisionGroups::new(crate::HITBOX, crate::HITBOX));
             // The weapon (invisible for the moment).
+            const WEAPON_WIDTH: f32 = 7.;
+            const WEAPON_HEIGHT: f32 = 20.;
             children
                 .spawn()
                 .insert(Weapon { weight: 1. })
                 .insert(IsPlayer)
+                .insert(RigidBody::Dynamic)
                 .insert_bundle(SpriteBundle {
                     texture: weapon_handle,
                     sprite: Sprite {
-                        custom_size: Some(Vec2 { x: 7., y: 20. }),
+                        custom_size: Some(Vec2 {
+                            x: WEAPON_WIDTH,
+                            y: WEAPON_HEIGHT,
+                        }),
                         ..default()
                     },
                     ..default()
                 })
-                .insert(Collider::cuboid(5., 20.))
-                .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, 0.0, 0.0)))
+                // We put the collision handler "outside" of the player to avoid triggering unwanted
+                // collision events.
+                .insert_bundle(TransformBundle::from(Transform::from_xyz(
+                    PLAYER_WIDTH,
+                    0.0,
+                    0.0,
+                )))
+                .insert(Collider::cuboid(WEAPON_WIDTH / 2. - 1., WEAPON_HEIGHT / 2.))
                 .insert(Visibility { is_visible: false })
                 .insert(ActiveEvents::COLLISION_EVENTS)
                 .insert(CollisionGroups::new(crate::HITBOX, crate::HITBOX));
@@ -256,12 +271,12 @@ pub fn player_attack_system(
         }
         match animation_info.animation_type {
             CharacterAnimationType::ForwardIdle | CharacterAnimationType::ForwardMove => {
-                transform.translation.y = PLAYER_HEIGHT / -2. - 6.;
+                transform.translation.y = PLAYER_HEIGHT / -2. - 8.;
                 transform.translation.x = 0.;
                 transform.rotation = Quat::from_rotation_z(std::f32::consts::PI);
             }
             CharacterAnimationType::BackwardIdle | CharacterAnimationType::BackwardMove => {
-                transform.translation.y = PLAYER_HEIGHT / 2. + 5.;
+                transform.translation.y = PLAYER_HEIGHT / 2. + 8.;
                 transform.translation.x = 0.;
                 transform.rotation = Quat::IDENTITY;
             }

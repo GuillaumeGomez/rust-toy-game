@@ -9,22 +9,36 @@ pub struct Weapon {
 }
 
 pub fn check_receivers(
-    characters: &Query<(&Character, &Children)>,
+    characters: &Query<(Entity, &Character, &Children)>,
     weapon: &Weapon,
+    weapon_id: &Entity,
     receiver: &Entity,
 ) {
-    for (mut character, children) in characters.iter() {
-        if children.contains(receiver) {
-            println!("Found both attacker and receiver!");
-            break;
-        }
+    let (attacker_id, attacker) = match characters
+        .iter()
+        .find(|(e, c, children)| c.is_attacking && children.contains(weapon_id))
+    {
+        Some((e, a, _)) => (e, a),
+        None => return,
+    };
+    let (receiver_id, receiver) = match characters
+        .iter()
+        .find(|(e, c, children)| children.contains(receiver))
+    {
+        Some((e, r, _)) => (e, r),
+        None => return,
+    };
+    if attacker_id == receiver_id {
+        println!("attacked itself :'(");
+    } else {
+        println!("Found both attacker and receiver!");
     }
 }
 
 pub fn handle_attacks(
     world: &World,
     mut collision_events: EventReader<CollisionEvent>,
-    mut characters: Query<(&Character, &Children)>,
+    mut characters: Query<(Entity, &Character, &Children)>,
 ) {
     use bevy_rapier2d::rapier::geometry::CollisionEventFlags;
 
@@ -32,16 +46,13 @@ pub fn handle_attacks(
         if let CollisionEvent::Started(x, y, CollisionEventFlags::SENSOR) = collision_event {
             match world.get_entity(*x).and_then(|e| e.get::<Weapon>()) {
                 Some(w) => {
-                    check_receivers(&characters, w, y);
+                    check_receivers(&characters, w, x, y);
                     continue;
                 }
                 None => {}
             };
             match world.get_entity(*y).and_then(|e| e.get::<Weapon>()) {
-                Some(w) => {
-                    check_receivers(&characters, w, x);
-                    continue;
-                }
+                Some(w) => check_receivers(&characters, w, y, x),
                 None => {}
             };
         }

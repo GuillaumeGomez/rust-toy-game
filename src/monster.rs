@@ -16,6 +16,8 @@ pub fn spawn_monsters(
 ) {
     const NB_ANIMATIONS: usize = 3;
     const ANIMATION_TIME: f32 = 0.15;
+    const WIDTH: f32 = 26.;
+    const HEIGHT: f32 = 26.;
 
     let skeleton_texture = asset_server.load("textures/skeleton.png");
     let texture_atlas =
@@ -25,17 +27,20 @@ pub fn spawn_monsters(
     commands
         .spawn()
         .insert(Skeleton)
-        .insert(Character::new(1, 0, CharacterPoints::level_1()))
+        .insert(Character::new(2, 0, CharacterPoints::level_1()))
         .insert(CharacterAnimationInfo {
             animation_time: ANIMATION_TIME,
             nb_animations: NB_ANIMATIONS,
             timer: Timer::from_seconds(ANIMATION_TIME, true),
-            animation_type: CharacterAnimationType::ForwardMove,
+            animation_type: CharacterAnimationType::ForwardIdle,
         })
         .insert_bundle(SpriteSheetBundle {
             texture_atlas: texture_atlas_handle,
             sprite: TextureAtlasSprite {
-                custom_size: Some(Vec2 { x: 26., y: 26. }),
+                custom_size: Some(Vec2 {
+                    x: WIDTH,
+                    y: HEIGHT,
+                }),
                 ..default()
             },
             ..default()
@@ -44,6 +49,7 @@ pub fn spawn_monsters(
         .insert(Velocity::zero())
         .insert(LockedAxes::ROTATION_LOCKED)
         .with_children(|children| {
+            // move box
             children
                 .spawn()
                 .insert(Collider::cuboid(8.0, 7.0))
@@ -53,6 +59,12 @@ pub fn spawn_monsters(
                     crate::OUTSIDE_WORLD,
                     crate::OUTSIDE_WORLD,
                 ));
+            children
+                .spawn()
+                .insert(Collider::cuboid(WIDTH / 2. - 6., HEIGHT / 2. - 1.))
+                .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, -2.0, 0.0)))
+                .insert(Sensor)
+                .insert(CollisionGroups::new(crate::HITBOX, crate::HITBOX));
         })
         .insert_bundle(TransformBundle::from(Transform::from_xyz(
             200.0, 210.0, 0.0,
