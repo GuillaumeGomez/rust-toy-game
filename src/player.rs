@@ -225,14 +225,14 @@ pub fn player_movement_system(
 pub fn player_attack_system(
     timer: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
-    mut player: Query<(&mut Character, &CharacterAnimationInfo, &Transform), With<Player>>,
-    mut weapon_info: Query<(&Weapon, &mut Visibility, &mut Transform), (With<IsPlayer>, Without<Player>)>,
+    mut player: Query<(&mut Character, &CharacterAnimationInfo), With<Player>>,
+    mut weapon_info: Query<(&Weapon, &mut Visibility, &mut Transform), With<IsPlayer>>,
 ) {
     let (weapon, mut visibility, mut transform) = match weapon_info.get_single_mut() {
         Ok(p) => p,
         Err(_) => return,
     };
-    let (mut character, animation_info, player_pos) = player.single_mut();
+    let (mut character, animation_info) = player.single_mut();
 
     if character.is_attacking {
         character
