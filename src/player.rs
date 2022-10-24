@@ -225,14 +225,14 @@ pub fn player_movement_system(
 pub fn player_attack_system(
     timer: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
-    mut player: Query<(&mut Character, &CharacterAnimationInfo), With<Player>>,
-    mut weapon_info: Query<(&Weapon, &mut Visibility, &mut Transform), With<IsPlayer>>,
+    mut player: Query<(&mut Character, &CharacterAnimationInfo, &Transform), With<Player>>,
+    mut weapon_info: Query<(&Weapon, &mut Visibility, &mut Transform), (With<IsPlayer>, Without<Player>)>,
 ) {
     let (weapon, mut visibility, mut transform) = match weapon_info.get_single_mut() {
         Ok(p) => p,
         Err(_) => return,
     };
-    let (mut character, animation_info) = player.single_mut();
+    let (mut character, animation_info, player_pos) = player.single_mut();
 
     if character.is_attacking {
         character
@@ -276,6 +276,8 @@ pub fn player_attack_system(
                 transform.rotation = Quat::from_rotation_z(std::f32::consts::PI / -2.);
             }
         }
+        // We set its z-index to 1 so it also appears in buildings.
+        transform.translation.z = 1.;
         visibility.is_visible = true;
     }
 }
