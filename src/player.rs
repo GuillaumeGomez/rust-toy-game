@@ -205,14 +205,14 @@ pub fn player_movement_system(
 
         if player.is_running {
             // When runnning, 10 stamina a secs are computed.
-            character
+            if !character
                 .stats
                 .stamina
-                .subtract(timer.delta().as_secs_f32() * RUN_STAMINA_CONSUMPTION_PER_SEC);
-            if character.stats.stamina.is_empty() {
+                .subtract(timer.delta().as_secs_f32() * RUN_STAMINA_CONSUMPTION_PER_SEC)
+            {
                 player.waiting_for_rerun = true;
             }
-        } else if !character.stats.stamina.is_full() {
+        } else if !character.is_attacking && !character.stats.stamina.is_full() {
             character.stats.stamina.refresh(timer.delta().as_secs_f32());
             // If the character regained enough stamina to run again for at least 3 seconds, we
             // switch it back automatically to running.
@@ -247,18 +247,21 @@ pub fn player_attack_system(
         Ok(p) => p,
         Err(_) => return,
     };
-    let (mut character, animation_info) = player.single_mut();
+    let (ref mut character, animation_info) = player.single_mut();
 
     if character.is_attacking {
-        character
+        let delta = timer.delta().as_secs_f32();
+        if !character
             .stats
             .stamina
-            .subtract(timer.delta().as_secs_f32() * weapon.weight * 10.);
-        if character.stats.stamina.is_empty() {
+            .subtract(delta * weapon.weight * 10.)
+        {
             character.is_attacking = false;
             visibility.is_visible = false;
         } else {
-            // update animation.
+            let mut array = transform.rotation.to_array();
+            array[2] += std::f32::consts::PI / 4. * delta * character.stats.attack_speed;
+            transform.rotation = Quat::from_array(array);
         }
         return;
     } else if visibility.is_visible {
@@ -273,22 +276,25 @@ pub fn player_attack_system(
             CharacterAnimationType::ForwardIdle | CharacterAnimationType::ForwardMove => {
                 transform.translation.y = PLAYER_HEIGHT / -2. - 8.;
                 transform.translation.x = 0.;
-                transform.rotation = Quat::from_rotation_z(std::f32::consts::PI);
+                transform.rotation =
+                    Quat::from_rotation_z(std::f32::consts::PI - std::f32::consts::PI / 4.);
             }
             CharacterAnimationType::BackwardIdle | CharacterAnimationType::BackwardMove => {
                 transform.translation.y = PLAYER_HEIGHT / 2. + 8.;
                 transform.translation.x = 0.;
-                transform.rotation = Quat::IDENTITY;
+                transform.rotation = Quat::from_rotation_z(std::f32::consts::PI / -4.);
             }
             CharacterAnimationType::LeftIdle | CharacterAnimationType::LeftMove => {
                 transform.translation.y = 0.;
                 transform.translation.x = PLAYER_WIDTH / -2. - 5.;
-                transform.rotation = Quat::from_rotation_z(std::f32::consts::PI / 2.);
+                transform.rotation =
+                    Quat::from_rotation_z(std::f32::consts::PI / 2. - std::f32::consts::PI / 4.);
             }
             CharacterAnimationType::RightIdle | CharacterAnimationType::RightMove => {
                 transform.translation.y = 0.;
                 transform.translation.x = PLAYER_WIDTH / 2. + 5.;
-                transform.rotation = Quat::from_rotation_z(std::f32::consts::PI / -2.);
+                transform.rotation =
+                    Quat::from_rotation_z(std::f32::consts::PI / -2. - std::f32::consts::PI / 4.);
             }
         }
         // We set its z-index to 1 so it also appears in buildings.

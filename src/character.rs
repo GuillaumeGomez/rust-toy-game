@@ -11,8 +11,8 @@ pub struct CharacterStats {
     pub stamina: Stat,
     pub defense: u32,
     pub attack: u32,
+    pub attack_speed: f32,
     // FIXME: this isn't used at the moment.
-    pub attack_speed: u32,
     pub magical_attack: u32,
     pub magical_defense: u32,
     /// It also takes into account the opponent level, agility and dexterity.
@@ -88,8 +88,8 @@ impl CharacterPoints {
             stamina: Stat::new(stamina_regen_speed, total_stamina as _),
             defense: (2 * self.constitution + 1) * self.stamina,
             attack: level + 5 * self.strength + self.constitution / 2 + self.dexterity / 2,
+            attack_speed: (1 + 2 * self.agility + self.dexterity) as f32,
             // FIXME: for now this is useless.
-            attack_speed: 1 + 2 * self.agility + self.dexterity,
             magical_attack: level + 2 * self.wisdom + self.intelligence,
             magical_defense: level / 2 + self.wisdom + self.intelligence / 2,
             dodge_change: level + self.agility,

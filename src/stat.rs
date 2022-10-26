@@ -24,11 +24,13 @@ impl Stat {
         }
     }
 
-    pub fn subtract(&mut self, sub: f32) {
+    pub fn subtract(&mut self, sub: f32) -> bool {
         if sub > self.value {
             self.value = 0.;
+            false
         } else {
             self.value -= sub;
+            true
         }
     }
 
