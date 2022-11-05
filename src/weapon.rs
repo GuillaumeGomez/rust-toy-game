@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::utils::Duration;
 use bevy_rapier2d::prelude::*;
 
 use crate::character::Character;
@@ -6,6 +7,20 @@ use crate::character::Character;
 #[derive(Debug, Component)]
 pub struct Weapon {
     pub weight: f32,
+    pub timer: Timer,
+    pub width: f32,
+    pub height: f32,
+}
+
+impl Weapon {
+    pub fn new(weight: f32, width: f32, height: f32, duration_in_millis: f32) -> Self {
+        Self {
+            weight,
+            timer: Timer::new(Duration::from_secs_f32(duration_in_millis / 1_000.), false),
+            width,
+            height,
+        }
+    }
 }
 
 pub fn check_receivers(

@@ -1,4 +1,5 @@
 use crate::stat::Stat;
+use crate::weapon::Weapon;
 use crate::STAT_POINTS_PER_LEVEL;
 
 use bevy::ecs::component::Component;
@@ -11,6 +12,7 @@ pub struct CharacterStats {
     pub stamina: Stat,
     pub defense: u32,
     pub attack: u32,
+    /// The higher it is, the less time it takes to perform an attack.
     pub attack_speed: f32,
     // FIXME: this isn't used at the moment.
     pub magical_attack: u32,
@@ -185,6 +187,19 @@ impl Character {
         self.stats.health.reset();
         self.stats.mana.reset();
         self.stats.stamina.reset();
+    }
+
+    pub fn set_weapon(&self, weapon_weigth: f32, weapon_width: f32, weapon_height: f32) -> Weapon {
+        let mut time_for_an_attack = 333. - self.stats.attack_speed / 10.;
+        if time_for_an_attack < 50. {
+            time_for_an_attack = 50.;
+        }
+        Weapon::new(
+            weapon_weigth,
+            weapon_height,
+            weapon_width,
+            time_for_an_attack,
+        )
     }
 }
 

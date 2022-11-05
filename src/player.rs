@@ -43,6 +43,12 @@ pub fn spawn_player(
     );
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
     let weapon_handle = asset_server.load("textures/weapon.png");
+    let character = Character::new(1, 0, CharacterPoints::level_1());
+
+    const WEAPON_WIDTH: f32 = 7.;
+    const WEAPON_HEIGHT: f32 = 20.;
+
+    let weapon = character.set_weapon(1., WEAPON_WIDTH, WEAPON_HEIGHT);
 
     commands
         .spawn()
@@ -52,7 +58,7 @@ pub fn spawn_player(
             old_x: 0.,
             old_y: 0.,
         })
-        .insert(Character::new(1, 0, CharacterPoints::level_1()))
+        .insert(character)
         .insert(CharacterAnimationInfo {
             animation_time: ANIMATION_TIME,
             nb_animations: NB_ANIMATIONS,
@@ -98,11 +104,9 @@ pub fn spawn_player(
                 .insert(Sensor)
                 .insert(CollisionGroups::new(crate::HITBOX, crate::HITBOX));
             // The weapon (invisible for the moment).
-            const WEAPON_WIDTH: f32 = 7.;
-            const WEAPON_HEIGHT: f32 = 20.;
             children
                 .spawn()
-                .insert(Weapon { weight: 1. })
+                .insert(weapon)
                 .insert(IsPlayer)
                 .insert(RigidBody::Dynamic)
                 .insert_bundle(SpriteBundle {
@@ -241,9 +245,9 @@ pub fn player_attack_system(
     timer: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
     mut player: Query<(&mut Character, &CharacterAnimationInfo), With<Player>>,
-    mut weapon_info: Query<(&Weapon, &mut Visibility, &mut Transform), With<IsPlayer>>,
+    mut weapon_info: Query<(&mut Weapon, &mut Visibility, &mut Transform), With<IsPlayer>>,
 ) {
-    let (weapon, mut visibility, mut transform) = match weapon_info.get_single_mut() {
+    let (mut weapon, mut visibility, mut transform) = match weapon_info.get_single_mut() {
         Ok(p) => p,
         Err(_) => return,
     };
@@ -251,10 +255,12 @@ pub fn player_attack_system(
 
     if character.is_attacking {
         let delta = timer.delta().as_secs_f32();
-        if !character
-            .stats
-            .stamina
-            .subtract(delta * weapon.weight * 10.)
+        weapon.timer.tick(timer.delta());
+        if weapon.timer.finished()
+            || !character
+                .stats
+                .stamina
+                .subtract(delta * weapon.weight * 10.)
         {
             character.is_attacking = false;
             visibility.is_visible = false;
@@ -266,12 +272,12 @@ pub fn player_attack_system(
         return;
     } else if visibility.is_visible {
         visibility.is_visible = false;
-    }
-    if keyboard_input.pressed(KeyCode::Space) {
+    } else if keyboard_input.pressed(KeyCode::Space) {
         character.is_attacking = character.stats.stamina.value() > weapon.weight * 9.;
         if !character.is_attacking {
             return;
         }
+        weapon.timer.reset();
         match animation_info.animation_type {
             CharacterAnimationType::ForwardIdle | CharacterAnimationType::ForwardMove => {
                 transform.translation.y = PLAYER_HEIGHT / -2. - 8.;
