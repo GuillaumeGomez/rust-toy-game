@@ -113,7 +113,9 @@ pub struct Character {
     pub points: CharacterPoints,
     pub unused_points: u32,
     pub is_attacking: bool,
-    pub attack_received_by: Vec<u32>,
+    pub attack_receivers: Vec<u32>,
+    pub width: f32,
+    pub height: f32,
     // /// This ID is used when this character is attacking someone else. This "someone else" will
     // /// invincible to any other attack from your ID until the total attack time is over.
     // pub id: Id,
@@ -125,10 +127,6 @@ pub struct Character {
     // pub effect: RefCell<Option<(f32, f32, u32)>>,
     // pub weapon_action: Option<WeaponAction>,
     // pub blocking_direction: Option<Direction>,
-    // pub animations: Vec<Animation>,
-    // /// When moving, only the feet should be taken into account, not the head. So this is hitbox
-    // /// containing width and height based on the bottom of the texture.
-    // pub move_hitbox: (u32, u32),
 }
 
 fn compute_xp_to_next_level(level: u16) -> u64 {
@@ -148,7 +146,7 @@ fn compute_total_nb_points(level: u16) -> u32 {
 }
 
 impl Character {
-    pub fn new(level: u16, xp: u64, points: CharacterPoints) -> Self {
+    pub fn new(level: u16, xp: u64, points: CharacterPoints, width: f32, height: f32) -> Self {
         let stats = points.generate_stats(level);
         let unassigned = points.assigned_points();
         Self {
@@ -159,7 +157,9 @@ impl Character {
             points,
             unused_points: unassigned + compute_total_nb_points(level),
             is_attacking: false,
-            attack_received_by: Vec::with_capacity(3),
+            attack_receivers: Vec::with_capacity(3),
+            width,
+            height,
         }
     }
 
@@ -189,12 +189,19 @@ impl Character {
         self.stats.stamina.reset();
     }
 
-    pub fn set_weapon(&self, weapon_weigth: f32, weapon_width: f32, weapon_height: f32) -> Weapon {
+    pub fn set_weapon(
+        &self,
+        attack: u32,
+        weapon_weigth: f32,
+        weapon_width: f32,
+        weapon_height: f32,
+    ) -> Weapon {
         let mut time_for_an_attack = 333. - self.stats.attack_speed / 10.;
         if time_for_an_attack < 50. {
             time_for_an_attack = 50.;
         }
         Weapon::new(
+            attack,
             weapon_weigth,
             weapon_height,
             weapon_width,

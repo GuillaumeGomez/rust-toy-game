@@ -43,12 +43,18 @@ pub fn spawn_player(
     );
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
     let weapon_handle = asset_server.load("textures/weapon.png");
-    let character = Character::new(1, 0, CharacterPoints::level_1());
+    let character = Character::new(
+        1,
+        0,
+        CharacterPoints::level_1(),
+        PLAYER_WIDTH,
+        PLAYER_HEIGHT,
+    );
 
     const WEAPON_WIDTH: f32 = 7.;
     const WEAPON_HEIGHT: f32 = 20.;
 
-    let weapon = character.set_weapon(1., WEAPON_WIDTH, WEAPON_HEIGHT);
+    let weapon = character.set_weapon(1, 1., WEAPON_WIDTH, WEAPON_HEIGHT);
 
     commands
         .spawn()

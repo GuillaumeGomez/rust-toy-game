@@ -27,7 +27,13 @@ pub fn spawn_monsters(
     commands
         .spawn()
         .insert(Skeleton)
-        .insert(Character::new(2, 0, CharacterPoints::level_1()))
+        .insert(Character::new(
+            2,
+            0,
+            CharacterPoints::level_1(),
+            WIDTH,
+            HEIGHT,
+        ))
         .insert(CharacterAnimationInfo {
             animation_time: ANIMATION_TIME,
             nb_animations: NB_ANIMATIONS,
