@@ -132,7 +132,7 @@ pub fn spawn_player(
                 .insert(ActiveEvents::COLLISION_EVENTS)
                 .insert(CollisionGroups::new(crate::HITBOX, crate::HITBOX));
         })
-        .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, 210.0, 0.0)));
+        .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, 210.0, 1.0)));
 
     println!("player id: {:?}", app_state.player_id);
 }
@@ -264,47 +264,41 @@ pub fn player_attack_system(
         {
             character.is_attacking = false;
             visibility.is_visible = false;
-        } else {
-            let mut array = transform.rotation.to_array();
-            array[2] += std::f32::consts::PI / 4. * delta * character.stats.attack_speed;
-            transform.rotation = Quat::from_array(array);
         }
-        return;
     } else if visibility.is_visible {
         visibility.is_visible = false;
     } else if keyboard_input.pressed(KeyCode::Space) {
         character.is_attacking = character.stats.stamina.value() > weapon.weight * 9.;
-        if !character.is_attacking {
-            return;
-        }
         weapon.timer.reset();
-        match animation_info.animation_type {
-            CharacterAnimationType::ForwardIdle | CharacterAnimationType::ForwardMove => {
-                transform.translation.y = PLAYER_HEIGHT / -2. - 8.;
-                transform.translation.x = 0.;
-                transform.rotation =
-                    Quat::from_rotation_z(std::f32::consts::PI - std::f32::consts::PI / 4.);
-            }
-            CharacterAnimationType::BackwardIdle | CharacterAnimationType::BackwardMove => {
-                transform.translation.y = PLAYER_HEIGHT / 2. + 8.;
-                transform.translation.x = 0.;
-                transform.rotation = Quat::from_rotation_z(std::f32::consts::PI / -4.);
-            }
-            CharacterAnimationType::LeftIdle | CharacterAnimationType::LeftMove => {
-                transform.translation.y = 0.;
-                transform.translation.x = PLAYER_WIDTH / -2. - 5.;
-                transform.rotation =
-                    Quat::from_rotation_z(std::f32::consts::PI / 2. - std::f32::consts::PI / 4.);
-            }
-            CharacterAnimationType::RightIdle | CharacterAnimationType::RightMove => {
-                transform.translation.y = 0.;
-                transform.translation.x = PLAYER_WIDTH / 2. + 5.;
-                transform.rotation =
-                    Quat::from_rotation_z(std::f32::consts::PI / -2. - std::f32::consts::PI / 4.);
-            }
-        }
-        // We set its z-index to 1 so it also appears in buildings.
-        transform.translation.z = 1.;
         visibility.is_visible = true;
+        // We set its z-index to 1 so it also appears in buildings.
+        transform.translation.z = 0.9;
     }
+    if !character.is_attacking {
+        return;
+    }
+    let percent = weapon.timer.elapsed_secs() / weapon.timer.duration().as_secs_f32();
+    let angle = std::f32::consts::PI / 2. * percent - std::f32::consts::PI / 4.;
+    transform.rotation = match animation_info.animation_type {
+        CharacterAnimationType::ForwardIdle | CharacterAnimationType::ForwardMove => {
+            transform.translation.y = PLAYER_HEIGHT / -2. - 8.;
+            transform.translation.x = 5. * percent - 2.;
+            Quat::from_rotation_z(std::f32::consts::PI + angle)
+        }
+        CharacterAnimationType::BackwardIdle | CharacterAnimationType::BackwardMove => {
+            transform.translation.y = PLAYER_HEIGHT / 2. + 8.;
+            transform.translation.x = -5. * percent + 3.;
+            Quat::from_rotation_z(0. + angle)
+        }
+        CharacterAnimationType::LeftIdle | CharacterAnimationType::LeftMove => {
+            transform.translation.y = -5. * percent + 1.;
+            transform.translation.x = PLAYER_WIDTH / -2. - 5.;
+            Quat::from_rotation_z(std::f32::consts::PI / 2. + angle)
+        }
+        CharacterAnimationType::RightIdle | CharacterAnimationType::RightMove => {
+            transform.translation.y = 5. * percent;
+            transform.translation.x = PLAYER_WIDTH / 2. + 5.;
+            Quat::from_rotation_z(std::f32::consts::PI / -2. + angle)
+        }
+    };
 }
