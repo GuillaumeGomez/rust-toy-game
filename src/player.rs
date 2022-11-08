@@ -136,7 +136,7 @@ pub fn spawn_player(
                 .insert(Collider::cuboid(WEAPON_WIDTH / 2. - 1., WEAPON_HEIGHT / 2.))
                 .insert(Visibility { is_visible: false })
                 .insert(ActiveEvents::COLLISION_EVENTS)
-                .insert(CollisionGroups::new(crate::HITBOX, crate::HITBOX));
+                .insert(CollisionGroups::new(crate::NOTHING, crate::NOTHING));
         })
         .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, 210.0, 1.0)));
 
@@ -251,12 +251,21 @@ pub fn player_attack_system(
     timer: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
     mut player: Query<(&mut Character, &CharacterAnimationInfo), With<Player>>,
-    mut weapon_info: Query<(&mut Weapon, &mut Visibility, &mut Transform), With<IsPlayer>>,
+    mut weapon_info: Query<
+        (
+            &mut Weapon,
+            &mut Visibility,
+            &mut Transform,
+            &mut CollisionGroups,
+        ),
+        With<IsPlayer>,
+    >,
 ) {
-    let (mut weapon, mut visibility, mut transform) = match weapon_info.get_single_mut() {
-        Ok(p) => p,
-        Err(_) => return,
-    };
+    let (mut weapon, mut visibility, mut transform, mut collision_groups) =
+        match weapon_info.get_single_mut() {
+            Ok(p) => p,
+            Err(_) => return,
+        };
     let (ref mut character, animation_info) = player.single_mut();
 
     if character.is_attacking {
@@ -270,13 +279,15 @@ pub fn player_attack_system(
         {
             character.is_attacking = false;
             visibility.is_visible = false;
+            collision_groups.memberships = crate::NOTHING;
+            collision_groups.filters = crate::NOTHING;
         }
-    } else if visibility.is_visible {
-        visibility.is_visible = false;
     } else if keyboard_input.pressed(KeyCode::Space) {
         character.is_attacking = character.stats.stamina.value() > weapon.weight * 9.;
         weapon.timer.reset();
         visibility.is_visible = true;
+        collision_groups.memberships = crate::HITBOX;
+        collision_groups.filters = crate::HITBOX;
         // We set its z-index to 1 so it also appears in buildings.
         transform.translation.z = 0.9;
     }

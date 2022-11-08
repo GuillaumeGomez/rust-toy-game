@@ -27,6 +27,7 @@ pub const STAT_POINTS_PER_LEVEL: u32 = 3;
 pub const OUTSIDE_WORLD: Group = Group::GROUP_1;
 pub const NOT_OUTSIDE_WORLD: Group = Group::GROUP_2;
 pub const HITBOX: Group = Group::GROUP_3;
+pub const NOTHING: Group = Group::GROUP_4;
 pub const RUN_STAMINA_CONSUMPTION_PER_SEC: f32 = 10.;
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]

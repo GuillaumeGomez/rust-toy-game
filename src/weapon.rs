@@ -75,25 +75,27 @@ pub fn check_receivers(
         if receiver.stats.health.is_empty() {
             commands.entity(receiver_id).despawn_recursive();
         } else {
-            let child = commands
-                .spawn_bundle(TextBundle::from_section(
-                    damage.to_string().as_str(),
-                    TextStyle {
-                        font: asset_server.load("fonts/kreon-regular.ttf"),
-                        font_size: 10.0 / crate::SCALE,
-                        color: Color::RED,
-                    },
-                ))
-                .insert(Notification {
-                    timer: Timer::from_seconds(NOTIFICATION_TIME, false),
-                })
-                .insert_bundle(TransformBundle::from(Transform::from_xyz(
-                    0.,
-                    receiver.height / 2. + 2.,
-                    0.,
-                )))
-                .id();
-            commands.entity(receiver_id).push_children(&[child]);
+            commands.entity(receiver_id).add_children(|children| {
+                children
+                    .spawn_bundle(TextBundle::from_section(
+                        damage.to_string().as_str(),
+                        TextStyle {
+                            font: asset_server.load("fonts/kreon-regular.ttf"),
+                            font_size: 10.0 / crate::SCALE,
+                            color: Color::RED,
+                        },
+                    ))
+                    .insert(Notification {
+                        timer: Timer::from_seconds(NOTIFICATION_TIME, false),
+                    })
+                    .insert_bundle(TransformBundle::from(Transform::from_xyz(
+                        0.,
+                        receiver.height / 2. + 2.,
+                        0.,
+                    )));
+            });
+            // .id();
+            // commands.entity(receiver_id).add_child(child);
         }
     }
 }
@@ -132,7 +134,7 @@ pub fn handle_attacks(
                         if let Some((_, weapon)) =
                             weapons.iter().find(|(id, weapon)| children.contains(id))
                         {
-                            Some((attacker.stats.attack + weapon.attack, attacker_id, y))
+                            Some((attacker.stats.attack + weapon.attack, attacker_id, x))
                         } else {
                             None
                         }
