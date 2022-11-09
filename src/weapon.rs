@@ -71,8 +71,9 @@ pub fn check_receivers(
         if damage < 1 {
             damage = 1;
         }
-        // receiver.stats.health.subtract(damage as _);
+        receiver.stats.health.subtract(damage as _);
         if receiver.stats.health.is_empty() {
+            // TODO: add xp to the killer
             commands.entity(receiver_id).despawn_recursive();
         } else {
             let child = commands
@@ -80,13 +81,13 @@ pub fn check_receivers(
                     text: Text::from_section(
                         damage.to_string().as_str(),
                         TextStyle {
-                            font: asset_server.load("fonts/kreon-regular.ttf"),
+                            font: asset_server.load(crate::FONT),
                             font_size: 10.0,
                             color: Color::RED,
                         },
                     )
                     .with_alignment(TextAlignment::CENTER),
-                    transform: Transform::from_xyz(0., receiver.height / 2. + 1., 0.),
+                    transform: Transform::from_xyz(0., receiver.height / 2. + 1., 1.),
                     ..default()
                 })
                 .insert(Notification {

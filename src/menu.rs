@@ -139,7 +139,7 @@ fn menu_setup(mut menu_state: ResMut<State<MenuState>>) {
 }
 
 fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let font = asset_server.load("fonts/kreon-regular.ttf");
+    let font = asset_server.load(crate::FONT);
     // Common style for all buttons on the screen
     let button_style = Style {
         size: Size::new(Val::Px(250.0 / SCALE), Val::Px(65.0 / SCALE)),
@@ -267,7 +267,7 @@ fn settings_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     };
 
     let button_text_style = TextStyle {
-        font: asset_server.load("fonts/kreon-regular.ttf"),
+        font: asset_server.load(crate::FONT),
         font_size: 40.0 / SCALE,
         color: TEXT_COLOR,
     };
@@ -319,7 +319,7 @@ fn sound_settings_menu_setup(
         ..default()
     };
     let button_text_style = TextStyle {
-        font: asset_server.load("fonts/kreon-regular.ttf"),
+        font: asset_server.load(crate::FONT),
         font_size: 40.0 / SCALE,
         color: TEXT_COLOR,
     };

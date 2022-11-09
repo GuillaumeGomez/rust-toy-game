@@ -64,7 +64,7 @@ pub fn build_hud(
     spawn_stat_bar(&mut commands, StatKind::Mana, Color::CYAN.into());
     spawn_stat_bar(&mut commands, StatKind::Stamina, Color::YELLOW.into());
 
-    let font = asset_server.load("fonts/kreon-regular.ttf");
+    let font = asset_server.load(crate::FONT);
     commands
         .spawn_bundle(
             TextBundle::from_section(

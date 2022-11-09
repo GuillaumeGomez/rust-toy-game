@@ -20,6 +20,7 @@ use bevy_egui::{egui, EguiContext, EguiPlugin};
 use bevy_rapier2d::prelude::*;
 // FIXME: to be removed once https://github.com/bevyengine/bevy/issues/1856 is fixed.
 use bevy_pixel_camera::*;
+use bevy_prototype_lyon::prelude::*;
 
 pub const ONE_SECOND: u32 = 1_000_000;
 pub const STAT_POINTS_PER_LEVEL: u32 = 3;
@@ -29,6 +30,8 @@ pub const NOT_OUTSIDE_WORLD: Group = Group::GROUP_2;
 pub const HITBOX: Group = Group::GROUP_3;
 pub const NOTHING: Group = Group::GROUP_4;
 pub const RUN_STAMINA_CONSUMPTION_PER_SEC: f32 = 10.;
+
+pub const FONT: &str = "fonts/kreon-regular.ttf";
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 pub enum AppState {
@@ -134,6 +137,7 @@ fn main() {
         .add_plugin(PixelBorderPlugin {
             color: Color::rgb(0.1, 0.1, 0.1),
         })
+        .add_plugin(ShapePlugin)
         .add_plugin(menu::MenuPlugin)
         .add_plugin(game::GamePlugin)
         .add_startup_system(setup_components)

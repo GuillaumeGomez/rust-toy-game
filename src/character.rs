@@ -5,6 +5,9 @@ use crate::STAT_POINTS_PER_LEVEL;
 use bevy::ecs::component::Component;
 use bevy::prelude::*;
 
+#[derive(Component)]
+pub struct CharacterInfo;
+
 #[derive(Debug)]
 pub struct CharacterStats {
     pub health: Stat,
@@ -113,7 +116,6 @@ pub struct Character {
     pub points: CharacterPoints,
     pub unused_points: u32,
     pub is_attacking: bool,
-    pub attack_receivers: Vec<u32>,
     pub width: f32,
     pub height: f32,
     // /// This ID is used when this character is attacking someone else. This "someone else" will
@@ -157,7 +159,6 @@ impl Character {
             points,
             unused_points: unassigned + compute_total_nb_points(level),
             is_attacking: false,
-            attack_receivers: Vec::with_capacity(3),
             width,
             height,
         }
