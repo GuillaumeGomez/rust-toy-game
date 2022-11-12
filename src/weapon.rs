@@ -84,12 +84,12 @@ pub fn check_receivers(
                         damage.to_string().as_str(),
                         TextStyle {
                             font: asset_server.load(crate::FONT),
-                            font_size: 10.0,
+                            font_size: 11.0,
                             color: Color::RED,
                         },
                     )
                     .with_alignment(TextAlignment::CENTER),
-                    transform: Transform::from_xyz(0., receiver.height / 2. + 1., 1.),
+                    transform: Transform::from_xyz(0., receiver.height / 2. + 8., 1.),
                     ..default()
                 })
                 .insert(Notification {
