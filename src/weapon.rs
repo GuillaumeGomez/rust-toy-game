@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy::utils::Duration;
 use bevy_rapier2d::prelude::*;
 
-use crate::character::Character;
+use crate::character::{Character, CharacterKind};
 
 const NOTIFICATION_MOVE: f32 = 5.;
 const NOTIFICATION_TIME: f32 = 0.5;
@@ -55,6 +55,7 @@ pub fn check_receivers(
     characters: &mut Query<(Entity, &mut Character, &Children)>,
     attack: u32,
     attacker_id: Entity,
+    attacker_kind: CharacterKind,
     receiver: &Entity,
 ) {
     let (receiver_id, mut receiver) = match characters
@@ -66,7 +67,8 @@ pub fn check_receivers(
     };
     eprintln!("found receiver {:?} {:?}", attacker_id, receiver_id);
     // If attacker_id == receiver_id, it means the character attacked itself so we ignore it.
-    if attacker_id != receiver_id {
+    // Also, we don't want monsters to attack their own.
+    if attacker_id != receiver_id && attacker_kind != receiver.kind {
         let mut damage = attack.saturating_sub(receiver.stats.defense);
         if damage < 1 {
             damage = 1;
@@ -111,38 +113,51 @@ pub fn handle_attacks(
     for collision_event in collision_events.iter() {
         if let CollisionEvent::Started(x, y, CollisionEventFlags::SENSOR) = collision_event {
             eprintln!("collision detected!");
-            let (attack, attacker_id, receiver): (u32, Entity, &Entity) =
-                if let Some((attack, attacker_id, receiver)) = characters
-                    .iter()
-                    .find(|(_, c, children)| c.is_attacking && children.contains(x))
-                    .and_then(|(attacker_id, attacker, children)| {
-                        if let Some((_, weapon)) =
-                            weapons.iter().find(|(id, weapon)| children.contains(id))
-                        {
-                            Some((attacker.stats.attack + weapon.attack, attacker_id, y))
-                        } else {
-                            None
-                        }
-                    })
-                {
-                    (attack, attacker_id, receiver)
-                } else if let Some((attack, attacker_id, receiver)) = characters
-                    .iter()
-                    .find(|(_, c, children)| c.is_attacking && children.contains(y))
-                    .and_then(|(attacker_id, attacker, children)| {
-                        if let Some((_, weapon)) =
-                            weapons.iter().find(|(id, weapon)| children.contains(id))
-                        {
-                            Some((attacker.stats.attack + weapon.attack, attacker_id, x))
-                        } else {
-                            None
-                        }
-                    })
-                {
-                    (attack, attacker_id, receiver)
-                } else {
-                    continue;
-                };
+            let (attack, attacker_id, receiver, attacker_kind): (
+                u32,
+                Entity,
+                &Entity,
+                CharacterKind,
+            ) = if let Some((attack, attacker_id, receiver, attacker_kind)) = characters
+                .iter()
+                .find(|(_, c, children)| c.is_attacking && children.contains(x))
+                .and_then(|(attacker_id, attacker, children)| {
+                    if let Some((_, weapon)) =
+                        weapons.iter().find(|(id, weapon)| children.contains(id))
+                    {
+                        Some((
+                            attacker.stats.attack + weapon.attack,
+                            attacker_id,
+                            y,
+                            attacker.kind,
+                        ))
+                    } else {
+                        None
+                    }
+                }) {
+                (attack, attacker_id, receiver, attacker_kind)
+            } else if let Some((attack, attacker_id, receiver, attacker_kind)) = characters
+                .iter()
+                .find(|(_, c, children)| c.is_attacking && children.contains(y))
+                .and_then(|(attacker_id, attacker, children)| {
+                    if let Some((_, weapon)) =
+                        weapons.iter().find(|(id, weapon)| children.contains(id))
+                    {
+                        Some((
+                            attacker.stats.attack + weapon.attack,
+                            attacker_id,
+                            x,
+                            attacker.kind,
+                        ))
+                    } else {
+                        None
+                    }
+                })
+            {
+                (attack, attacker_id, receiver, attacker_kind)
+            } else {
+                continue;
+            };
             eprintln!("Found attacker");
             check_receivers(
                 &mut commands,
@@ -150,6 +165,7 @@ pub fn handle_attacks(
                 &mut characters,
                 attack,
                 attacker_id,
+                attacker_kind,
                 receiver,
             );
         }

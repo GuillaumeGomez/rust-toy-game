@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
 use crate::character::{
-    Character, CharacterAnimationInfo, CharacterAnimationType, CharacterPoints,
+    Character, CharacterAnimationInfo, CharacterAnimationType, CharacterKind, CharacterPoints,
 };
 use crate::weapon::Weapon;
 use crate::RUN_STAMINA_CONSUMPTION_PER_SEC;
@@ -49,6 +49,7 @@ pub fn spawn_player(
         CharacterPoints::level_1(),
         PLAYER_WIDTH,
         PLAYER_HEIGHT,
+        CharacterKind::Player,
     );
 
     const WEAPON_WIDTH: f32 = 7.;

@@ -4,7 +4,8 @@ use bevy_prototype_lyon::{draw, render};
 use bevy_rapier2d::prelude::*;
 
 use crate::character::{
-    Character, CharacterAnimationInfo, CharacterAnimationType, CharacterInfo, CharacterPoints,
+    Character, CharacterAnimationInfo, CharacterAnimationType, CharacterInfo, CharacterKind,
+    CharacterPoints,
 };
 use crate::game::OutsideWorld;
 
@@ -38,6 +39,7 @@ pub fn spawn_monsters(
             CharacterPoints::level_1(),
             WIDTH,
             HEIGHT,
+            CharacterKind::Monster,
         ))
         .insert(CharacterAnimationInfo {
             animation_time: ANIMATION_TIME,

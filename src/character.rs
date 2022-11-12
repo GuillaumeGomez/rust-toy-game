@@ -105,10 +105,17 @@ impl CharacterPoints {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum CharacterKind {
+    Player,
+    Human,
+    Monster,
+}
+
 #[derive(Component, Debug)]
 pub struct Character {
-    // pub action: Action,
-    // pub kind: CharacterKind,
+    // FIXME: Move it into its own?
+    pub kind: CharacterKind,
     pub xp_to_next_level: u64,
     pub xp: u64,
     pub level: u16,
@@ -118,17 +125,6 @@ pub struct Character {
     pub is_attacking: bool,
     pub width: f32,
     pub height: f32,
-    // /// This ID is used when this character is attacking someone else. This "someone else" will
-    // /// invincible to any other attack from your ID until the total attack time is over.
-    // pub id: Id,
-    // pub invincible_against: Vec<InvincibleAgainst>,
-    // pub statuses: Vec<Status>,
-    // pub show_health_bar: bool,
-    // pub death_animation: Option<Animation>,
-    // /// (x, y, delay)
-    // pub effect: RefCell<Option<(f32, f32, u32)>>,
-    // pub weapon_action: Option<WeaponAction>,
-    // pub blocking_direction: Option<Direction>,
 }
 
 fn compute_xp_to_next_level(level: u16) -> u64 {
@@ -148,7 +144,14 @@ fn compute_total_nb_points(level: u16) -> u32 {
 }
 
 impl Character {
-    pub fn new(level: u16, xp: u64, points: CharacterPoints, width: f32, height: f32) -> Self {
+    pub fn new(
+        level: u16,
+        xp: u64,
+        points: CharacterPoints,
+        width: f32,
+        height: f32,
+        kind: CharacterKind,
+    ) -> Self {
         let stats = points.generate_stats(level);
         let unassigned = points.assigned_points();
         Self {
@@ -161,6 +164,7 @@ impl Character {
             is_attacking: false,
             width,
             height,
+            kind,
         }
     }
 
