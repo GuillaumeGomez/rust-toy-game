@@ -8,7 +8,7 @@ use bevy_egui::{egui, EguiContext, EguiPlugin};
 use bevy_rapier2d::prelude::*;
 
 use crate::{
-    building, character, environment, hud, monster, player, weapon, AppState, GameInfo,
+    building, character, environment, hud, map, monster, player, weapon, AppState, GameInfo,
     NOT_OUTSIDE_WORLD, OUTSIDE_WORLD,
 };
 
@@ -74,9 +74,12 @@ impl Plugin for GamePlugin {
         )
         .add_system_set(
             SystemSet::on_enter(AppState::Game)
-                .with_system(player::spawn_player)
-                .with_system(monster::spawn_monsters)
+                .with_system(map::spawn_map.label("spawn_map"))
+                .with_system(player::spawn_player.after("spawn_map"))
+                .with_system(monster::spawn_monsters.after("spawn_map"))
+                // TODO: move this into `spawn_map`
                 .with_system(building::spawn_buildings)
+                // TODO: move this into `spawn_map`
                 .with_system(environment::spawn_nature)
                 .with_system(hud::build_hud),
         )

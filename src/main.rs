@@ -5,6 +5,7 @@ mod character;
 mod environment;
 mod game;
 mod hud;
+mod map;
 mod menu;
 mod monster;
 mod player;
@@ -30,6 +31,9 @@ pub const NOT_OUTSIDE_WORLD: Group = Group::GROUP_2;
 pub const HITBOX: Group = Group::GROUP_3;
 pub const NOTHING: Group = Group::GROUP_4;
 pub const RUN_STAMINA_CONSUMPTION_PER_SEC: f32 = 10.;
+pub const MAP_SIZE: f32 = 10_000.;
+
+pub const SCALE: f32 = 1.8;
 
 pub const FONT: &str = "fonts/kreon-regular.ttf";
 
@@ -44,8 +48,6 @@ pub enum DebugState {
     Disabled,
     Enabled,
 }
-
-pub const SCALE: f32 = 1.8;
 
 #[derive(Default)]
 pub struct GameInfo {
