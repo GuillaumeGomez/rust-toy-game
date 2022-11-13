@@ -61,6 +61,10 @@ pub fn spawn_monsters(
         .insert(RigidBody::Dynamic)
         .insert(Velocity::zero())
         .insert(LockedAxes::ROTATION_LOCKED)
+        .insert(Damping {
+            linear_damping: 20.,
+            angular_damping: 20.,
+        })
         .with_children(|children| {
             // move box
             children
@@ -95,7 +99,7 @@ pub fn spawn_monsters(
                 .insert_bundle(TransformBundle::from(Transform::from_xyz(
                     0.0,
                     HEIGHT / 2. + 7.,
-                    0.0,
+                    1.0,
                 )))
                 .insert(CharacterInfo);
 

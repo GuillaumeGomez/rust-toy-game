@@ -86,6 +86,7 @@ pub fn spawn_player(
         .insert(RigidBody::Dynamic)
         .insert(Velocity::zero())
         .insert(LockedAxes::ROTATION_LOCKED)
+        // .insert(Damping { linear_damping: 20., angular_damping: 20. })
         .with_children(|children| {
             // The "move" box.
             app_state.player_id = Some(
