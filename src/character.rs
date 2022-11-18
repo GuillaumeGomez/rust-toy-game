@@ -85,8 +85,8 @@ impl CharacterPoints {
         let total_mana = 16 + 4 * level + 10 * self.intelligence + 4 * self.wisdom;
         let mana_regen_speed = 0.5 + 0.5 * (self.intelligence as f32) + 0.5 * (self.wisdom as f32);
         // We start with 50 SP.
-        let total_stamina = 50 + 5 * self.stamina;
-        let stamina_regen_speed = 30. + 1. * (self.stamina as f32);
+        let total_stamina = 50 + self.stamina;
+        let stamina_regen_speed = 4. + self.stamina as f32 / 2.;
         CharacterStats {
             health: Stat::new(health_regen_speed, total_health as _),
             mana: Stat::new(mana_regen_speed, total_mana as _),

@@ -220,6 +220,7 @@ pub fn player_movement_system(
 
         if player.is_running {
             // When runnning, 10 stamina a secs are computed.
+            let before = character.stats.stamina.value();
             if !character
                 .stats
                 .stamina
