@@ -40,6 +40,7 @@ impl Plugin for GamePlugin {
                 .with_system(player::player_movement_system.label("player_movement_system"))
                 .with_system(weapon::handle_attacks.after("player_movement_system"))
                 .with_system(character::animate_character_system.after("player_movement_system"))
+                .with_system(character::refresh_characters_stats.after("player_movement_system"))
                 .with_system(hud::update_hud.after("player_movement_system"))
                 .with_system(update_camera.after("player_movement_system"))
                 .with_system(weapon::update_notifications)

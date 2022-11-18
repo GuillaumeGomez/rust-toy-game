@@ -225,7 +225,6 @@ pub fn player_movement_system(
                 player.waiting_for_rerun = true;
             }
         } else if !character.is_attacking && !character.stats.stamina.is_full() {
-            character.stats.stamina.refresh(timer.delta().as_secs_f32());
             // If the character regained enough stamina to run again for at least 3 seconds, we
             // switch it back automatically to running.
             if player.waiting_for_rerun
@@ -236,7 +235,7 @@ pub fn player_movement_system(
         }
 
         if skip_animation_update {
-            continue;
+            break;
         }
 
         sprite.index = animation.animation_type.get_index(animation.nb_animations);

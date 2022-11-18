@@ -56,7 +56,7 @@ impl Stat {
 
     // Duration.as_secs_f32
     pub fn refresh(&mut self, elapsed: f32) -> bool {
-        if self.value >= self.max_value {
+        if self.is_full() {
             return false;
         }
         self.value += elapsed * self.regen_rate;

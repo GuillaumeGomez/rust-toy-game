@@ -306,3 +306,15 @@ impl CharacterAnimationType {
         }
     }
 }
+
+pub fn refresh_characters_stats(timer: Res<Time>, mut characters: Query<&mut Character>) {
+    let delta = timer.delta().as_secs_f32();
+    for mut character in characters.iter_mut() {
+        // stamina doesn't regen when attacking.
+        if !character.is_attacking {
+            character.stats.stamina.refresh(delta);
+        }
+        character.stats.health.refresh(delta);
+        character.stats.mana.refresh(delta);
+    }
+}
