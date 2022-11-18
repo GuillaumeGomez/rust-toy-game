@@ -62,8 +62,8 @@ pub fn spawn_monsters(
         .insert(Velocity::zero())
         .insert(LockedAxes::ROTATION_LOCKED)
         .insert(Damping {
-            linear_damping: 20.,
-            angular_damping: 20.,
+            linear_damping: 8.,
+            angular_damping: 8.,
         })
         .with_children(|children| {
             // move box
