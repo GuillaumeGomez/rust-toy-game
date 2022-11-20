@@ -2,7 +2,6 @@ use bevy::core::CorePlugin;
 use bevy::ecs::schedule::ShouldRun;
 use bevy::input::InputPlugin;
 use bevy::prelude::*;
-use bevy::render::texture::ImageSettings;
 use bevy::window::{PresentMode, WindowPlugin};
 use bevy_egui::{egui, EguiContext, EguiPlugin};
 use bevy_rapier2d::prelude::*;

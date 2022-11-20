@@ -25,7 +25,10 @@ impl Weapon {
         Self {
             attack,
             weight,
-            timer: Timer::new(Duration::from_secs_f32(duration_in_millis / 1_000.), false),
+            timer: Timer::new(
+                Duration::from_secs_f32(duration_in_millis / 1_000.),
+                TimerMode::Once,
+            ),
             width,
             height,
         }
@@ -79,22 +82,24 @@ pub fn check_receivers(
             commands.entity(receiver_id).despawn_recursive();
         } else {
             let child = commands
-                .spawn_bundle(Text2dBundle {
-                    text: Text::from_section(
-                        damage.to_string().as_str(),
-                        TextStyle {
-                            font: asset_server.load(crate::FONT),
-                            font_size: 11.0,
-                            color: Color::RED,
-                        },
-                    )
-                    .with_alignment(TextAlignment::CENTER),
-                    transform: Transform::from_xyz(0., receiver.height / 2. + 8., 1.),
-                    ..default()
-                })
-                .insert(Notification {
-                    timer: Timer::from_seconds(NOTIFICATION_TIME, false),
-                })
+                .spawn((
+                    Text2dBundle {
+                        text: Text::from_section(
+                            damage.to_string().as_str(),
+                            TextStyle {
+                                font: asset_server.load(crate::FONT),
+                                font_size: 11.0,
+                                color: Color::RED,
+                            },
+                        )
+                        .with_alignment(TextAlignment::CENTER),
+                        transform: Transform::from_xyz(0., receiver.height / 2. + 8., 1.),
+                        ..default()
+                    },
+                    Notification {
+                        timer: Timer::from_seconds(NOTIFICATION_TIME, TimerMode::Once),
+                    },
+                ))
                 .id();
             commands.entity(receiver_id).add_child(child);
         }

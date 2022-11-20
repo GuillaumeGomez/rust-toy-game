@@ -13,9 +13,9 @@ pub enum StatKind {
     Stamina,
 }
 
-fn spawn_stat_bar(commands: &mut Commands, stat: StatKind, color: UiColor) {
+fn spawn_stat_bar(commands: &mut Commands, stat: StatKind, background_color: BackgroundColor) {
     commands
-        .spawn_bundle(NodeBundle {
+        .spawn(NodeBundle {
             style: Style {
                 size: Size {
                     width: Val::Px(102.0),
@@ -34,12 +34,12 @@ fn spawn_stat_bar(commands: &mut Commands, stat: StatKind, color: UiColor) {
                 position_type: PositionType::Absolute,
                 ..default()
             },
-            color: Color::rgb(0.1, 0.1, 0.1).into(),
+            background_color: Color::rgb(0.1, 0.1, 0.1).into(),
             ..default()
         })
         .with_children(|parent| {
-            parent
-                .spawn_bundle(NodeBundle {
+            parent.spawn((
+                NodeBundle {
                     style: Style {
                         size: Size {
                             width: Val::Percent(100.0),
@@ -47,11 +47,12 @@ fn spawn_stat_bar(commands: &mut Commands, stat: StatKind, color: UiColor) {
                         },
                         ..default()
                     },
-                    color,
+                    background_color,
                     ..default()
-                })
-                .insert(stat)
-                .insert(Hud);
+                },
+                stat,
+                Hud,
+            ));
         });
 }
 
@@ -65,29 +66,26 @@ pub fn build_hud(
     spawn_stat_bar(&mut commands, StatKind::Stamina, Color::YELLOW.into());
 
     let font = asset_server.load(crate::FONT);
-    commands
-        .spawn_bundle(
-            TextBundle::from_section(
-                "",
-                TextStyle {
-                    font,
-                    font_size: 40.0 / crate::SCALE,
-                    color: Color::WHITE,
-                },
-            )
-            .with_text_alignment(TextAlignment::TOP_RIGHT)
-            .with_style(Style {
-                position_type: PositionType::Absolute,
-                position: UiRect {
-                    top: Val::Px(2.0),
-                    right: Val::Px(2.0),
-                    ..default()
-                },
-                ..default()
-            }),
-        )
-        .insert(Visibility { is_visible: false })
-        .insert(DebugText);
+    let mut text_bundle = TextBundle::from_section(
+        "",
+        TextStyle {
+            font,
+            font_size: 40.0 / crate::SCALE,
+            color: Color::WHITE,
+        },
+    )
+    .with_text_alignment(TextAlignment::TOP_RIGHT)
+    .with_style(Style {
+        position_type: PositionType::Absolute,
+        position: UiRect {
+            top: Val::Px(2.0),
+            right: Val::Px(2.0),
+            ..default()
+        },
+        ..default()
+    });
+    text_bundle.visibility.is_visible = false;
+    commands.spawn((text_bundle, DebugText));
 }
 
 pub fn update_hud(

@@ -24,67 +24,73 @@ pub fn spawn_monsters(
     const ANIMATION_TIME: f32 = 0.15;
 
     let skeleton_texture = asset_server.load("textures/skeleton.png");
-    let texture_atlas =
-        TextureAtlas::from_grid(skeleton_texture, Vec2::new(48., 48.), NB_ANIMATIONS, 4);
+    let texture_atlas = TextureAtlas::from_grid(
+        skeleton_texture,
+        Vec2::new(48., 48.),
+        NB_ANIMATIONS,
+        4,
+        None,
+        None,
+    );
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
     let level = 2;
 
     commands
-        .spawn()
-        .insert(Skeleton)
-        .insert(Character::new(
-            level,
-            0,
-            // FIXME, should have a method for a specific level.
-            CharacterPoints::level_1(),
-            WIDTH,
-            HEIGHT,
-            CharacterKind::Monster,
-        ))
-        .insert(CharacterAnimationInfo {
-            animation_time: ANIMATION_TIME,
-            nb_animations: NB_ANIMATIONS,
-            timer: Timer::from_seconds(ANIMATION_TIME, true),
-            animation_type: CharacterAnimationType::ForwardIdle,
-        })
-        .insert_bundle(SpriteSheetBundle {
-            texture_atlas: texture_atlas_handle,
-            sprite: TextureAtlasSprite {
-                custom_size: Some(Vec2 {
-                    x: WIDTH,
-                    y: HEIGHT,
-                }),
+        .spawn((
+            Skeleton,
+            Character::new(
+                level,
+                0,
+                // FIXME, should have a method for a specific level.
+                CharacterPoints::level_1(),
+                WIDTH,
+                HEIGHT,
+                CharacterKind::Monster,
+            ),
+            CharacterAnimationInfo {
+                animation_time: ANIMATION_TIME,
+                nb_animations: NB_ANIMATIONS,
+                timer: Timer::from_seconds(ANIMATION_TIME, TimerMode::Repeating),
+                animation_type: CharacterAnimationType::ForwardIdle,
+            },
+            SpriteSheetBundle {
+                texture_atlas: texture_atlas_handle,
+                sprite: TextureAtlasSprite {
+                    custom_size: Some(Vec2 {
+                        x: WIDTH,
+                        y: HEIGHT,
+                    }),
+                    ..default()
+                },
+                transform: Transform::from_xyz(200.0, 210.0, 0.0),
                 ..default()
             },
-            ..default()
-        })
-        .insert(RigidBody::Dynamic)
-        .insert(Velocity::zero())
-        .insert(LockedAxes::ROTATION_LOCKED)
-        .insert(Damping {
-            linear_damping: 8.,
-            angular_damping: 8.,
-        })
+            RigidBody::Dynamic,
+            Velocity::zero(),
+            LockedAxes::ROTATION_LOCKED,
+            Damping {
+                linear_damping: 8.,
+                angular_damping: 8.,
+            },
+            OutsideWorld,
+        ))
         .with_children(|children| {
             // move box
-            children
-                .spawn()
-                .insert(Collider::cuboid(8.0, 7.0))
-                .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, -5.0, 0.0)))
-                .insert(ActiveEvents::COLLISION_EVENTS)
-                .insert(CollisionGroups::new(
-                    crate::OUTSIDE_WORLD,
-                    crate::OUTSIDE_WORLD,
-                ));
-            children
-                .spawn()
-                .insert(Collider::cuboid(WIDTH / 2. - 6., HEIGHT / 2. - 1.))
-                .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, -2.0, 0.0)))
-                .insert(Sensor)
-                .insert(CollisionGroups::new(crate::HITBOX, crate::HITBOX));
+            children.spawn((
+                Collider::cuboid(8.0, 7.0),
+                TransformBundle::from(Transform::from_xyz(0.0, -5.0, 0.0)),
+                ActiveEvents::COLLISION_EVENTS,
+                CollisionGroups::new(crate::OUTSIDE_WORLD, crate::OUTSIDE_WORLD),
+            ));
+            children.spawn((
+                Collider::cuboid(WIDTH / 2. - 6., HEIGHT / 2. - 1.),
+                TransformBundle::from(Transform::from_xyz(0.0, -2.0, 0.0)),
+                Sensor,
+                CollisionGroups::new(crate::HITBOX, crate::HITBOX),
+            ));
 
-            children
-                .spawn_bundle(Text2dBundle {
+            children.spawn((
+                Text2dBundle {
                     text: Text::from_section(
                         &format!("Skeleton lvl. {}", level),
                         TextStyle {
@@ -94,51 +100,38 @@ pub fn spawn_monsters(
                         },
                     )
                     .with_alignment(TextAlignment::CENTER),
+                    transform: Transform::from_xyz(0.0, HEIGHT / 2. + 7., 1.0),
+                    ..default()
+                },
+                CharacterInfo,
+            ));
+
+            let mut geometry = GeometryBuilder::new()
+                .add(&shapes::Rectangle {
+                    extents: Vec2::new(WIDTH, 2.),
                     ..default()
                 })
-                .insert_bundle(TransformBundle::from(Transform::from_xyz(
-                    0.0,
-                    HEIGHT / 2. + 7.,
-                    1.0,
-                )))
-                .insert(CharacterInfo);
+                .build(
+                    DrawMode::Outlined {
+                        fill_mode: draw::FillMode::color(Color::BLACK),
+                        outline_mode: draw::StrokeMode::new(Color::BLACK, 1.5),
+                    },
+                    Transform::from_xyz(0., HEIGHT / 2. + 1., 0.),
+                );
+            children.spawn((geometry, CharacterInfo));
 
-            children
-                .spawn_bundle(
-                    GeometryBuilder::new()
-                        .add(&shapes::Rectangle {
-                            extents: Vec2::new(WIDTH, 2.),
-                            ..default()
-                        })
-                        .build(
-                            DrawMode::Outlined {
-                                fill_mode: draw::FillMode::color(Color::BLACK),
-                                outline_mode: draw::StrokeMode::new(Color::BLACK, 1.5),
-                            },
-                            Transform::from_xyz(0., HEIGHT / 2. + 1., 0.),
-                        ),
-                )
-                .insert(CharacterInfo)
-                .insert(Visibility { is_visible: false });
-            children
-                .spawn_bundle(
-                    GeometryBuilder::new()
-                        .add(&shapes::Rectangle {
-                            extents: Vec2::new(WIDTH, 2.),
-                            ..default()
-                        })
-                        .build(
-                            DrawMode::Fill(draw::FillMode::color(Color::RED)),
-                            Transform::from_xyz(0., HEIGHT / 2. + 1., 0.),
-                        ),
-                )
-                .insert(CharacterInfo)
-                .insert(Visibility { is_visible: false });
-        })
-        .insert_bundle(TransformBundle::from(Transform::from_xyz(
-            200.0, 210.0, 0.0,
-        )))
-        .insert(OutsideWorld);
+            let mut geometry = GeometryBuilder::new()
+                .add(&shapes::Rectangle {
+                    extents: Vec2::new(WIDTH, 2.),
+                    ..default()
+                })
+                .build(
+                    DrawMode::Fill(draw::FillMode::color(Color::RED)),
+                    Transform::from_xyz(0., HEIGHT / 2. + 1., 0.),
+                );
+            geometry.visibility = Visibility { is_visible: false };
+            children.spawn((geometry, CharacterInfo));
+        });
 }
 
 // TODO: move it into `character.rs`?

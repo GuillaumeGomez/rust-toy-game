@@ -15,7 +15,7 @@ mod weapon;
 use bevy::core::CorePlugin;
 use bevy::input::InputPlugin;
 use bevy::prelude::*;
-use bevy::render::texture::ImageSettings;
+use bevy::render::texture::ImagePlugin;
 use bevy::window::{PresentMode, WindowPlugin};
 use bevy_egui::{egui, EguiContext, EguiPlugin};
 use bevy_rapier2d::prelude::*;
@@ -35,6 +35,9 @@ pub const MAP_SIZE: f32 = 10_000.;
 
 pub const SCALE: f32 = 1.8;
 
+pub const WIDTH: f32 = 1600.;
+pub const HEIGHT: f32 = 900.;
+
 pub const FONT: &str = "fonts/kreon-regular.ttf";
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
@@ -49,7 +52,7 @@ pub enum DebugState {
     Enabled,
 }
 
-#[derive(Default)]
+#[derive(Default, Resource)]
 pub struct GameInfo {
     pub show_character_window: bool,
     pub player_id: Option<Entity>,
@@ -95,8 +98,8 @@ pub fn setup_components(
 
     // Add the 2D camera.
     // commands.spawn_bundle(Camera2dBundle::default());
-    let resolution = (1600., 900.);
-    commands.spawn_bundle(PixelCameraBundle::from_resolution(
+    let resolution = (WIDTH, HEIGHT);
+    commands.spawn(PixelCameraBundle::from_resolution(
         resolution.0 as _,
         resolution.1 as _,
     ));
@@ -122,16 +125,24 @@ pub fn setup_components(
 
 fn main() {
     App::new()
-        .insert_resource(ImageSettings::default_nearest()) // prevents blurry sprites
-        .insert_resource(WindowDescriptor {
-            title: "Toy game".to_string(),
-            present_mode: PresentMode::AutoVsync,
-            resizable: false,
-            ..default()
-        })
+        .add_plugins(
+            DefaultPlugins
+                .set(WindowPlugin {
+                    window: WindowDescriptor {
+                        title: "Toy game".to_string(),
+                        present_mode: PresentMode::AutoVsync,
+                        resizable: false,
+                        width: WIDTH,
+                        height: HEIGHT,
+                        ..default()
+                    },
+                    ..default()
+                })
+                // prevents blurry sprites
+                .set(ImagePlugin::default_nearest()),
+        )
         .insert_resource(GameInfo::default())
         .add_state(AppState::Game)
-        .add_plugins(DefaultPlugins)
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0))
         .add_plugin(EguiPlugin)
         .add_plugin(RapierDebugRenderPlugin::default())

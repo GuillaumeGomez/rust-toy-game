@@ -40,6 +40,8 @@ pub fn spawn_player(
         Vec2::new(PLAYER_WIDTH, PLAYER_HEIGHT),
         NB_ANIMATIONS,
         5,
+        None,
+        None,
     );
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
     let weapon_handle = asset_server.load("textures/weapon.png");
@@ -58,69 +60,65 @@ pub fn spawn_player(
     let weapon = character.set_weapon(1, 1., WEAPON_WIDTH, WEAPON_HEIGHT);
 
     commands
-        .spawn()
-        .insert(Player {
-            is_running: false,
-            waiting_for_rerun: false,
-            old_x: 0.,
-            old_y: 0.,
-        })
-        .insert(character)
-        .insert(CharacterAnimationInfo {
-            animation_time: ANIMATION_TIME,
-            nb_animations: NB_ANIMATIONS,
-            timer: Timer::from_seconds(ANIMATION_TIME, true),
-            animation_type: CharacterAnimationType::ForwardIdle,
-        })
-        .insert_bundle(SpriteSheetBundle {
-            texture_atlas: texture_atlas_handle,
-            sprite: TextureAtlasSprite {
-                custom_size: Some(Vec2 {
-                    x: PLAYER_WIDTH,
-                    y: PLAYER_HEIGHT,
-                }),
+        .spawn((
+            Player {
+                is_running: false,
+                waiting_for_rerun: false,
+                old_x: 0.,
+                old_y: 0.,
+            },
+            character,
+            CharacterAnimationInfo {
+                animation_time: ANIMATION_TIME,
+                nb_animations: NB_ANIMATIONS,
+                timer: Timer::from_seconds(ANIMATION_TIME, TimerMode::Repeating),
+                animation_type: CharacterAnimationType::ForwardIdle,
+            },
+            SpriteSheetBundle {
+                texture_atlas: texture_atlas_handle,
+                sprite: TextureAtlasSprite {
+                    custom_size: Some(Vec2 {
+                        x: PLAYER_WIDTH,
+                        y: PLAYER_HEIGHT,
+                    }),
+                    ..default()
+                },
+                transform: Transform::from_xyz(0.0, 210.0, 1.0),
                 ..default()
             },
-            ..default()
-        })
-        .insert(RigidBody::Dynamic)
-        .insert(Velocity::zero())
-        .insert(LockedAxes::ROTATION_LOCKED)
-        .insert(Damping {
-            linear_damping: 8.,
-            angular_damping: 8.,
-        })
+            RigidBody::Dynamic,
+            Velocity::zero(),
+            LockedAxes::ROTATION_LOCKED,
+            Damping {
+                linear_damping: 8.,
+                angular_damping: 8.,
+            },
+        ))
         .with_children(|children| {
             // The "move" box.
             app_state.player_id = Some(
                 children
-                    .spawn()
-                    .insert(Collider::cuboid(8.0, 7.0))
-                    .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, -5.0, 0.0)))
-                    .insert(ActiveEvents::COLLISION_EVENTS)
-                    .insert(CollisionGroups::new(
-                        crate::OUTSIDE_WORLD,
-                        crate::OUTSIDE_WORLD,
+                    .spawn((
+                        Collider::cuboid(8.0, 7.0),
+                        TransformBundle::from(Transform::from_xyz(0.0, -5.0, 0.0)),
+                        ActiveEvents::COLLISION_EVENTS,
+                        CollisionGroups::new(crate::OUTSIDE_WORLD, crate::OUTSIDE_WORLD),
                     ))
                     .id(),
             );
             // The hitbox.
-            children
-                .spawn()
-                .insert(Collider::cuboid(
-                    PLAYER_WIDTH / 2. - 2.,
-                    PLAYER_HEIGHT / 2. - 2.,
-                ))
-                .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, 2.0, 0.0)))
-                .insert(Sensor)
-                .insert(CollisionGroups::new(crate::HITBOX, crate::HITBOX));
+            children.spawn((
+                Collider::cuboid(PLAYER_WIDTH / 2. - 2., PLAYER_HEIGHT / 2. - 2.),
+                TransformBundle::from(Transform::from_xyz(0.0, 2.0, 0.0)),
+                Sensor,
+                CollisionGroups::new(crate::HITBOX, crate::HITBOX),
+            ));
             // The weapon (invisible for the moment).
-            children
-                .spawn()
-                .insert(weapon)
-                .insert(IsPlayer)
-                .insert(RigidBody::Dynamic)
-                .insert_bundle(SpriteBundle {
+            children.spawn((
+                weapon,
+                IsPlayer,
+                RigidBody::Dynamic,
+                SpriteBundle {
                     texture: weapon_handle,
                     sprite: Sprite {
                         custom_size: Some(Vec2 {
@@ -129,21 +127,17 @@ pub fn spawn_player(
                         }),
                         ..default()
                     },
+                    // We put the collision handler "outside" of the player to avoid triggering
+                    // unwanted collision events.
+                    transform: Transform::from_xyz(PLAYER_WIDTH, 0.0, 0.0),
+                    visibility: Visibility { is_visible: false },
                     ..default()
-                })
-                // We put the collision handler "outside" of the player to avoid triggering unwanted
-                // collision events.
-                .insert_bundle(TransformBundle::from(Transform::from_xyz(
-                    PLAYER_WIDTH,
-                    0.0,
-                    0.0,
-                )))
-                .insert(Collider::cuboid(WEAPON_WIDTH / 2. - 1., WEAPON_HEIGHT / 2.))
-                .insert(Visibility { is_visible: false })
-                .insert(ActiveEvents::COLLISION_EVENTS)
-                .insert(CollisionGroups::new(crate::NOTHING, crate::NOTHING));
-        })
-        .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, 210.0, 1.0)));
+                },
+                Collider::cuboid(WEAPON_WIDTH / 2. - 1., WEAPON_HEIGHT / 2.),
+                ActiveEvents::COLLISION_EVENTS,
+                CollisionGroups::new(crate::NOTHING, crate::NOTHING),
+            ));
+        });
 
     println!("player id: {:?}", app_state.player_id);
 }
@@ -244,9 +238,10 @@ pub fn player_movement_system(
 
         sprite.index = animation.animation_type.get_index(animation.nb_animations);
         if player.is_running {
-            animation.timer = Timer::from_seconds(animation.animation_time / 2., true);
+            animation.timer =
+                Timer::from_seconds(animation.animation_time / 2., TimerMode::Repeating);
         } else {
-            animation.timer = Timer::from_seconds(animation.animation_time, true);
+            animation.timer = Timer::from_seconds(animation.animation_time, TimerMode::Repeating);
         }
         break;
     }

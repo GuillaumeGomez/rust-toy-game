@@ -1,6 +1,6 @@
 use bevy::ecs::system::EntityCommands;
+use bevy::math::Rect;
 use bevy::prelude::*;
-use bevy::sprite::Rect;
 use bevy_rapier2d::prelude::*;
 
 #[derive(Debug, Component)]
@@ -8,24 +8,22 @@ pub struct Bush;
 
 fn insert_bush(texture: Handle<Image>, commands: &mut Commands, x: f32, y: f32) {
     commands
-        .spawn()
-        .insert(Bush)
-        .insert(crate::game::OutsideWorld)
-        .insert_bundle(SpriteBundle {
-            texture,
-            ..default()
-        })
-        .insert(RigidBody::Fixed)
+        .spawn((
+            Bush,
+            crate::game::OutsideWorld,
+            SpriteBundle {
+                texture,
+                transform: Transform::from_xyz(x, y, 0.0),
+                ..default()
+            },
+            RigidBody::Fixed,
+        ))
         .with_children(|children| {
-            children
-                .spawn()
-                .insert(Collider::ball(16.))
-                .insert(CollisionGroups::new(
-                    crate::OUTSIDE_WORLD,
-                    crate::OUTSIDE_WORLD,
-                ));
-        })
-        .insert_bundle(TransformBundle::from(Transform::from_xyz(x, y, 0.0)));
+            children.spawn((
+                Collider::ball(16.),
+                CollisionGroups::new(crate::OUTSIDE_WORLD, crate::OUTSIDE_WORLD),
+            ));
+        });
 }
 
 #[derive(Debug, Component, Clone, Copy)]
@@ -41,40 +39,34 @@ impl Tree {
     fn add_colliders(self, children: &mut ChildBuilder, group: Group) {
         match self {
             Tree::Normal => {
-                children
-                    .spawn()
-                    .insert(Collider::ball(32.))
-                    .insert(CollisionGroups::new(group, group));
+                children.spawn((Collider::ball(32.), CollisionGroups::new(group, group)));
             }
             Tree::Sapin => {
-                children
-                    .spawn()
-                    .insert(Collider::ball(29.))
-                    .insert(CollisionGroups::new(group, group));
+                children.spawn((Collider::ball(29.), CollisionGroups::new(group, group)));
             }
             Tree::Scary => {
-                children
-                    .spawn()
-                    .insert(Collider::ball(29.))
-                    .insert(CollisionGroups::new(group, group))
-                    .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, 6.0, 0.0)));
+                children.spawn((
+                    Collider::ball(29.),
+                    CollisionGroups::new(group, group),
+                    TransformBundle::from(Transform::from_xyz(0.0, 6.0, 0.0)),
+                ));
             }
             Tree::Dead => {
-                children
-                    .spawn()
-                    .insert(Collider::cuboid(8., 24.))
-                    .insert(CollisionGroups::new(group, group))
-                    .insert_bundle(TransformBundle::from(Transform::from_xyz(0.0, 8.0, 0.0)));
-                children
-                    .spawn()
-                    .insert(Collider::cuboid(4., 8.))
-                    .insert(CollisionGroups::new(group, group))
-                    .insert_bundle(TransformBundle::from(Transform::from_xyz(14.0, 10.0, 0.0)));
-                children
-                    .spawn()
-                    .insert(Collider::cuboid(4., 3.))
-                    .insert(CollisionGroups::new(group, group))
-                    .insert_bundle(TransformBundle::from(Transform::from_xyz(-14.0, 11.0, 0.0)));
+                children.spawn((
+                    Collider::cuboid(8., 24.),
+                    CollisionGroups::new(group, group),
+                    TransformBundle::from(Transform::from_xyz(0.0, 8.0, 0.0)),
+                ));
+                children.spawn((
+                    Collider::cuboid(4., 8.),
+                    CollisionGroups::new(group, group),
+                    TransformBundle::from(Transform::from_xyz(14.0, 10.0, 0.0)),
+                ));
+                children.spawn((
+                    Collider::cuboid(4., 3.),
+                    CollisionGroups::new(group, group),
+                    TransformBundle::from(Transform::from_xyz(-14.0, 11.0, 0.0)),
+                ));
             }
         }
     }
@@ -101,22 +93,23 @@ fn insert_tree(
     y: f32,
 ) {
     commands
-        .spawn()
-        .insert(tree)
-        .insert(crate::game::OutsideWorld)
-        .insert_bundle(SpriteSheetBundle {
-            texture_atlas: texture,
-            sprite: TextureAtlasSprite {
-                index: tree as _,
+        .spawn((
+            tree,
+            crate::game::OutsideWorld,
+            SpriteSheetBundle {
+                texture_atlas: texture,
+                sprite: TextureAtlasSprite {
+                    index: tree as _,
+                    ..default()
+                },
+                transform: Transform::from_xyz(x, y, 0.0),
                 ..default()
             },
-            ..default()
-        })
-        .insert(RigidBody::Fixed)
+            RigidBody::Fixed,
+        ))
         .with_children(|children| {
             tree.add_colliders(children, crate::OUTSIDE_WORLD);
-        })
-        .insert_bundle(TransformBundle::from(Transform::from_xyz(x, y, 0.0)));
+        });
 }
 
 pub fn spawn_nature(
