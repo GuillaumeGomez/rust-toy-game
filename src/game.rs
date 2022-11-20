@@ -355,7 +355,7 @@ macro_rules! get_building_and_player {
 
 fn handle_door_events<T: Component>(
     mut collision_events: EventReader<CollisionEvent>,
-    mut buildings: Query<(&mut TextureAtlasSprite, &Children, &T), With<building::House>>,
+    mut buildings: Query<(&mut TextureAtlasSprite, &Children, &building::Building, &T)>,
     door_captors: Query<&building::Door>,
     app_state: ResMut<GameInfo>,
 ) {
