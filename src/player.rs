@@ -283,20 +283,23 @@ pub fn player_attack_system(
                 .subtract(delta * weapon.weight * 10.)
         {
             character.is_attacking = false;
-            visibility.is_visible = false;
-            collision_groups.memberships = crate::NOTHING;
-            collision_groups.filters = crate::NOTHING;
         }
     } else if keyboard_input.pressed(KeyCode::Space) {
-        character.is_attacking = character.stats.stamina.value() > weapon.weight * 9.;
-        weapon.timer.reset();
-        visibility.is_visible = true;
-        collision_groups.memberships = crate::HITBOX;
-        collision_groups.filters = crate::HITBOX;
-        // We set its z-index to 1 so it also appears in buildings.
-        transform.translation.z = 0.9;
+        character.is_attacking = character.stats.stamina.value()
+            > weapon.weight * 10. * weapon.timer.duration().as_secs_f32();
+        if character.is_attacking {
+            weapon.timer.reset();
+            visibility.is_visible = true;
+            collision_groups.memberships = crate::HITBOX;
+            collision_groups.filters = crate::HITBOX;
+            // We set its z-index to 1 so it also appears in buildings.
+            transform.translation.z = 0.9;
+        }
     }
     if !character.is_attacking {
+        visibility.is_visible = false;
+        collision_groups.memberships = crate::NOTHING;
+        collision_groups.filters = crate::NOTHING;
         return;
     }
     let percent = weapon.timer.elapsed_secs() / weapon.timer.duration().as_secs_f32();
