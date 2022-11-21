@@ -52,7 +52,7 @@ fn insert_general_shop(texture: Handle<Image>, commands: &mut Commands, x: f32, 
                 EnterArea,
                 CollisionGroups::new(crate::OUTSIDE_WORLD, crate::OUTSIDE_WORLD),
                 Sensor,
-                TransformBundle::from(Transform::from_xyz(0.0, -30.0, 0.0)),
+                TransformBundle::from(Transform::from_xyz(0.0, -34.0, 0.0)),
             ));
         });
 }
