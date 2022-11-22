@@ -2,6 +2,8 @@ use bevy::ecs::system::EntityCommands;
 use bevy::math::Rect;
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
+use rand::Rng;
+use rand_seeder::Seeder;
 
 #[derive(Debug, Component)]
 pub struct Bush;
@@ -112,6 +114,54 @@ fn insert_tree(
         });
 }
 
+#[derive(Debug, Component)]
+pub struct Grass;
+
+fn insert_grass(
+    texture: Handle<TextureAtlas>,
+    commands: &mut Commands,
+    x: f32,
+    y: f32,
+    max_row: usize,
+    max_col: usize,
+) {
+    // first we generate the "grid" of grass.
+    let mut rng: crate::SeedType =
+        Seeder::from(&format!("{};{:.1};{:.1}", crate::SEED, x, y)).make_rng();
+    let mut v = Vec::with_capacity(max_row);
+    for _ in 0..max_row {
+        let mut line = Vec::with_capacity(max_col);
+        for _ in 0..max_col {
+            // 70% of chance to have grass.
+            line.push((rng.gen::<u8>() % 10) > 2);
+        }
+        v.push(line);
+    }
+
+    // Then we generate the texture.
+    for (row, line) in v.iter().enumerate() {
+        let mut nb = 0;
+        for (pos, entry) in line.iter().enumerate() {
+            if !*entry {
+                continue;
+            }
+            let has_grass_below = v.get(row + 1).map(|c| c[pos]).unwrap_or(false);
+            let index = if has_grass_below { nb % 5 } else { nb % 5 + 5 };
+            nb += 1;
+            commands.spawn((
+                Grass,
+                crate::game::OutsideWorld,
+                SpriteSheetBundle {
+                    texture_atlas: texture.clone(),
+                    sprite: TextureAtlasSprite { index, ..default() },
+                    transform: Transform::from_xyz(x + pos as f32 * 16., y - row as f32 * 16., 0.0),
+                    ..default()
+                },
+            ));
+        }
+    }
+}
+
 pub fn spawn_nature(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -167,4 +217,26 @@ pub fn spawn_nature(
         );
         x += 100.;
     }
+
+    let grass_texture = asset_server.load("textures/grass.png");
+    let mut texture_atlas =
+        TextureAtlas::from_grid(grass_texture, Vec2::new(16., 16.), 5, 2, None, None);
+    let grass_texture_handle = texture_atlases.add(texture_atlas);
+
+    insert_grass(
+        grass_texture_handle.clone(),
+        &mut commands,
+        -450.,
+        250.,
+        3,
+        10,
+    );
+    insert_grass(
+        grass_texture_handle.clone(),
+        &mut commands,
+        -500.,
+        400.,
+        3,
+        10,
+    );
 }

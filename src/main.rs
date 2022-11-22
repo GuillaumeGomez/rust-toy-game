@@ -22,6 +22,7 @@ use bevy_rapier2d::prelude::*;
 // FIXME: to be removed once https://github.com/bevyengine/bevy/issues/1856 is fixed.
 use bevy_pixel_camera::*;
 use bevy_prototype_lyon::prelude::*;
+use rand_pcg::Pcg64Mcg;
 
 pub const ONE_SECOND: u32 = 1_000_000;
 pub const STAT_POINTS_PER_LEVEL: u32 = 3;
@@ -39,6 +40,8 @@ pub const WIDTH: f32 = 1600.;
 pub const HEIGHT: f32 = 900.;
 
 pub const FONT: &str = "fonts/kreon-regular.ttf";
+pub const SEED: &str = "world";
+pub type SeedType = Pcg64Mcg;
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 pub enum AppState {
