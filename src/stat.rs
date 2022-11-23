@@ -72,6 +72,6 @@ impl Stat {
     }
 
     pub fn to_string(&self) -> String {
-        format!("{} / {}", self.value, self.max_value)
+        format!("{:.0} / {:.0}", self.value, self.max_value)
     }
 }
