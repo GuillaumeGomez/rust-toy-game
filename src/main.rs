@@ -43,6 +43,8 @@ pub const FONT: &str = "fonts/kreon-regular.ttf";
 pub const SEED: &str = "world";
 pub type SeedType = Pcg64Mcg;
 
+pub const GRASS_SIZE: f32 = 16.;
+
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 pub enum AppState {
     Menu,

@@ -153,10 +153,27 @@ fn insert_grass(
                 crate::game::OutsideWorld,
                 SpriteSheetBundle {
                     texture_atlas: texture.clone(),
-                    sprite: TextureAtlasSprite { index, ..default() },
-                    transform: Transform::from_xyz(x + pos as f32 * 16., y - row as f32 * 16., 0.0),
+                    sprite: TextureAtlasSprite {
+                        index,
+                        custom_size: Some(Vec2 {
+                            x: crate::GRASS_SIZE,
+                            y: crate::GRASS_SIZE,
+                        }),
+                        ..default()
+                    },
+                    transform: Transform::from_xyz(
+                        x + pos as f32 * crate::GRASS_SIZE,
+                        y - row as f32 * crate::GRASS_SIZE,
+                        0.0,
+                    ),
                     ..default()
                 },
+                Sensor,
+                Collider::cuboid(crate::GRASS_SIZE / 2., crate::GRASS_SIZE / 2.),
+                CollisionGroups::new(
+                    crate::OUTSIDE_WORLD | crate::HITBOX,
+                    crate::OUTSIDE_WORLD | crate::HITBOX,
+                ),
             ));
         }
     }
@@ -240,3 +257,11 @@ pub fn spawn_nature(
         10,
     );
 }
+
+// fn grass_events(
+//     mut commands: Commands,
+//     asset_server: Res<AssetServer>,
+//     mut collision_events: EventReader<CollisionEvent>,
+//     characters: Query<(Entity, &Character, &Children)>,
+//     grass: Query<()
+// )

@@ -3,6 +3,7 @@ use bevy::utils::Duration;
 use bevy_rapier2d::prelude::*;
 
 use crate::character::{Character, CharacterKind};
+use crate::environment::Grass;
 
 const NOTIFICATION_MOVE: f32 = 5.;
 const NOTIFICATION_TIME: f32 = 0.5;
@@ -106,73 +107,109 @@ pub fn check_receivers(
     }
 }
 
+fn check_grass(
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
+    grass: &Query<(Entity, &Grass, &Transform)>,
+    receiver: &Entity,
+) -> bool {
+    if let Ok((_, _, transform)) = grass.get(*receiver) {
+        // We remove the existing grass...
+        commands.entity(*receiver).despawn_recursive();
+
+        // And replace it with a cut one.
+        let cut_grass = asset_server.load("textures/cut-grass.png");
+        commands.spawn((
+            crate::game::OutsideWorld,
+            SpriteBundle {
+                texture: cut_grass,
+                transform: transform.clone(),
+                sprite: Sprite {
+                    custom_size: Some(Vec2 {
+                        x: crate::GRASS_SIZE * 3. / 4.,
+                        y: crate::GRASS_SIZE * 3. / 4.,
+                    }),
+                    ..default()
+                },
+                ..default()
+            },
+        ));
+        true
+    } else {
+        false
+    }
+}
+
+macro_rules! getter {
+    ($characters:ident, $weapons:ident, $x:ident, $y:ident) => {
+        $characters
+            .iter()
+            .find(|(_, c, children)| c.is_attacking && children.contains($x))
+            .and_then(|(attacker_id, attacker, children)| {
+                if let Some((_, weapon)) =
+                    $weapons.iter().find(|(id, weapon)| children.contains(id))
+                {
+                    Some((
+                        attacker.stats.attack + weapon.attack,
+                        attacker_id,
+                        $y,
+                        attacker.kind,
+                    ))
+                } else {
+                    None
+                }
+            })
+    };
+}
+
+// This macro calls te same thing but inverts `x` and `y` to get attacker and receiver.
+macro_rules! get_attacker_and_receiver {
+    ($characters:ident, $weapons:ident, $x:ident, $y:ident) => {
+        if let Some((attack, attacker_id, receiver, attacker_kind)) =
+            getter!($characters, $weapons, $x, $y)
+        {
+            (attack, attacker_id, receiver, attacker_kind)
+        } else if let Some((attack, attacker_id, receiver, attacker_kind)) =
+            getter!($characters, $weapons, $y, $x)
+        {
+            (attack, attacker_id, receiver, attacker_kind)
+        } else {
+            continue;
+        }
+    };
+}
+
 pub fn handle_attacks(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut collision_events: EventReader<CollisionEvent>,
     mut characters: Query<(Entity, &mut Character, &Children)>,
+    mut grass: Query<(Entity, &Grass, &Transform)>,
     weapons: Query<(Entity, &Weapon)>,
 ) {
     use bevy_rapier2d::rapier::geometry::CollisionEventFlags;
 
     for collision_event in collision_events.iter() {
         if let CollisionEvent::Started(x, y, CollisionEventFlags::SENSOR) = collision_event {
-            eprintln!("collision detected!");
             let (attack, attacker_id, receiver, attacker_kind): (
                 u32,
                 Entity,
                 &Entity,
                 CharacterKind,
-            ) = if let Some((attack, attacker_id, receiver, attacker_kind)) = characters
-                .iter()
-                .find(|(_, c, children)| c.is_attacking && children.contains(x))
-                .and_then(|(attacker_id, attacker, children)| {
-                    if let Some((_, weapon)) =
-                        weapons.iter().find(|(id, weapon)| children.contains(id))
-                    {
-                        Some((
-                            attacker.stats.attack + weapon.attack,
-                            attacker_id,
-                            y,
-                            attacker.kind,
-                        ))
-                    } else {
-                        None
-                    }
-                }) {
-                (attack, attacker_id, receiver, attacker_kind)
-            } else if let Some((attack, attacker_id, receiver, attacker_kind)) = characters
-                .iter()
-                .find(|(_, c, children)| c.is_attacking && children.contains(y))
-                .and_then(|(attacker_id, attacker, children)| {
-                    if let Some((_, weapon)) =
-                        weapons.iter().find(|(id, weapon)| children.contains(id))
-                    {
-                        Some((
-                            attacker.stats.attack + weapon.attack,
-                            attacker_id,
-                            x,
-                            attacker.kind,
-                        ))
-                    } else {
-                        None
-                    }
-                })
-            {
-                (attack, attacker_id, receiver, attacker_kind)
-            } else {
-                continue;
-            };
+            ) = get_attacker_and_receiver!(characters, weapons, x, y);
             eprintln!("Found attacker");
-            check_receivers(
-                &mut commands,
-                &asset_server,
-                &mut characters,
-                attack,
-                attacker_id,
-                attacker_kind,
-                receiver,
-            );
+            if !check_grass(&mut commands, &asset_server, &grass, receiver) {
+                // if the attack didn't cut grass, then it's very likely a `Character`.
+                check_receivers(
+                    &mut commands,
+                    &asset_server,
+                    &mut characters,
+                    attack,
+                    attacker_id,
+                    attacker_kind,
+                    receiver,
+                );
+            }
         }
     }
 }
