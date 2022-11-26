@@ -2,8 +2,11 @@ use bevy::ecs::system::EntityCommands;
 use bevy::math::Rect;
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
+use bevy_rapier2d::rapier::geometry::CollisionEventFlags;
 use rand::Rng;
 use rand_seeder::Seeder;
+
+use crate::character::{Character, GrassEffect};
 
 #[derive(Debug, Component)]
 pub struct Bush;
@@ -258,10 +261,37 @@ pub fn spawn_nature(
     );
 }
 
-// fn grass_events(
-//     mut commands: Commands,
-//     asset_server: Res<AssetServer>,
-//     mut collision_events: EventReader<CollisionEvent>,
-//     characters: Query<(Entity, &Character, &Children)>,
-//     grass: Query<()
-// )
+macro_rules! apply {
+    ($characters:ident, $grass:ident, $count:ident, $x:ident, $y:ident) => {
+        apply!($characters, $grass, $count, $x);
+        apply!($characters, $grass, $count, $y);
+    };
+    ($characters:ident, $grass:ident, $count:ident, $x:ident) => {{
+        if let Some(children) = $characters.iter().find(|children| children.contains($x)) {
+            for (e, mut effect, mut visibility) in $grass.iter_mut() {
+                if children.contains(&e) {
+                    effect.count += $count;
+                    visibility.is_visible = effect.count > 0;
+                    break;
+                }
+            }
+            continue;
+        }
+    }};
+}
+
+pub fn grass_events(
+    mut collision_events: EventReader<CollisionEvent>,
+    characters: Query<&Children, With<Character>>,
+    mut grass: Query<(Entity, &mut GrassEffect, &mut Visibility)>,
+) {
+    // First we go through all "stopped collisions".
+    for collision_event in collision_events.iter() {
+        let (count, x, y) = match collision_event {
+            CollisionEvent::Started(x, y, CollisionEventFlags::SENSOR) => (1, x, y),
+            CollisionEvent::Stopped(x, y, CollisionEventFlags::SENSOR) => (-1, x, y),
+            _ => continue,
+        };
+        apply!(characters, grass, count, x, y);
+    }
+}

@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy::utils::Duration;
 use bevy_rapier2d::prelude::*;
+use bevy_rapier2d::rapier::geometry::CollisionEventFlags;
 
 use crate::character::{Character, CharacterKind};
 use crate::environment::Grass;
@@ -187,8 +188,6 @@ pub fn handle_attacks(
     mut grass: Query<(Entity, &Grass, &Transform)>,
     weapons: Query<(Entity, &Weapon)>,
 ) {
-    use bevy_rapier2d::rapier::geometry::CollisionEventFlags;
-
     for collision_event in collision_events.iter() {
         if let CollisionEvent::Started(x, y, CollisionEventFlags::SENSOR) = collision_event {
             let (attack, attacker_id, receiver, attacker_kind): (

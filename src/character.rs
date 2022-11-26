@@ -6,6 +6,12 @@ use bevy::ecs::component::Component;
 use bevy::prelude::*;
 
 #[derive(Component)]
+pub struct GrassEffect {
+    // If the count is 0, then we don't display the grass effect.
+    pub count: isize,
+}
+
+#[derive(Component)]
 pub struct CharacterInfo;
 
 #[derive(Debug)]
