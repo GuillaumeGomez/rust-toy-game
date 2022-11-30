@@ -8,7 +8,7 @@ use bevy_rapier2d::prelude::*;
 
 use crate::{
     building, character, environment, hud, map, monster, player, weapon, AppState, GameInfo,
-    NOT_OUTSIDE_WORLD, OUTSIDE_WORLD,
+    OUTSIDE_WORLD,
 };
 
 pub const ONE_SECOND: u32 = 1_000_000;
@@ -293,40 +293,17 @@ fn update_player_collisions(
 }
 
 fn hide_outside(
-    mut visibilities: Query<&mut Visibility, With<OutsideWorld>>,
     mut player: Query<(&Children, &mut Transform, &mut player::Player)>,
-    mut collisions: Query<&mut CollisionGroups>,
-    mut rapier_debug: ResMut<DebugRenderContext>,
+    app_state: Res<GameInfo>,
 ) {
-    for mut visibility in visibilities.iter_mut() {
-        visibility.is_visible = false;
-    }
-
-    // FIXME: https://github.com/dimforge/rapier/issues/398
-    // rapier_debug.pipeline.mode = DebugRenderMode::from_bits_truncate(NOT_OUTSIDE_WORLD.bits());
-    update_player_collisions(&mut player, &mut collisions, NOT_OUTSIDE_WORLD);
-
     let (children, mut pos, mut player) = player.single_mut();
     player.old_x = pos.translation.x;
     player.old_y = pos.translation.y - 10.;
-    pos.translation.x = -0.;
-    pos.translation.y = -40.;
+    pos.translation.x = app_state.pos.x;
+    pos.translation.y = app_state.pos.y - 40.;
 }
 
-fn show_outside(
-    mut visibilities: Query<(&mut Visibility), With<OutsideWorld>>,
-    mut player: Query<(&Children, &mut Transform, &mut player::Player)>,
-    mut collisions: Query<&mut CollisionGroups>,
-    mut rapier_debug: ResMut<DebugRenderContext>,
-) {
-    for mut visibility in visibilities.iter_mut() {
-        visibility.is_visible = true;
-    }
-
-    // FIXME: https://github.com/dimforge/rapier/issues/398
-    // rapier_debug.pipeline.mode = DebugRenderMode::from_bits_truncate(OUTSIDE_WORLD.bits());
-    update_player_collisions(&mut player, &mut collisions, OUTSIDE_WORLD);
-
+fn show_outside(mut player: Query<(&Children, &mut Transform, &mut player::Player)>) {
     let (children, mut pos, mut player) = player.single_mut();
     pos.translation.x = player.old_x;
     pos.translation.y = player.old_y;
@@ -383,6 +360,7 @@ fn handle_enter_area_events<T: Component>(
     mut collision_events: EventReader<CollisionEvent>,
     buildings: Query<&Children, With<T>>,
     enter_area_captors: Query<&building::EnterArea>,
+    player: Query<&Transform, With<player::Player>>,
     mut app_state: ResMut<GameInfo>,
     mut game_state: ResMut<State<GameState>>,
 ) {
@@ -410,6 +388,11 @@ fn handle_enter_area_events<T: Component>(
                     // FIXME: compute real hash
                     app_state.building_hash = 0;
                     if *game_state.current() == GameState::Outside {
+                        let player_pos = player.single();
+                        app_state.pos = Vec2 {
+                            x: player_pos.translation.x + crate::MAP_SIZE * 3.,
+                            y: player_pos.translation.y + crate::MAP_SIZE * 3.,
+                        };
                         game_state.set(GameState::InsideHouse);
                     } else {
                         game_state.set(GameState::Outside);

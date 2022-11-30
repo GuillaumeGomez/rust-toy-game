@@ -11,6 +11,26 @@ pub struct GrassEffect {
     pub count: isize,
 }
 
+pub struct GrassEffectBundle;
+
+impl GrassEffectBundle {
+    pub fn new(parent_height: f32, asset_server: Res<AssetServer>) -> (GrassEffect, SpriteBundle) {
+        (
+            GrassEffect { count: 0 },
+            SpriteBundle {
+                texture: asset_server.load("textures/grass-effect.png"),
+                sprite: Sprite {
+                    custom_size: Some(Vec2 { x: 18., y: 7. }),
+                    ..default()
+                },
+                transform: Transform::from_xyz(0., parent_height / -2. + 3., 1.0),
+                visibility: Visibility { is_visible: false },
+                ..default()
+            },
+        )
+    }
+}
+
 #[derive(Component)]
 pub struct CharacterInfo;
 

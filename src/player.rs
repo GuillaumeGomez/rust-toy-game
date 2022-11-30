@@ -3,7 +3,7 @@ use bevy_rapier2d::prelude::*;
 
 use crate::character::{
     Character, CharacterAnimationInfo, CharacterAnimationType, CharacterKind, CharacterPoints,
-    GrassEffect,
+    GrassEffectBundle,
 };
 use crate::weapon::Weapon;
 use crate::RUN_STAMINA_CONSUMPTION_PER_SEC;
@@ -139,19 +139,7 @@ pub fn spawn_player(
                 CollisionGroups::new(crate::NOTHING, crate::NOTHING),
             ));
             // The "grass effect" (invisible for the moment).
-            children.spawn((
-                GrassEffect { count: 0 },
-                SpriteBundle {
-                    texture: asset_server.load("textures/grass-effect.png"),
-                    sprite: Sprite {
-                        custom_size: Some(Vec2 { x: 18., y: 7. }),
-                        ..default()
-                    },
-                    transform: Transform::from_xyz(0., PLAYER_HEIGHT / -2. + 3., 1.0),
-                    visibility: Visibility { is_visible: false },
-                    ..default()
-                },
-            ));
+            children.spawn(GrassEffectBundle::new(PLAYER_HEIGHT, asset_server));
         });
 
     println!("player id: {:?}", app_state.player_id);

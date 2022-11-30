@@ -140,14 +140,18 @@ pub fn spawn_buildings(
     insert_general_shop(general_shop_texture, &mut commands, -220., 250.);
 }
 
-pub fn spawn_inside_building(mut commands: Commands, asset_server: Res<AssetServer>) {
+pub fn spawn_inside_building(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    app_state: Res<crate::GameInfo>,
+) {
     let house_texture = asset_server.load("textures/inside-house.png");
 
     commands
         .spawn((
             SpriteBundle {
                 texture: house_texture,
-                transform: Transform::from_xyz(0., 0., 0.0),
+                transform: Transform::from_xyz(app_state.pos.x, app_state.pos.y, 0.0),
                 ..default()
             },
             RigidBody::Fixed,
@@ -157,36 +161,36 @@ pub fn spawn_inside_building(mut commands: Commands, asset_server: Res<AssetServ
             // The left and right walls.
             children.spawn((
                 Collider::cuboid(16., 57.),
-                CollisionGroups::new(crate::NOT_OUTSIDE_WORLD, crate::NOT_OUTSIDE_WORLD),
+                CollisionGroups::new(crate::OUTSIDE_WORLD, crate::OUTSIDE_WORLD),
                 TransformBundle::from(Transform::from_xyz(-106.0, 0.0, 0.0)),
             ));
             children.spawn((
                 Collider::cuboid(16., 57.),
-                CollisionGroups::new(crate::NOT_OUTSIDE_WORLD, crate::NOT_OUTSIDE_WORLD),
+                CollisionGroups::new(crate::OUTSIDE_WORLD, crate::OUTSIDE_WORLD),
                 TransformBundle::from(Transform::from_xyz(106.0, 0.0, 0.0)),
             ));
             // The top wall.
             children.spawn((
                 Collider::cuboid(92., 16.),
-                CollisionGroups::new(crate::NOT_OUTSIDE_WORLD, crate::NOT_OUTSIDE_WORLD),
+                CollisionGroups::new(crate::OUTSIDE_WORLD, crate::OUTSIDE_WORLD),
                 TransformBundle::from(Transform::from_xyz(0.0, 66.0, 0.0)),
             ));
             // The bottom wall (left part).
             children.spawn((
                 Collider::cuboid(55., 16.),
-                CollisionGroups::new(crate::NOT_OUTSIDE_WORLD, crate::NOT_OUTSIDE_WORLD),
+                CollisionGroups::new(crate::OUTSIDE_WORLD, crate::OUTSIDE_WORLD),
                 TransformBundle::from(Transform::from_xyz(-68.0, -65.0, 0.0)),
             ));
             // The bottom wall (right part).
             children.spawn((
                 Collider::cuboid(55., 16.),
-                CollisionGroups::new(crate::NOT_OUTSIDE_WORLD, crate::NOT_OUTSIDE_WORLD),
+                CollisionGroups::new(crate::OUTSIDE_WORLD, crate::OUTSIDE_WORLD),
                 TransformBundle::from(Transform::from_xyz(68.0, -65.0, 0.0)),
             ));
             // The exit door.
             children.spawn((
                 Collider::cuboid(8., 4.),
-                CollisionGroups::new(crate::NOT_OUTSIDE_WORLD, crate::NOT_OUTSIDE_WORLD),
+                CollisionGroups::new(crate::OUTSIDE_WORLD, crate::OUTSIDE_WORLD),
                 Sensor,
                 EnterArea,
                 TransformBundle::from(Transform::from_xyz(0., -70.0, 0.0)),

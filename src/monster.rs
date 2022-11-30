@@ -5,7 +5,7 @@ use bevy_rapier2d::prelude::*;
 
 use crate::character::{
     Character, CharacterAnimationInfo, CharacterAnimationType, CharacterInfo, CharacterKind,
-    CharacterPoints, GrassEffect,
+    CharacterPoints, GrassEffectBundle,
 };
 use crate::game::OutsideWorld;
 
@@ -133,19 +133,7 @@ pub fn spawn_monsters(
             children.spawn((geometry, CharacterInfo));
 
             // The "grass effect" (invisible for the moment).
-            children.spawn((
-                GrassEffect { count: 0 },
-                SpriteBundle {
-                    texture: asset_server.load("textures/grass-effect.png"),
-                    sprite: Sprite {
-                        custom_size: Some(Vec2 { x: 16., y: 7. }),
-                        ..default()
-                    },
-                    transform: Transform::from_xyz(0., HEIGHT / 2. - 8., 0.0),
-                    visibility: Visibility { is_visible: false },
-                    ..default()
-                },
-            ));
+            children.spawn(GrassEffectBundle::new(HEIGHT, asset_server));
         });
 }
 

@@ -28,7 +28,6 @@ pub const ONE_SECOND: u32 = 1_000_000;
 pub const STAT_POINTS_PER_LEVEL: u32 = 3;
 
 pub const OUTSIDE_WORLD: Group = Group::GROUP_1;
-pub const NOT_OUTSIDE_WORLD: Group = Group::GROUP_2;
 pub const HITBOX: Group = Group::GROUP_3;
 pub const NOTHING: Group = Group::GROUP_4;
 pub const RUN_STAMINA_CONSUMPTION_PER_SEC: f32 = 10.;
@@ -62,6 +61,7 @@ pub struct GameInfo {
     pub show_character_window: bool,
     pub player_id: Option<Entity>,
     pub building_hash: u32,
+    pub pos: Vec2,
 }
 
 pub fn despawn_kind<T: Component>(to_despawn: Query<Entity, With<T>>, mut commands: Commands) {
