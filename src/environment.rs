@@ -261,29 +261,34 @@ pub fn spawn_nature(
     );
 }
 
-macro_rules! apply {
-    ($characters:ident, $grass:ident, $count:ident, $x:ident, $y:ident) => {
-        apply!($characters, $grass, $count, $x);
-        apply!($characters, $grass, $count, $y);
-    };
-    ($characters:ident, $grass:ident, $count:ident, $x:ident) => {{
-        if let Some(children) = $characters.iter().find(|children| children.contains($x)) {
-            for (e, mut effect, mut visibility) in $grass.iter_mut() {
-                if children.contains(&e) {
-                    effect.count += $count;
-                    visibility.is_visible = effect.count > 0;
-                    break;
-                }
-            }
-            continue;
+fn check_if_grass(
+    characters: &Query<&Children, With<Character>>,
+    grass: &Query<&Sensor, With<Grass>>,
+    grass_effect: &mut Query<(Entity, &mut GrassEffect, &mut Visibility)>,
+    x: &Entity,
+    y: &Entity,
+    count: isize,
+) -> bool {
+    if !grass.get(*x).is_ok() {
+        return false;
+    }
+    if let Some(children) = characters.iter().find(|children| children.contains(y)) {
+        if let Some((_, mut effect, mut visibility)) = grass_effect
+            .iter_mut()
+            .find(|(e, _, _)| children.contains(e))
+        {
+            effect.count += count;
+            visibility.is_visible = effect.count > 0;
         }
-    }};
+    }
+    true
 }
 
 pub fn grass_events(
     mut collision_events: EventReader<CollisionEvent>,
     characters: Query<&Children, With<Character>>,
-    mut grass: Query<(Entity, &mut GrassEffect, &mut Visibility)>,
+    grass: Query<&Sensor, With<Grass>>,
+    mut grass_effect: Query<(Entity, &mut GrassEffect, &mut Visibility)>,
 ) {
     // First we go through all "stopped collisions".
     for collision_event in collision_events.iter() {
@@ -292,6 +297,8 @@ pub fn grass_events(
             CollisionEvent::Stopped(x, y, CollisionEventFlags::SENSOR) => (-1, x, y),
             _ => continue,
         };
-        apply!(characters, grass, count, x, y);
+        if !check_if_grass(&characters, &grass, &mut grass_effect, x, y, count) {
+            !check_if_grass(&characters, &grass, &mut grass_effect, y, x, count);
+        }
     }
 }
