@@ -12,15 +12,22 @@ pub struct Door;
 #[derive(Debug, Component)]
 pub struct EnterArea;
 
-fn insert_general_shop(texture: Handle<Image>, commands: &mut Commands, x: f32, y: f32) {
+const GENERAL_SHOP_HEIGHT: f32 = 106.;
+const GENERAL_SHOP_WIDTH: f32 = 110.;
+
+fn insert_general_shop(texture: Handle<TextureAtlas>, commands: &mut Commands, x: f32, y: f32) {
     commands
         .spawn((
             Building::GeneralShop,
             crate::game::OutsideWorld,
-            SpriteBundle {
-                texture,
-                sprite: Sprite {
-                    custom_size: Some(Vec2 { x: 110., y: 108. }),
+            SpriteSheetBundle {
+                texture_atlas: texture.clone(),
+                sprite: TextureAtlasSprite {
+                    index: 1,
+                    custom_size: Some(Vec2 {
+                        x: GENERAL_SHOP_WIDTH,
+                        y: GENERAL_SHOP_HEIGHT,
+                    }),
                     ..default()
                 },
                 transform: Transform::from_xyz(x, y, 0.0),
@@ -30,9 +37,25 @@ fn insert_general_shop(texture: Handle<Image>, commands: &mut Commands, x: f32, 
         ))
         .with_children(|children| {
             children.spawn((
-                Collider::cuboid(50., 40.),
+                SpriteSheetBundle {
+                    texture_atlas: texture,
+                    sprite: TextureAtlasSprite {
+                        index: 0,
+                        custom_size: Some(Vec2 {
+                            x: GENERAL_SHOP_WIDTH,
+                            y: GENERAL_SHOP_HEIGHT,
+                        }),
+                        ..default()
+                    },
+                    transform: Transform::from_xyz(0., 0., 2.),
+                    ..default()
+                },
+            ));
+            // The roof.
+            children.spawn((
+                Collider::cuboid(50., 38.),
                 CollisionGroups::new(crate::OUTSIDE_WORLD, crate::OUTSIDE_WORLD),
-                TransformBundle::from(Transform::from_xyz(0.0, 10.0, 0.0)),
+                TransformBundle::from(Transform::from_xyz(0.0, 8.0, 0.0)),
             ));
             // The porch (left).
             children.spawn((
@@ -137,7 +160,16 @@ pub fn spawn_buildings(
     }
 
     let general_shop_texture = asset_server.load("textures/general-shop.png");
-    insert_general_shop(general_shop_texture, &mut commands, -220., 250.);
+    let g_shop_texture_atlas = TextureAtlas::from_grid(
+        general_shop_texture,
+        Vec2::new(GENERAL_SHOP_WIDTH, GENERAL_SHOP_HEIGHT),
+        2,
+        1,
+        None,
+        None,
+    );
+    let g_shop_texture_atlas_handle = texture_atlases.add(g_shop_texture_atlas);
+    insert_general_shop(g_shop_texture_atlas_handle, &mut commands, -220., 250.);
 }
 
 pub fn spawn_inside_building(
