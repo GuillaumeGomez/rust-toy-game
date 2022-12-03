@@ -94,6 +94,7 @@ pub fn spawn_player(
                 linear_damping: 8.,
                 angular_damping: 8.,
             },
+            ZIndex::Global(2),
         ))
         .with_children(|children| {
             // The "move" box.
