@@ -134,7 +134,27 @@ pub fn spawn_player(
                     visibility: Visibility { is_visible: false },
                     ..default()
                 },
-                Collider::cuboid(WEAPON_WIDTH / 2. - 1., WEAPON_HEIGHT / 2.),
+                Collider::polyline(
+                    vec![
+                        Vec2 {
+                            x: WEAPON_WIDTH / 4.,
+                            y: WEAPON_HEIGHT / -6.,
+                        },
+                        Vec2 {
+                            x: WEAPON_WIDTH / 4.,
+                            y: WEAPON_HEIGHT / 2.,
+                        },
+                        Vec2 {
+                            x: WEAPON_WIDTH / -4.,
+                            y: WEAPON_HEIGHT / 2.,
+                        },
+                        Vec2 {
+                            x: WEAPON_WIDTH / -4.,
+                            y: WEAPON_HEIGHT / -6.,
+                        },
+                    ],
+                    None,
+                ),
                 ActiveEvents::COLLISION_EVENTS,
                 CollisionGroups::new(crate::NOTHING, crate::NOTHING),
             ));
