@@ -5,6 +5,17 @@ use bevy_rapier2d::prelude::*;
 pub enum Building {
     House,
     GeneralShop,
+    WeaponShop,
+}
+
+impl Building {
+    fn get_start_index(&self) -> usize {
+        match *self {
+            Self::House => unreachable!(),
+            Self::GeneralShop => 0,
+            Self::WeaponShop => 2,
+        }
+    }
 }
 
 #[derive(Debug, Component)]
@@ -14,16 +25,20 @@ pub struct EnterArea;
 
 const GENERAL_SHOP_HEIGHT: f32 = 106.;
 const GENERAL_SHOP_WIDTH: f32 = 110.;
+const WEAPON_SHOP_HEIGHT: f32 = 106.;
+const WEAPON_SHOP_WIDTH: f32 = 110.;
 
-fn insert_general_shop(texture: Handle<TextureAtlas>, commands: &mut Commands, x: f32, y: f32) {
+fn insert_shop(texture: Handle<TextureAtlas>, commands: &mut Commands, building: Building, x: f32, y: f32) {
+    let start_index = building.get_start_index();
+
     commands
         .spawn((
-            Building::GeneralShop,
+            building,
             crate::game::OutsideWorld,
             SpriteSheetBundle {
                 texture_atlas: texture.clone(),
                 sprite: TextureAtlasSprite {
-                    index: 1,
+                    index: start_index + 1,
                     custom_size: Some(Vec2 {
                         x: GENERAL_SHOP_WIDTH,
                         y: GENERAL_SHOP_HEIGHT,
@@ -40,7 +55,7 @@ fn insert_general_shop(texture: Handle<TextureAtlas>, commands: &mut Commands, x
                 SpriteSheetBundle {
                     texture_atlas: texture,
                     sprite: TextureAtlasSprite {
-                        index: 0,
+                        index: start_index,
                         custom_size: Some(Vec2 {
                             x: GENERAL_SHOP_WIDTH,
                             y: GENERAL_SHOP_HEIGHT,
@@ -159,17 +174,18 @@ pub fn spawn_buildings(
         );
     }
 
-    let general_shop_texture = asset_server.load("textures/general-shop.png");
-    let g_shop_texture_atlas = TextureAtlas::from_grid(
-        general_shop_texture,
+    let shops_texture = asset_server.load("textures/shops.png");
+    let shops_texture_atlas = TextureAtlas::from_grid(
+        shops_texture,
         Vec2::new(GENERAL_SHOP_WIDTH, GENERAL_SHOP_HEIGHT),
         2,
-        1,
+        2,
         None,
         None,
     );
-    let g_shop_texture_atlas_handle = texture_atlases.add(g_shop_texture_atlas);
-    insert_general_shop(g_shop_texture_atlas_handle, &mut commands, -220., 250.);
+    let shops_texture_atlas_handle = texture_atlases.add(shops_texture_atlas);
+    insert_shop(shops_texture_atlas_handle.clone(), &mut commands, Building::GeneralShop, -220., 270.);
+    insert_shop(shops_texture_atlas_handle, &mut commands, Building::WeaponShop, -100., 270.);
 }
 
 pub fn spawn_inside_building(

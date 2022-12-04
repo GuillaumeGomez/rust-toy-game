@@ -221,7 +221,7 @@ pub fn spawn_nature(
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
 
     let mut x = -100.;
-    let mut y = 200.;
+    let mut y = 280.;
     for nb in 0..6 {
         if nb % 3 == 0 {
             x = -100.;
