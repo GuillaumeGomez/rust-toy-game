@@ -605,7 +605,8 @@ dependencies = [
 [[package]]
 name = "bevy_pixel_camera"
 version = "0.3.0"
-source = "git+https://github.com/GuillaumeGomez/bevy_pixel_camera?branch=update-bevy#9a856101c22ce31d6b8d07ddd01bb3912eb17673"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "909788182141bd26ec0a2eca270b8323b80bf2d60af67b60cc729af3b2038a85"
 dependencies = [
  "bevy",
 ]
