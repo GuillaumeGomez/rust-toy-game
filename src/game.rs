@@ -45,6 +45,7 @@ impl Plugin for GamePlugin {
                 .with_system(weapon::update_notifications)
                 .with_system(monster::update_character_info)
                 .with_system(environment::grass_events)
+                .with_system(weapon::update_entity_destroyer)
                 .with_system(handle_input)
                 .with_system(handle_windows),
         )

@@ -8,6 +8,7 @@ use crate::environment::Grass;
 
 const NOTIFICATION_MOVE: f32 = 5.;
 const NOTIFICATION_TIME: f32 = 0.5;
+
 #[derive(Debug, Component)]
 pub struct Notification {
     pub timer: Timer,
@@ -108,15 +109,36 @@ pub fn check_receivers(
     }
 }
 
+#[derive(Component)]
+pub struct EntityDestroyer(Entity, Timer);
+
+pub fn update_entity_destroyer(
+    timer: Res<Time>,
+    mut commands: Commands,
+    mut query: Query<(Entity, &mut EntityDestroyer)>,
+) {
+    let delta = timer.delta();
+    for (e, mut destroyer) in query.iter_mut() {
+        destroyer.1.tick(delta);
+        if destroyer.1.finished() {
+            commands.entity(destroyer.0).despawn_recursive();
+            commands.entity(e).despawn_recursive();
+        }
+    }
+}
+
 fn check_grass(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
-    grass: &Query<(Entity, &Grass, &Transform)>,
+    grass: &mut Query<(Entity, &Grass, &mut Transform)>,
     receiver: &Entity,
 ) -> bool {
-    if let Ok((_, _, transform)) = grass.get(*receiver) {
-        // We remove the existing grass...
-        commands.entity(*receiver).despawn_recursive();
+    if let Ok((_, _, mut transform)) = grass.get_mut(*receiver) {
+        // We "remove" the existing grass...
+        commands.spawn(EntityDestroyer(
+            *receiver,
+            Timer::from_seconds(0.1, TimerMode::Once),
+        ));
 
         // And replace it with a cut one.
         let cut_grass = asset_server.load("textures/cut-grass.png");
@@ -135,6 +157,8 @@ fn check_grass(
                 ..default()
             },
         ));
+        // Moving grass outside of view.
+        transform.translation.y -= crate::MAP_SIZE * 3.;
         true
     } else {
         false
@@ -185,7 +209,7 @@ pub fn handle_attacks(
     asset_server: Res<AssetServer>,
     mut collision_events: EventReader<CollisionEvent>,
     mut characters: Query<(Entity, &mut Character, &Children)>,
-    mut grass: Query<(Entity, &Grass, &Transform)>,
+    mut grass: Query<(Entity, &Grass, &mut Transform)>,
     weapons: Query<(Entity, &Weapon)>,
 ) {
     for collision_event in collision_events.iter() {
@@ -197,7 +221,7 @@ pub fn handle_attacks(
                 CharacterKind,
             ) = get_attacker_and_receiver!(characters, weapons, x, y);
             eprintln!("Found attacker");
-            if !check_grass(&mut commands, &asset_server, &grass, receiver) {
+            if !check_grass(&mut commands, &asset_server, &mut grass, receiver) {
                 // if the attack didn't cut grass, then it's very likely a `Character`.
                 check_receivers(
                     &mut commands,

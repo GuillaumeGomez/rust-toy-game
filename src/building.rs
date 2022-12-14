@@ -28,7 +28,13 @@ const GENERAL_SHOP_WIDTH: f32 = 110.;
 const WEAPON_SHOP_HEIGHT: f32 = 106.;
 const WEAPON_SHOP_WIDTH: f32 = 110.;
 
-fn insert_shop(texture: Handle<TextureAtlas>, commands: &mut Commands, building: Building, x: f32, y: f32) {
+fn insert_shop(
+    texture: Handle<TextureAtlas>,
+    commands: &mut Commands,
+    building: Building,
+    x: f32,
+    y: f32,
+) {
     let start_index = building.get_start_index();
 
     commands
@@ -51,21 +57,19 @@ fn insert_shop(texture: Handle<TextureAtlas>, commands: &mut Commands, building:
             RigidBody::Fixed,
         ))
         .with_children(|children| {
-            children.spawn((
-                SpriteSheetBundle {
-                    texture_atlas: texture,
-                    sprite: TextureAtlasSprite {
-                        index: start_index,
-                        custom_size: Some(Vec2 {
-                            x: GENERAL_SHOP_WIDTH,
-                            y: GENERAL_SHOP_HEIGHT,
-                        }),
-                        ..default()
-                    },
-                    transform: Transform::from_xyz(0., 0., 2.),
+            children.spawn((SpriteSheetBundle {
+                texture_atlas: texture,
+                sprite: TextureAtlasSprite {
+                    index: start_index,
+                    custom_size: Some(Vec2 {
+                        x: GENERAL_SHOP_WIDTH,
+                        y: GENERAL_SHOP_HEIGHT,
+                    }),
                     ..default()
                 },
-            ));
+                transform: Transform::from_xyz(0., 0., 2.),
+                ..default()
+            },));
             // The roof.
             children.spawn((
                 Collider::cuboid(50., 38.),
@@ -184,8 +188,20 @@ pub fn spawn_buildings(
         None,
     );
     let shops_texture_atlas_handle = texture_atlases.add(shops_texture_atlas);
-    insert_shop(shops_texture_atlas_handle.clone(), &mut commands, Building::GeneralShop, -220., 270.);
-    insert_shop(shops_texture_atlas_handle, &mut commands, Building::WeaponShop, -100., 270.);
+    insert_shop(
+        shops_texture_atlas_handle.clone(),
+        &mut commands,
+        Building::GeneralShop,
+        -220.,
+        270.,
+    );
+    insert_shop(
+        shops_texture_atlas_handle,
+        &mut commands,
+        Building::WeaponShop,
+        -100.,
+        270.,
+    );
 }
 
 pub fn spawn_inside_building(

@@ -102,7 +102,7 @@ pub fn setup_components(
     rapier_config.gravity = Vec2::ZERO;
 
     // Add the 2D camera.
-    // commands.spawn_bundle(Camera2dBundle::default());
+    // commands.spawn(Camera2dBundle::default());
     let resolution = (WIDTH, HEIGHT);
     commands.spawn(PixelCameraBundle::from_resolution(
         resolution.0 as _,
