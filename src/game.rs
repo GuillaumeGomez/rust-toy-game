@@ -82,6 +82,8 @@ impl Plugin for GamePlugin {
                 // TODO: move this into `spawn_map`
                 .with_system(building::spawn_buildings)
                 // TODO: move this into `spawn_map`
+                .with_system(building::spawn_statues)
+                // TODO: move this into `spawn_map`
                 .with_system(environment::spawn_nature)
                 .with_system(hud::build_hud),
         )

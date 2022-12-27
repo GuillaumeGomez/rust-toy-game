@@ -215,7 +215,7 @@ pub fn spawn_inside_building(
         .spawn((
             SpriteBundle {
                 texture: house_texture,
-                transform: Transform::from_xyz(app_state.pos.x, app_state.pos.y, 0.0),
+                transform: Transform::from_xyz(app_state.pos.x, app_state.pos.y, 0.),
                 ..default()
             },
             RigidBody::Fixed,
@@ -260,4 +260,91 @@ pub fn spawn_inside_building(
                 TransformBundle::from(Transform::from_xyz(0., -70.0, 0.0)),
             ));
         });
+}
+
+#[derive(Debug, Component, Clone, Copy)]
+pub enum Statue {
+    Magus = 0,
+    Knight = 1,
+    Archer = 2,
+}
+
+impl Statue {
+    const HEIGHT: f32 = 96.;
+
+    fn create(&self, commands: &mut Commands, texture: Handle<TextureAtlas>, x: f32, y: f32) {
+        let index = *self as usize;
+        let (width, offset_x) = if index == Statue::Magus as usize {
+            (54., -2.)
+        } else {
+            (46., 0.)
+        };
+        commands.spawn((
+            *self,
+            crate::game::OutsideWorld,
+            SpriteSheetBundle {
+                texture_atlas: texture.clone(),
+                sprite: TextureAtlasSprite {
+                    index: index * 2,
+                    custom_size: Some(Vec2 { x: width, y: 59. }),
+                    ..default()
+                },
+                transform: Transform::from_xyz(x, y, 2.),
+                ..default()
+            },
+            RigidBody::Fixed,
+        )).with_children(|children| {
+            children.spawn(SpriteSheetBundle {
+                texture_atlas: texture,
+                sprite: TextureAtlasSprite {
+                    index: index * 2 + 1,
+                    custom_size: Some(Vec2 { x: width, y: Self::HEIGHT - 60. }),
+                    ..default()
+                },
+                transform: Transform::from_xyz(0., -47., -2.),
+                ..default()
+            });
+            children.spawn((
+                Collider::cuboid(46. / 2., 46. / 2.),
+                CollisionGroups::new(crate::OUTSIDE_WORLD, crate::OUTSIDE_WORLD),
+                TransformBundle::from(Transform::from_xyz(offset_x, -42., 0.)),
+            ));
+        });
+    }
+}
+
+pub fn spawn_statues(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+) {
+    let statues_texture = asset_server.load("textures/statues.png");
+    let mut statues_texture_atlas = TextureAtlas::new_empty(statues_texture, Vec2::new(153., 96.));
+    // We split the top from the bottom part.
+    statues_texture_atlas.add_texture(Rect::new(0., 0., 54., 59.));
+    statues_texture_atlas.add_texture(Rect::new(0., 60., 54., 96.));
+    statues_texture_atlas.add_texture(Rect::new(57., 0., 103., 59.));
+    statues_texture_atlas.add_texture(Rect::new(57., 60., 103., 96.));
+    statues_texture_atlas.add_texture(Rect::new(107., 0., 153., 59.));
+    statues_texture_atlas.add_texture(Rect::new(107., 60., 153., 96.));
+    let statues_texture_atlas_handle = texture_atlases.add(statues_texture_atlas);
+
+    Statue::Magus.create(
+        &mut commands,
+        statues_texture_atlas_handle.clone(),
+        0.,
+        0.,
+    );
+    Statue::Knight.create(
+        &mut commands,
+        statues_texture_atlas_handle.clone(),
+        70.,
+        0.,
+    );
+    Statue::Archer.create(
+        &mut commands,
+        statues_texture_atlas_handle.clone(),
+        140.,
+        0.
+    );
 }

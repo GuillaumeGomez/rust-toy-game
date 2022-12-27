@@ -3052,9 +3052,11 @@ dependencies = [
  "bevy_pixel_camera",
  "bevy_prototype_lyon",
  "bevy_rapier2d",
+ "futures-lite",
  "rand",
  "rand_pcg",
  "rand_seeder",
+ "wgpu",
 ]
 
 [[package]]

@@ -129,35 +129,53 @@ pub fn setup_components(
 }
 
 fn main() {
-    App::new()
-        .add_plugins(
-            DefaultPlugins
-                .set(WindowPlugin {
-                    window: WindowDescriptor {
-                        title: "Toy game".to_string(),
-                        present_mode: PresentMode::AutoVsync,
-                        resizable: false,
-                        width: WIDTH,
-                        height: HEIGHT,
-                        ..default()
-                    },
+    let mut app = App::new();
+
+    let options = app
+        .world
+        .get_resource::<bevy::render::settings::WgpuSettings>()
+        .cloned()
+        .unwrap_or_default();
+
+    let instance = wgpu::Instance::new(bevy::render::settings::Backends::VULKAN);
+    let request_adapter_options = wgpu::RequestAdapterOptions {
+        power_preference: options.power_preference,
+        ..Default::default()
+    };
+    futures_lite::future::block_on(bevy::render::renderer::initialize_renderer(
+        &instance,
+        &options,
+        &request_adapter_options,
+    ));
+
+    app.add_plugins(
+        DefaultPlugins
+            .set(WindowPlugin {
+                window: WindowDescriptor {
+                    title: "Toy game".to_string(),
+                    present_mode: PresentMode::AutoVsync,
+                    resizable: false,
+                    width: WIDTH,
+                    height: HEIGHT,
                     ..default()
-                })
-                // prevents blurry sprites
-                .set(ImagePlugin::default_nearest()),
-        )
-        .insert_resource(GameInfo::default())
-        .add_state(AppState::Game)
-        .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0))
-        .add_plugin(EguiPlugin)
-        .add_plugin(RapierDebugRenderPlugin::default())
-        .add_plugin(PixelCameraPlugin)
-        .add_plugin(PixelBorderPlugin {
-            color: Color::rgb(0.1, 0.1, 0.1),
-        })
-        .add_plugin(ShapePlugin)
-        .add_plugin(menu::MenuPlugin)
-        .add_plugin(game::GamePlugin)
-        .add_startup_system(setup_components)
-        .run();
+                },
+                ..default()
+            })
+            // prevents blurry sprites
+            .set(ImagePlugin::default_nearest()),
+    )
+    .insert_resource(GameInfo::default())
+    .add_state(AppState::Game)
+    .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0))
+    .add_plugin(EguiPlugin)
+    .add_plugin(RapierDebugRenderPlugin::default())
+    .add_plugin(PixelCameraPlugin)
+    .add_plugin(PixelBorderPlugin {
+        color: Color::rgb(0.1, 0.1, 0.1),
+    })
+    .add_plugin(ShapePlugin)
+    .add_plugin(menu::MenuPlugin)
+    .add_plugin(game::GamePlugin)
+    .add_startup_system(setup_components)
+    .run();
 }
