@@ -311,7 +311,7 @@ pub fn player_attack_system(
             collision_groups.memberships = crate::HITBOX;
             collision_groups.filters = crate::HITBOX;
             // We set its z-index to 1 so it also appears in buildings.
-            transform.translation.z = 0.9;
+            transform.translation.z = crate::WEAPON_Z_INDEX;
         }
     }
     if !character.is_attacking {

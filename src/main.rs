@@ -43,6 +43,12 @@ pub const SEED: &str = "world";
 pub type SeedType = Pcg64Mcg;
 
 pub const GRASS_SIZE: f32 = 16.;
+pub const BACKGROUND_Z_INDEX: f32 = 0.;
+pub const CARPET_Z_INDEX: f32 = 0.1;
+pub const FURNITURE_Z_INDEX: f32 = 0.2;
+pub const WEAPON_Z_INDEX: f32 = 0.9;
+pub const CHARACTER_Z_INDEX: f32 = 1.;
+pub const TOP_PART_Z_INDEX: f32 = 2.;
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 pub enum AppState {

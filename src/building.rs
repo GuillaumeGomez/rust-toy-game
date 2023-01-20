@@ -18,10 +18,95 @@ impl Building {
     }
 }
 
+#[derive(Debug, Component, Clone, Copy)]
+pub enum Furniture {
+    Desk,
+    SmallTable,
+    LongTable,
+    Stool,
+    Crate,
+    Bed,
+    SmallCarpet,
+    MediumCarpet,
+    LongCarpet,
+    BigCarpet,
+    MuralSwords,
+    MuralTools,
+}
+
+impl Furniture {
+    fn pos_in_image(self) -> Rect {
+        match self {
+            Self::Desk => Rect::new(0., 0., 80., 24.),
+            Self::SmallTable => Rect::new(220., 0., 260., 30.),
+            Self::LongTable => Rect::new(219., 227., 267., 63.),
+            Self::Stool => Rect::new(132., 0., 148., 16.),
+            Self::Crate => Rect::new(132., 17., 148., 39.),
+            Self::Bed => Rect::new(183., 0., 215., 48.),
+            Self::SmallCarpet => Rect::new(0., 121., 48., 136.),
+            Self::MediumCarpet => Rect::new(99., 72., 170., 134.),
+            Self::LongCarpet => Rect::new(0., 72., 95., 120.),
+            Self::BigCarpet => Rect::new(172., 70., 252., 134.),
+            Self::MuralSwords => Rect::new(150., 0., 164., 33.),
+            Self::MuralTools => Rect::new(167., 0., 180., 29.),
+        }
+    }
+
+    fn get_collider(self) -> Option<Collider> {
+        match self {
+            Self::SmallCarpet | Self::MediumCarpet | Self::LongCarpet | Self::BigCarpet => None,
+            _ => {
+                let size = self.pos_in_image();
+                Some(Collider::cuboid(size.width() / 2., size.height() / 2.))
+            }
+        }
+    }
+
+    fn z_index(self) -> f32 {
+        match self {
+            Self::SmallCarpet | Self::MediumCarpet | Self::LongCarpet | Self::BigCarpet => {
+                crate::CARPET_Z_INDEX
+            }
+            _ => crate::FURNITURE_Z_INDEX,
+        }
+    }
+}
+
 #[derive(Debug, Component)]
 pub struct Door;
 #[derive(Debug, Component)]
 pub struct EnterArea;
+
+fn insert_furniture<C: Component>(
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
+    furniture: Furniture,
+    x: f32,
+    y: f32,
+    state: C,
+) {
+    let furnitures_texture = asset_server.load("textures/furnitures.png");
+
+    let mut c = commands.spawn((
+        state,
+        SpriteBundle {
+            texture: furnitures_texture,
+            sprite: Sprite {
+                rect: Some(furniture.pos_in_image()),
+                ..default()
+            },
+            transform: Transform::from_xyz(x, y, furniture.z_index()),
+            ..default()
+        },
+    ));
+    if let Some(collider) = furniture.get_collider() {
+        c.insert((
+            RigidBody::Fixed,
+            collider,
+            CollisionGroups::new(crate::OUTSIDE_WORLD, crate::OUTSIDE_WORLD),
+        ));
+    }
+}
 
 const GENERAL_SHOP_HEIGHT: f32 = 106.;
 const GENERAL_SHOP_WIDTH: f32 = 110.;
@@ -67,7 +152,7 @@ fn insert_shop(
                     }),
                     ..default()
                 },
-                transform: Transform::from_xyz(0., 0., 2.),
+                transform: Transform::from_xyz(0., 0., crate::TOP_PART_Z_INDEX),
                 ..default()
             },));
             // The roof.
@@ -211,11 +296,14 @@ pub fn spawn_inside_building(
 ) {
     let house_texture = asset_server.load("textures/inside-house.png");
 
+    let x = app_state.pos.x;
+    let y = app_state.pos.y;
+
     commands
         .spawn((
             SpriteBundle {
                 texture: house_texture,
-                transform: Transform::from_xyz(app_state.pos.x, app_state.pos.y, 0.),
+                transform: Transform::from_xyz(x, y, crate::BACKGROUND_Z_INDEX),
                 ..default()
             },
             RigidBody::Fixed,
@@ -260,6 +348,15 @@ pub fn spawn_inside_building(
                 TransformBundle::from(Transform::from_xyz(0., -70.0, 0.0)),
             ));
         });
+
+    insert_furniture(
+        &mut commands,
+        &asset_server,
+        Furniture::Desk,
+        x,
+        y + 5.,
+        crate::game::InsideHouse,
+    );
 }
 
 #[derive(Debug, Component, Clone, Copy)]
@@ -279,37 +376,42 @@ impl Statue {
         } else {
             (46., 0.)
         };
-        commands.spawn((
-            *self,
-            crate::game::OutsideWorld,
-            SpriteSheetBundle {
-                texture_atlas: texture.clone(),
-                sprite: TextureAtlasSprite {
-                    index: index * 2,
-                    custom_size: Some(Vec2 { x: width, y: 59. }),
+        commands
+            .spawn((
+                *self,
+                crate::game::OutsideWorld,
+                SpriteSheetBundle {
+                    texture_atlas: texture.clone(),
+                    sprite: TextureAtlasSprite {
+                        index: index * 2,
+                        custom_size: Some(Vec2 { x: width, y: 59. }),
+                        ..default()
+                    },
+                    transform: Transform::from_xyz(x, y, crate::TOP_PART_Z_INDEX),
                     ..default()
                 },
-                transform: Transform::from_xyz(x, y, 2.),
-                ..default()
-            },
-            RigidBody::Fixed,
-        )).with_children(|children| {
-            children.spawn(SpriteSheetBundle {
-                texture_atlas: texture,
-                sprite: TextureAtlasSprite {
-                    index: index * 2 + 1,
-                    custom_size: Some(Vec2 { x: width, y: Self::HEIGHT - 60. }),
+                RigidBody::Fixed,
+            ))
+            .with_children(|children| {
+                children.spawn(SpriteSheetBundle {
+                    texture_atlas: texture,
+                    sprite: TextureAtlasSprite {
+                        index: index * 2 + 1,
+                        custom_size: Some(Vec2 {
+                            x: width,
+                            y: Self::HEIGHT - 60.,
+                        }),
+                        ..default()
+                    },
+                    transform: Transform::from_xyz(0., -47., -2.),
                     ..default()
-                },
-                transform: Transform::from_xyz(0., -47., -2.),
-                ..default()
+                });
+                children.spawn((
+                    Collider::cuboid(46. / 2., 46. / 2.),
+                    CollisionGroups::new(crate::OUTSIDE_WORLD, crate::OUTSIDE_WORLD),
+                    TransformBundle::from(Transform::from_xyz(offset_x, -42., 0.)),
+                ));
             });
-            children.spawn((
-                Collider::cuboid(46. / 2., 46. / 2.),
-                CollisionGroups::new(crate::OUTSIDE_WORLD, crate::OUTSIDE_WORLD),
-                TransformBundle::from(Transform::from_xyz(offset_x, -42., 0.)),
-            ));
-        });
     }
 }
 
@@ -329,22 +431,12 @@ pub fn spawn_statues(
     statues_texture_atlas.add_texture(Rect::new(107., 60., 153., 96.));
     let statues_texture_atlas_handle = texture_atlases.add(statues_texture_atlas);
 
-    Statue::Magus.create(
-        &mut commands,
-        statues_texture_atlas_handle.clone(),
-        0.,
-        0.,
-    );
-    Statue::Knight.create(
-        &mut commands,
-        statues_texture_atlas_handle.clone(),
-        70.,
-        0.,
-    );
+    Statue::Magus.create(&mut commands, statues_texture_atlas_handle.clone(), 0., 0.);
+    Statue::Knight.create(&mut commands, statues_texture_atlas_handle.clone(), 70., 0.);
     Statue::Archer.create(
         &mut commands,
         statues_texture_atlas_handle.clone(),
         140.,
-        0.
+        0.,
     );
 }
