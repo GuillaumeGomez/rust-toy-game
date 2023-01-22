@@ -45,6 +45,7 @@ pub type SeedType = Pcg64Mcg;
 pub const GRASS_SIZE: f32 = 16.;
 pub const BACKGROUND_Z_INDEX: f32 = 0.;
 pub const CARPET_Z_INDEX: f32 = 0.1;
+pub const CARPET_SYMBOL_Z_INDEX: f32 = 0.15;
 pub const FURNITURE_Z_INDEX: f32 = 0.2;
 pub const WEAPON_Z_INDEX: f32 = 0.9;
 pub const CHARACTER_Z_INDEX: f32 = 1.;

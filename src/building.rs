@@ -18,6 +18,17 @@ impl Building {
     }
 }
 
+struct CarpetDimension {
+    width: u8,
+    height: u8,
+}
+
+enum CarpetColor {
+    Green,
+    Red,
+    Violet,
+}
+
 #[derive(Debug, Component, Clone, Copy)]
 pub enum Furniture {
     Desk,
@@ -26,15 +37,235 @@ pub enum Furniture {
     Stool,
     Crate,
     Bed,
-    SmallCarpet,
-    MediumCarpet,
-    LongCarpet,
-    BigCarpet,
+    Carpet,
+    DoorCarpet,
     MuralSwords,
     MuralTools,
 }
 
 impl Furniture {
+    fn build_carpet<C: Component>(
+        self,
+        commands: &mut Commands,
+        texture: Handle<Image>,
+        x: f32,
+        y: f32,
+        state: C,
+        dimension: CarpetDimension,
+        color: CarpetColor,
+    ) {
+        let (x_image, y_image, corner_width, corner_height, border_width) = match color {
+            CarpetColor::Green => (0., 72., 16., 16., 16.),
+            CarpetColor::Red => (51., 70., 8., 8., 8.),
+            CarpetColor::Violet => (50., 104., 12., 12., 8.),
+        };
+        let total_width = corner_width * 2. + border_width * dimension.width as f32;
+        // let total_height = corner_height * 2. + border_width * dimension.height as f32;
+        let mut c = commands
+            .spawn((
+                state,
+                TransformBundle::from_transform(Transform::from_xyz(x, y, self.z_index())),
+                VisibilityBundle::default(),
+            ))
+            .with_children(|children| {
+                // top-left corner.
+                children.spawn(
+                    (SpriteBundle {
+                        texture: texture.clone(),
+                        sprite: Sprite {
+                            rect: Some(Rect::new(
+                                x_image,
+                                y_image,
+                                x_image + corner_width,
+                                y_image + corner_height,
+                            )),
+                            ..default()
+                        },
+                        transform: Transform::from_xyz(0., 0., 0.),
+                        ..default()
+                    }),
+                );
+                // Not sure exactly why this diff is needed for violet carpet...
+                let diff = (corner_width - border_width) / 2.;
+                // Top border.
+                for pos in 0..dimension.width {
+                    children.spawn(
+                        (SpriteBundle {
+                            texture: texture.clone(),
+                            sprite: Sprite {
+                                rect: Some(Rect::new(
+                                    x_image + corner_width,
+                                    y_image,
+                                    x_image + corner_width + border_width,
+                                    y_image + corner_height,
+                                )),
+                                ..default()
+                            },
+                            transform: Transform::from_xyz(
+                                corner_width - diff + border_width * (pos as f32),
+                                0.,
+                                0.,
+                            ),
+                            ..default()
+                        }),
+                    );
+                }
+                // top-right corner.
+                children.spawn(
+                    (SpriteBundle {
+                        texture: texture.clone(),
+                        sprite: Sprite {
+                            rect: Some(Rect::new(
+                                x_image + corner_width + border_width,
+                                y_image,
+                                x_image + corner_width * 2. + border_width,
+                                y_image + corner_height,
+                            )),
+                            ..default()
+                        },
+                        transform: Transform::from_xyz(
+                            corner_width + border_width * (dimension.width as f32),
+                            0.,
+                            0.,
+                        ),
+                        ..default()
+                    }),
+                );
+                for pos_y in 0..dimension.height {
+                    // left border
+                    children.spawn(
+                        (SpriteBundle {
+                            texture: texture.clone(),
+                            sprite: Sprite {
+                                rect: Some(Rect::new(
+                                    x_image,
+                                    y_image + corner_height,
+                                    x_image + corner_width,
+                                    y_image + corner_height + border_width, // `border_width` because rotated.
+                                )),
+                                ..default()
+                            },
+                            transform: Transform::from_xyz(
+                                0.,
+                                (corner_height - diff + border_width * pos_y as f32) * -1.,
+                                0.,
+                            ),
+                            ..default()
+                        }),
+                    );
+                    for pos_x in 0..dimension.width {
+                        // The "middle".
+                        children.spawn(
+                            (SpriteBundle {
+                                texture: texture.clone(),
+                                sprite: Sprite {
+                                    rect: Some(Rect::new(
+                                        x_image + corner_width,
+                                        y_image + corner_height,
+                                        x_image + corner_width + border_width,
+                                        y_image + corner_height + border_width, // `border_width` because rotated.
+                                    )),
+                                    ..default()
+                                },
+                                transform: Transform::from_xyz(
+                                    corner_width - diff + border_width * (pos_x as f32),
+                                    (corner_height - diff + corner_height * pos_y as f32) * -1.,
+                                    0.,
+                                ),
+                                ..default()
+                            }),
+                        );
+                    }
+                    // right border
+                    children.spawn(
+                        (SpriteBundle {
+                            texture: texture.clone(),
+                            sprite: Sprite {
+                                rect: Some(Rect::new(
+                                    x_image + corner_width + border_width,
+                                    y_image + corner_height,
+                                    x_image + corner_width + border_width + corner_width,
+                                    y_image + corner_height + border_width, // `border_width` because rotated.
+                                )),
+                                ..default()
+                            },
+                            transform: Transform::from_xyz(
+                                corner_width + border_width * dimension.width as f32,
+                                (corner_height - diff + border_width * pos_y as f32) * -1.,
+                                0.,
+                            ),
+                            ..default()
+                        }),
+                    );
+                }
+                // bottom-left corner.
+                children.spawn(
+                    (SpriteBundle {
+                        texture: texture.clone(),
+                        sprite: Sprite {
+                            rect: Some(Rect::new(
+                                x_image,
+                                y_image + corner_height + border_width,
+                                x_image + corner_width,
+                                y_image + corner_height * 2. + border_width,
+                            )),
+                            ..default()
+                        },
+                        transform: Transform::from_xyz(
+                            0.,
+                            (corner_height + border_width * dimension.height as f32) * -1.,
+                            0.,
+                        ),
+                        ..default()
+                    }),
+                );
+                // bottom border.
+                for pos in 0..dimension.width {
+                    children.spawn(
+                        (SpriteBundle {
+                            texture: texture.clone(),
+                            sprite: Sprite {
+                                rect: Some(Rect::new(
+                                    x_image + corner_width,
+                                    y_image + corner_height + border_width,
+                                    x_image + corner_width + border_width,
+                                    y_image + corner_height + border_width + corner_height,
+                                )),
+                                ..default()
+                            },
+                            transform: Transform::from_xyz(
+                                corner_width - diff + border_width * (pos as f32),
+                                (corner_height + border_width * dimension.height as f32) * -1.,
+                                0.,
+                            ),
+                            ..default()
+                        }),
+                    );
+                }
+                // bottom-right corner.
+                children.spawn(
+                    (SpriteBundle {
+                        texture: texture,
+                        sprite: Sprite {
+                            rect: Some(Rect::new(
+                                x_image + corner_width + border_width,
+                                y_image + corner_height + border_width,
+                                x_image + corner_width * 2. + border_width,
+                                y_image + corner_height * 2. + border_width,
+                            )),
+                            ..default()
+                        },
+                        transform: Transform::from_xyz(
+                            corner_width + border_width * (dimension.width as f32),
+                            (corner_height + border_width * dimension.height as f32) * -1.,
+                            0.,
+                        ),
+                        ..default()
+                    }),
+                );
+            });
+    }
+
     fn pos_in_image(self) -> Rect {
         match self {
             Self::Desk => Rect::new(0., 0., 80., 24.),
@@ -43,30 +274,38 @@ impl Furniture {
             Self::Stool => Rect::new(132., 0., 148., 16.),
             Self::Crate => Rect::new(132., 17., 148., 39.),
             Self::Bed => Rect::new(183., 0., 215., 48.),
-            Self::SmallCarpet => Rect::new(0., 121., 48., 136.),
-            Self::MediumCarpet => Rect::new(99., 72., 170., 134.),
-            Self::LongCarpet => Rect::new(0., 72., 95., 120.),
-            Self::BigCarpet => Rect::new(172., 70., 252., 134.),
+            Self::DoorCarpet => Rect::new(0., 121., 48., 136.),
+            Self::Carpet => panic!("should use `build_carpet!`"),
             Self::MuralSwords => Rect::new(150., 0., 164., 33.),
             Self::MuralTools => Rect::new(167., 0., 180., 29.),
         }
     }
 
     fn get_collider(self) -> Option<Collider> {
+        const TOP_SIZE: f32 = 2.;
+
         match self {
-            Self::SmallCarpet | Self::MediumCarpet | Self::LongCarpet | Self::BigCarpet => None,
+            Self::Carpet | Self::MuralSwords | Self::MuralTools => None,
+            Self::Bed => {
+                let size = self.pos_in_image();
+                Some(Collider::cuboid(
+                    size.width() / 2.,
+                    size.height() / 2. - TOP_SIZE,
+                ))
+            }
             _ => {
                 let size = self.pos_in_image();
-                Some(Collider::cuboid(size.width() / 2., size.height() / 2.))
+                Some(Collider::cuboid(
+                    size.width() / 2.,
+                    size.height() / 2. - TOP_SIZE,
+                ))
             }
         }
     }
 
     fn z_index(self) -> f32 {
         match self {
-            Self::SmallCarpet | Self::MediumCarpet | Self::LongCarpet | Self::BigCarpet => {
-                crate::CARPET_Z_INDEX
-            }
+            Self::Carpet | Self::DoorCarpet => crate::CARPET_Z_INDEX,
             _ => crate::FURNITURE_Z_INDEX,
         }
     }
@@ -79,31 +318,60 @@ pub struct EnterArea;
 
 fn insert_furniture<C: Component>(
     commands: &mut Commands,
-    asset_server: &Res<AssetServer>,
+    furnitures_texture: Handle<Image>,
     furniture: Furniture,
     x: f32,
     y: f32,
     state: C,
 ) {
-    let furnitures_texture = asset_server.load("textures/furnitures.png");
-
-    let mut c = commands.spawn((
-        state,
-        SpriteBundle {
-            texture: furnitures_texture,
-            sprite: Sprite {
-                rect: Some(furniture.pos_in_image()),
+    if let Some(collider) = furniture.get_collider() {
+        let mut img = furniture.pos_in_image();
+        let mut img_bottom = img;
+        img_bottom.min.y += img.height() / 2.;
+        let mut c = commands.spawn((
+            state,
+            SpriteBundle {
+                texture: furnitures_texture.clone(),
+                sprite: Sprite {
+                    rect: Some(img_bottom),
+                    ..default()
+                },
+                transform: Transform::from_xyz(x, y, furniture.z_index()),
                 ..default()
             },
-            transform: Transform::from_xyz(x, y, furniture.z_index()),
-            ..default()
-        },
-    ));
-    if let Some(collider) = furniture.get_collider() {
+        ));
         c.insert((
             RigidBody::Fixed,
             collider,
             CollisionGroups::new(crate::OUTSIDE_WORLD, crate::OUTSIDE_WORLD),
+        ));
+        c.with_children(|children| {
+            let height = img.height() / 2.;
+            img.max.y -= height;
+            children.spawn(
+                (SpriteBundle {
+                    texture: furnitures_texture,
+                    sprite: Sprite {
+                        rect: Some(img),
+                        ..default()
+                    },
+                    transform: Transform::from_xyz(0., height, crate::TOP_PART_Z_INDEX),
+                    ..default()
+                }),
+            );
+        });
+    } else {
+        commands.spawn((
+            state,
+            SpriteBundle {
+                texture: furnitures_texture,
+                sprite: Sprite {
+                    rect: Some(furniture.pos_in_image()),
+                    ..default()
+                },
+                transform: Transform::from_xyz(x, y, furniture.z_index()),
+                ..default()
+            },
         ));
     }
 }
@@ -349,13 +617,50 @@ pub fn spawn_inside_building(
             ));
         });
 
-    insert_furniture(
+    let furnitures_texture = asset_server.load("textures/furnitures.png");
+    /*insert_furniture(
         &mut commands,
-        &asset_server,
+        furnitures_texture.clone(),
         Furniture::Desk,
         x,
         y + 5.,
         crate::game::InsideHouse,
+    );*/
+    Furniture::Carpet.build_carpet(
+        &mut commands,
+        furnitures_texture.clone(),
+        x,
+        y + 15.,
+        crate::game::InsideHouse,
+        CarpetDimension {
+            width: 2,
+            height: 1,
+        },
+        CarpetColor::Red,
+    );
+    Furniture::Carpet.build_carpet(
+        &mut commands,
+        furnitures_texture.clone(),
+        x - 70.,
+        y - 20.,
+        crate::game::InsideHouse,
+        CarpetDimension {
+            width: 2,
+            height: 1,
+        },
+        CarpetColor::Violet,
+    );
+    Furniture::Carpet.build_carpet(
+        &mut commands,
+        furnitures_texture.clone(),
+        x - 70.,
+        y + 30.,
+        crate::game::InsideHouse,
+        CarpetDimension {
+            width: 2,
+            height: 1,
+        },
+        CarpetColor::Green,
     );
 }
 
