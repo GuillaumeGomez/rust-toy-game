@@ -361,7 +361,7 @@ fn handle_door_events<T: Component>(
 
 fn handle_enter_area_events<T: Component>(
     mut collision_events: EventReader<CollisionEvent>,
-    buildings: Query<&Children, With<T>>,
+    buildings: Query<(&Children, &crate::building::Building), With<T>>,
     enter_area_captors: Query<&building::EnterArea>,
     player: Query<&Transform, With<player::Player>>,
     mut app_state: ResMut<GameInfo>,
@@ -386,8 +386,8 @@ fn handle_enter_area_events<T: Component>(
             if !enter_area_captors.contains(*building_id) {
                 continue;
             }
-            for mut building in buildings.iter() {
-                if building.contains(building_id) {
+            for (mut children, building) in buildings.iter() {
+                if children.contains(building_id) {
                     // FIXME: compute real hash
                     app_state.building_hash = 0;
                     if *game_state.current() == GameState::Outside {
@@ -396,8 +396,10 @@ fn handle_enter_area_events<T: Component>(
                             x: player_pos.translation.x + crate::MAP_SIZE * 3.,
                             y: player_pos.translation.y + crate::MAP_SIZE * 3.,
                         };
+                        app_state.building = Some(*building);
                         game_state.set(GameState::InsideHouse);
                     } else {
+                        app_state.building = None;
                         game_state.set(GameState::Outside);
                     }
                     return;

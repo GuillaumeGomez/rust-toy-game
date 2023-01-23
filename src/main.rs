@@ -68,6 +68,7 @@ pub struct GameInfo {
     pub show_character_window: bool,
     pub player_id: Option<Entity>,
     pub building_hash: u32,
+    pub building: Option<building::Building>,
     pub pos: Vec2,
 }
 

@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
-#[derive(Debug, Component)]
+#[derive(Debug, Component, Clone, Copy)]
 pub enum Building {
     House,
     GeneralShop,
@@ -281,24 +281,14 @@ impl Furniture {
         }
     }
 
-    fn get_collider(self) -> Option<Collider> {
-        const TOP_SIZE: f32 = 2.;
+    fn get_collider(self) -> Option<(f32, f32)> {
+        const TOP_SIZE: f32 = 3.;
 
         match self {
-            Self::Carpet | Self::MuralSwords | Self::MuralTools => None,
-            Self::Bed => {
-                let size = self.pos_in_image();
-                Some(Collider::cuboid(
-                    size.width() / 2.,
-                    size.height() / 2. - TOP_SIZE,
-                ))
-            }
+            Self::Carpet | Self::DoorCarpet | Self::MuralSwords | Self::MuralTools => None,
             _ => {
                 let size = self.pos_in_image();
-                Some(Collider::cuboid(
-                    size.width() / 2.,
-                    size.height() / 2. - TOP_SIZE,
-                ))
+                Some((size.width() / 2., size.height() / 2. - TOP_SIZE))
             }
         }
     }
@@ -324,42 +314,45 @@ fn insert_furniture<C: Component>(
     y: f32,
     state: C,
 ) {
-    if let Some(collider) = furniture.get_collider() {
+    if let Some((collider_width, collider_height)) = furniture.get_collider() {
         let mut img = furniture.pos_in_image();
         let mut img_bottom = img;
-        img_bottom.min.y += img.height() / 2.;
-        let mut c = commands.spawn((
-            state,
-            SpriteBundle {
-                texture: furnitures_texture.clone(),
-                sprite: Sprite {
-                    rect: Some(img_bottom),
-                    ..default()
-                },
-                transform: Transform::from_xyz(x, y, furniture.z_index()),
-                ..default()
-            },
-        ));
-        c.insert((
-            RigidBody::Fixed,
-            collider,
-            CollisionGroups::new(crate::OUTSIDE_WORLD, crate::OUTSIDE_WORLD),
-        ));
-        c.with_children(|children| {
-            let height = img.height() / 2.;
-            img.max.y -= height;
-            children.spawn(
-                (SpriteBundle {
-                    texture: furnitures_texture,
+        let height = img.height() / 2.;
+        img_bottom.min.y += height;
+        commands
+            .spawn((
+                state,
+                SpriteBundle {
+                    texture: furnitures_texture.clone(),
                     sprite: Sprite {
-                        rect: Some(img),
+                        rect: Some(img_bottom),
                         ..default()
                     },
-                    transform: Transform::from_xyz(0., height, crate::TOP_PART_Z_INDEX),
+                    transform: Transform::from_xyz(x, y, furniture.z_index()),
                     ..default()
-                }),
-            );
-        });
+                },
+            ))
+            .with_children(|children| {
+                img.max.y -= height;
+                children.spawn(
+                    (SpriteBundle {
+                        texture: furnitures_texture,
+                        sprite: Sprite {
+                            rect: Some(img),
+                            ..default()
+                        },
+                        transform: Transform::from_xyz(0., height, crate::TOP_PART_Z_INDEX),
+                        ..default()
+                    }),
+                );
+                // We need to create the collider here so we can give it the right position.
+                children.spawn((
+                    RigidBody::Fixed,
+                    Collider::cuboid(collider_width, collider_height),
+                    CollisionGroups::new(crate::OUTSIDE_WORLD, crate::OUTSIDE_WORLD),
+                    TransformBundle::from(Transform::from_xyz(0., height - height / 2., 0.)),
+                ));
+            });
     } else {
         commands.spawn((
             state,
@@ -562,13 +555,20 @@ pub fn spawn_inside_building(
     asset_server: Res<AssetServer>,
     app_state: Res<crate::GameInfo>,
 ) {
-    let house_texture = asset_server.load("textures/inside-house.png");
+    let building = app_state.building.unwrap();
+    let house_texture = match building {
+        Building::House => asset_server.load("textures/inside-house.png"),
+        Building::WeaponShop | Building::GeneralShop => {
+            asset_server.load("textures/inside-shop.png")
+        }
+    };
 
     let x = app_state.pos.x;
     let y = app_state.pos.y;
 
     commands
         .spawn((
+            building,
             SpriteBundle {
                 texture: house_texture,
                 transform: Transform::from_xyz(x, y, crate::BACKGROUND_Z_INDEX),
@@ -618,50 +618,34 @@ pub fn spawn_inside_building(
         });
 
     let furnitures_texture = asset_server.load("textures/furnitures.png");
-    /*insert_furniture(
-        &mut commands,
-        furnitures_texture.clone(),
-        Furniture::Desk,
-        x,
-        y + 5.,
-        crate::game::InsideHouse,
-    );*/
-    Furniture::Carpet.build_carpet(
-        &mut commands,
-        furnitures_texture.clone(),
-        x,
-        y + 15.,
-        crate::game::InsideHouse,
-        CarpetDimension {
-            width: 2,
-            height: 1,
-        },
-        CarpetColor::Red,
-    );
-    Furniture::Carpet.build_carpet(
-        &mut commands,
-        furnitures_texture.clone(),
-        x - 70.,
-        y - 20.,
-        crate::game::InsideHouse,
-        CarpetDimension {
-            width: 2,
-            height: 1,
-        },
-        CarpetColor::Violet,
-    );
-    Furniture::Carpet.build_carpet(
-        &mut commands,
-        furnitures_texture.clone(),
-        x - 70.,
-        y + 30.,
-        crate::game::InsideHouse,
-        CarpetDimension {
-            width: 2,
-            height: 1,
-        },
-        CarpetColor::Green,
-    );
+
+    if matches!(building, Building::WeaponShop | Building::GeneralShop) {
+        insert_furniture(
+            &mut commands,
+            furnitures_texture.clone(),
+            Furniture::Desk,
+            x,
+            y + 5.,
+            crate::game::InsideHouse,
+        );
+    } else {
+        insert_furniture(
+            &mut commands,
+            furnitures_texture.clone(),
+            Furniture::Bed,
+            x - 73.,
+            y - 20.,
+            crate::game::InsideHouse,
+        );
+        insert_furniture(
+            &mut commands,
+            furnitures_texture.clone(),
+            Furniture::DoorCarpet,
+            x,
+            y - 41.,
+            crate::game::InsideHouse,
+        );
+    }
 }
 
 #[derive(Debug, Component, Clone, Copy)]
