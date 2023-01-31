@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
-#[derive(Debug, Component, Clone, Copy)]
+#[derive(Debug, Component, Clone, Copy, PartialEq, Eq)]
 pub enum Building {
     House,
     GeneralShop,
@@ -29,7 +29,7 @@ enum CarpetColor {
     Violet,
 }
 
-#[derive(Debug, Component, Clone, Copy)]
+#[derive(Debug, Component, Clone, Copy, PartialEq, Eq)]
 pub enum Furniture {
     Desk,
     SmallTable,
@@ -313,6 +313,7 @@ fn insert_furniture<C: Component>(
     x: f32,
     y: f32,
     state: C,
+    flip: bool,
 ) {
     if let Some((collider_width, collider_height)) = furniture.get_collider() {
         let mut img = furniture.pos_in_image();
@@ -326,6 +327,8 @@ fn insert_furniture<C: Component>(
                     texture: furnitures_texture.clone(),
                     sprite: Sprite {
                         rect: Some(img_bottom),
+                        flip_x: flip,
+                        flip_y: flip,
                         ..default()
                     },
                     transform: Transform::from_xyz(x, y, furniture.z_index()),
@@ -339,6 +342,8 @@ fn insert_furniture<C: Component>(
                         texture: furnitures_texture,
                         sprite: Sprite {
                             rect: Some(img),
+                            flip_x: flip,
+                            flip_y: flip,
                             ..default()
                         },
                         transform: Transform::from_xyz(0., height, crate::TOP_PART_Z_INDEX),
@@ -360,6 +365,8 @@ fn insert_furniture<C: Component>(
                 texture: furnitures_texture,
                 sprite: Sprite {
                     rect: Some(furniture.pos_in_image()),
+                    flip_x: flip,
+                    flip_y: flip,
                     ..default()
                 },
                 transform: Transform::from_xyz(x, y, furniture.z_index()),
@@ -566,12 +573,19 @@ pub fn spawn_inside_building(
     let x = app_state.pos.x;
     let y = app_state.pos.y;
 
+    let width = 237.;
+    let height = 160.;
+
     commands
         .spawn((
             building,
             SpriteBundle {
                 texture: house_texture,
                 transform: Transform::from_xyz(x, y, crate::BACKGROUND_Z_INDEX),
+                sprite: Sprite {
+                    custom_size: Some(Vec2 { x: width, y: height }),
+                    ..default()
+                },
                 ..default()
             },
             RigidBody::Fixed,
@@ -627,7 +641,30 @@ pub fn spawn_inside_building(
             x,
             y + 5.,
             crate::game::InsideHouse,
+            false,
         );
+        if building == Building::WeaponShop {
+            let dim = Furniture::MuralSwords.pos_in_image();
+            insert_furniture(
+                &mut commands,
+                furnitures_texture.clone(),
+                Furniture::MuralSwords,
+                x + width / 2. - dim.width() - 2.,
+                y + height / 4. - dim.height(),
+                crate::game::InsideHouse,
+                false,
+            );
+            insert_furniture(
+                &mut commands,
+                furnitures_texture.clone(),
+                Furniture::MuralSwords,
+                x - width / 2. + dim.width() - 2.,
+                y + height / 4. - dim.height(),
+                crate::game::InsideHouse,
+                true,
+            );
+                // y - Furniture::Desk.pos_in_image().height(),
+        }
     } else {
         insert_furniture(
             &mut commands,
@@ -636,6 +673,7 @@ pub fn spawn_inside_building(
             x - 73.,
             y - 20.,
             crate::game::InsideHouse,
+            false,
         );
         insert_furniture(
             &mut commands,
@@ -644,6 +682,7 @@ pub fn spawn_inside_building(
             x,
             y - 41.,
             crate::game::InsideHouse,
+            false,
         );
     }
 }
