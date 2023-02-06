@@ -49,7 +49,7 @@ pub const CARPET_SYMBOL_Z_INDEX: f32 = 0.15;
 pub const FURNITURE_Z_INDEX: f32 = 0.2;
 pub const WEAPON_Z_INDEX: f32 = 0.9;
 pub const CHARACTER_Z_INDEX: f32 = 1.;
-pub const TOP_PART_Z_INDEX: f32 = 2.;
+pub const TOP_PART_Z_INDEX: f32 = 1.8;
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 pub enum AppState {

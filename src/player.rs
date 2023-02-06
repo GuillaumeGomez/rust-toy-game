@@ -84,7 +84,7 @@ pub fn spawn_player(
                     }),
                     ..default()
                 },
-                transform: Transform::from_xyz(0.0, 210.0, 1.0),
+                transform: Transform::from_xyz(0.0, 210.0, crate::CHARACTER_Z_INDEX),
                 ..default()
             },
             RigidBody::Dynamic,

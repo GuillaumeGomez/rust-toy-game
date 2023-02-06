@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
+use crate::character::{CharacterAnimationInfo, CharacterAnimationType};
+
 #[derive(Debug, Component, Clone, Copy, PartialEq, Eq)]
 pub enum Building {
     House,
@@ -376,6 +378,63 @@ fn insert_furniture<C: Component>(
     }
 }
 
+#[derive(Component)]
+struct Vendor;
+
+fn insert_vendor<C: Component>(
+    commands: &mut Commands,
+    asset_server: Res<AssetServer>,
+    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+    x: f32,
+    y: f32,
+    state: C,
+) {
+    const NB_ANIMATIONS: usize = 8;
+    const ANIMATION_TIME: f32 = 0.15;
+
+    let vendor_texture = asset_server.load("textures/vendor.png");
+    let vendor_texture_atlas = TextureAtlas::from_grid(
+        vendor_texture,
+        Vec2::new(31., 29.),
+        NB_ANIMATIONS,
+        1,
+        None,
+        None,
+    );
+    let vendor_texture_atlas_handle = texture_atlases.add(vendor_texture_atlas);
+
+    commands
+        .spawn((
+            Vendor,
+            state,
+            SpriteSheetBundle {
+                texture_atlas: vendor_texture_atlas_handle.clone(),
+                sprite: TextureAtlasSprite {
+                    index: 0,
+                    custom_size: Some(Vec2 { x: 31., y: 29. }),
+                    ..default()
+                },
+                transform: Transform::from_xyz(x, y + 4., crate::TOP_PART_Z_INDEX + 0.2),
+                ..default()
+            },
+            CharacterAnimationInfo {
+                animation_time: ANIMATION_TIME,
+                nb_animations: NB_ANIMATIONS,
+                timer: Timer::from_seconds(ANIMATION_TIME, TimerMode::Repeating),
+                animation_type: CharacterAnimationType::ForwardMove,
+            },
+            RigidBody::Fixed,
+        ))
+        .with_children(|children| {
+            // The "move" box.
+            children.spawn((
+                Collider::cuboid(8.0, 7.0),
+                TransformBundle::from(Transform::from_xyz(0.0, -5.0, 0.0)),
+                CollisionGroups::new(crate::OUTSIDE_WORLD, crate::OUTSIDE_WORLD),
+            ));
+        });
+}
+
 const GENERAL_SHOP_HEIGHT: f32 = 106.;
 const GENERAL_SHOP_WIDTH: f32 = 110.;
 const WEAPON_SHOP_HEIGHT: f32 = 106.;
@@ -561,6 +620,7 @@ pub fn spawn_inside_building(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     app_state: Res<crate::GameInfo>,
+    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
     let building = app_state.building.unwrap();
     let house_texture = match building {
@@ -583,7 +643,10 @@ pub fn spawn_inside_building(
                 texture: house_texture,
                 transform: Transform::from_xyz(x, y, crate::BACKGROUND_Z_INDEX),
                 sprite: Sprite {
-                    custom_size: Some(Vec2 { x: width, y: height }),
+                    custom_size: Some(Vec2 {
+                        x: width,
+                        y: height,
+                    }),
                     ..default()
                 },
                 ..default()
@@ -634,6 +697,7 @@ pub fn spawn_inside_building(
     let furnitures_texture = asset_server.load("textures/furnitures.png");
 
     if matches!(building, Building::WeaponShop | Building::GeneralShop) {
+        let desk_y = y + 5.;
         insert_furniture(
             &mut commands,
             furnitures_texture.clone(),
@@ -663,8 +727,16 @@ pub fn spawn_inside_building(
                 crate::game::InsideHouse,
                 true,
             );
-                // y - Furniture::Desk.pos_in_image().height(),
         }
+        let pos_in_image = Furniture::Desk.pos_in_image();
+        insert_vendor(
+            &mut commands,
+            asset_server,
+            texture_atlases,
+            x,
+            desk_y + pos_in_image.height(),
+            crate::game::InsideHouse,
+        );
     } else {
         insert_furniture(
             &mut commands,
@@ -731,7 +803,11 @@ impl Statue {
                         }),
                         ..default()
                     },
-                    transform: Transform::from_xyz(0., -47., -2.),
+                    transform: Transform::from_xyz(
+                        0.,
+                        -47.,
+                        crate::FURNITURE_Z_INDEX - crate::TOP_PART_Z_INDEX,
+                    ),
                     ..default()
                 });
                 children.spawn((
