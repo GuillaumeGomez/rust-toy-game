@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use bevy::window::{PresentMode, WindowPlugin};
 use bevy_egui::{egui, EguiContext, EguiPlugin};
 use bevy_rapier2d::prelude::*;
+use once_cell::sync::Lazy;
 
 use crate::{
     building, character, environment, hud, map, monster, player, weapon, AppState, GameInfo,
@@ -124,17 +125,15 @@ fn update_camera(
     camera.translation.y = player.translation.y;
 }
 
-fn handle_windows(
-    mut egui_context: ResMut<EguiContext>,
-    mut app_state: ResMut<GameInfo>,
-    mut player: Query<&mut character::Character, With<player::Player>>,
+fn show_character_window(
+    egui_context: &mut ResMut<EguiContext>,
+    app_state: &mut ResMut<GameInfo>,
+    player: &mut Query<&mut character::Character, With<player::Player>>,
 ) {
-    if !app_state.show_character_window {
-        return;
-    }
     egui::Window::new("Character information")
         .collapsible(false)
         .resizable(false)
+        .default_pos(egui::Pos2::new(2., crate::HEIGHT / 4.))
         .open(&mut app_state.show_character_window)
         .show(egui_context.ctx_mut(), |ui| {
             ui.vertical_centered_justified(|ui| {
@@ -251,6 +250,96 @@ fn handle_windows(
         });
 }
 
+const INVENTORY_LINE_SIZE: usize = 5;
+const INVENTORY_NB_LINE: usize = 7;
+
+fn show_inventory_window(
+    egui_context: &mut ResMut<EguiContext>,
+    app_state: &mut ResMut<GameInfo>,
+    asset_server: Res<AssetServer>,
+) {
+    static IDS: Lazy<Vec<egui::Id>> = Lazy::new(|| {
+        let mut v = Vec::with_capacity(INVENTORY_NB_LINE * INVENTORY_LINE_SIZE);
+
+        for y in 0..INVENTORY_NB_LINE {
+            for x in 0..INVENTORY_LINE_SIZE {
+                v.push(egui::Id::new(format!("inv {y}:{x}")));
+            }
+        }
+        v
+    });
+    let weapon_handle = asset_server.load("textures/weapon.png");
+    let image_id = egui_context.add_image(weapon_handle);
+
+    let image_vec = egui::Vec2::new(7., 20.);
+    let image = egui::Image::new(image_id, image_vec);
+
+    const CASE_SIZE: f32 = 40.;
+
+    let mut ids = IDS.iter();
+    egui::Window::new("Inventory")
+        .collapsible(false)
+        .resizable(false)
+        .default_pos(egui::Pos2::new(crate::WIDTH - 10., crate::HEIGHT / 4.))
+        .open(&mut app_state.show_inventory_window)
+        .show(egui_context.ctx_mut(), |ui| {
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                egui::Grid::new("inventory")
+                    .spacing(egui::Vec2::new(4., 4.))
+                    .show(ui, |ui| {
+                        for y in 0..INVENTORY_NB_LINE {
+                            for x in 0..INVENTORY_LINE_SIZE {
+                                let (rect, _) = ui.allocate_at_least(
+                                    egui::Vec2::new(CASE_SIZE + 2., CASE_SIZE + 2.),
+                                    egui::Sense::hover(),
+                                );
+                                let res = ui.interact(
+                                    rect,
+                                    *ids.next().unwrap(),
+                                    egui::Sense::click_and_drag(),
+                                );
+                                let stroke_color = if res.hovered() {
+                                    egui::Color32::LIGHT_RED
+                                } else {
+                                    egui::Color32::WHITE
+                                };
+                                ui.painter().rect(
+                                    rect,
+                                    0.,
+                                    egui::Color32::from_gray(52),
+                                    egui::Stroke::new(1., stroke_color),
+                                );
+                                if y == 0 && x == 0 {
+                                    let mut draw = rect;
+                                    let center = rect.center();
+                                    draw.min.x = center.x - image_vec.x / 2.;
+                                    draw.min.y = center.y - image_vec.y / 2.;
+                                    draw.max.x = center.x + image_vec.x / 2.;
+                                    draw.max.y = center.y + image_vec.y / 2.;
+                                    image.paint_at(ui, draw);
+                                }
+                            }
+                            ui.end_row();
+                        }
+                    });
+            });
+        });
+}
+
+fn handle_windows(
+    mut egui_context: ResMut<EguiContext>,
+    mut app_state: ResMut<GameInfo>,
+    mut player: Query<&mut character::Character, With<player::Player>>,
+    asset_server: Res<AssetServer>,
+) {
+    if app_state.show_character_window {
+        show_character_window(&mut egui_context, &mut app_state, &mut player);
+    }
+    if app_state.show_inventory_window {
+        show_inventory_window(&mut egui_context, &mut app_state, asset_server);
+    }
+}
+
 pub fn handle_input(
     mut game_state: ResMut<State<AppState>>,
     keyboard_input: Res<Input<KeyCode>>,
@@ -261,9 +350,14 @@ pub fn handle_input(
     if keyboard_input.just_released(KeyCode::C) {
         app_state.show_character_window = !app_state.show_character_window;
     }
+    if keyboard_input.just_released(KeyCode::I) {
+        app_state.show_inventory_window = !app_state.show_inventory_window;
+    }
     if keyboard_input.just_released(KeyCode::Escape) {
         if app_state.show_character_window {
             app_state.show_character_window = false;
+        } else if app_state.show_inventory_window {
+            app_state.show_inventory_window = false;
         } else {
             game_state.push(AppState::Menu).unwrap();
         }
