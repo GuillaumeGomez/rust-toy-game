@@ -257,7 +257,12 @@ fn show_inventory_window(
     egui_context: &mut ResMut<EguiContext>,
     app_state: &mut ResMut<GameInfo>,
     asset_server: Res<AssetServer>,
+    player_inventory: Query<&crate::player::Inventory, With<crate::player::Player>>,
 ) {
+    let inventory = match player_inventory.get_single() {
+        Ok(i) => i,
+        _ => return,
+    };
     static IDS: Lazy<Vec<egui::Id>> = Lazy::new(|| {
         let mut v = Vec::with_capacity(INVENTORY_NB_LINE * INVENTORY_LINE_SIZE);
 
@@ -268,11 +273,12 @@ fn show_inventory_window(
         }
         v
     });
-    let weapon_handle = asset_server.load("textures/weapon.png");
-    let image_id = egui_context.add_image(weapon_handle);
 
-    let image_vec = egui::Vec2::new(7., 20.);
-    let image = egui::Image::new(image_id, image_vec);
+    let weapon_handle = asset_server.load("textures/weapon.png");
+    let weapon_image_id = egui_context.add_image(weapon_handle);
+
+    let coin_handle = asset_server.load("textures/gold-coin.png");
+    let coin_image_id = egui_context.add_image(coin_handle);
 
     const CASE_SIZE: f32 = 40.;
 
@@ -281,12 +287,16 @@ fn show_inventory_window(
         .collapsible(false)
         .resizable(false)
         .default_pos(egui::Pos2::new(crate::WIDTH - 10., crate::HEIGHT / 4.))
+        .default_width(INVENTORY_LINE_SIZE as f32 * (CASE_SIZE + 4.))
         .open(&mut app_state.show_inventory_window)
         .show(egui_context.ctx_mut(), |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 egui::Grid::new("inventory")
                     .spacing(egui::Vec2::new(4., 4.))
                     .show(ui, |ui| {
+                        let image_vec = egui::Vec2::new(7., 20.);
+                        let image = egui::Image::new(weapon_image_id, image_vec);
+
                         for y in 0..INVENTORY_NB_LINE {
                             for x in 0..INVENTORY_LINE_SIZE {
                                 let (rect, response) = ui.allocate_at_least(
@@ -317,6 +327,19 @@ fn show_inventory_window(
                             ui.end_row();
                         }
                     });
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+                    const PIECE_SIZE: f32 = 15.;
+                    let image_vec = egui::Vec2::new(PIECE_SIZE, PIECE_SIZE);
+                    let image = egui::Image::new(coin_image_id, image_vec);
+
+                    let (rect, _) = ui.allocate_at_least(
+                        egui::Vec2::new(PIECE_SIZE, PIECE_SIZE),
+                        egui::Sense::hover(),
+                    );
+                    image.paint_at(ui, rect);
+
+                    ui.label(&inventory.gold.to_string());
+                });
             });
         });
 }
@@ -326,12 +349,18 @@ fn handle_windows(
     mut app_state: ResMut<GameInfo>,
     mut player: Query<&mut character::Character, With<player::Player>>,
     asset_server: Res<AssetServer>,
+    player_inventory: Query<&crate::player::Inventory, With<crate::player::Player>>,
 ) {
     if app_state.show_character_window {
         show_character_window(&mut egui_context, &mut app_state, &mut player);
     }
     if app_state.show_inventory_window {
-        show_inventory_window(&mut egui_context, &mut app_state, asset_server);
+        show_inventory_window(
+            &mut egui_context,
+            &mut app_state,
+            asset_server,
+            player_inventory,
+        );
     }
 }
 

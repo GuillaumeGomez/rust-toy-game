@@ -14,6 +14,18 @@ pub struct IsPlayer;
 const PLAYER_WIDTH: f32 = 22.;
 const PLAYER_HEIGHT: f32 = 24.;
 
+#[derive(Debug)]
+pub enum InventoryItem {
+    Weapon,
+    Collectible { quantity: u16 },
+}
+
+#[derive(Debug, Component)]
+pub struct Inventory {
+    pub items: Vec<InventoryItem>,
+    pub gold: u32,
+}
+
 #[derive(Debug, Component)]
 pub struct Player {
     pub is_running: bool,
@@ -67,6 +79,10 @@ pub fn spawn_player(
                 waiting_for_rerun: false,
                 old_x: 0.,
                 old_y: 0.,
+            },
+            Inventory {
+                items: Vec::new(),
+                gold: 13,
             },
             character,
             CharacterAnimationInfo {
