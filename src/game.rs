@@ -289,16 +289,11 @@ fn show_inventory_window(
                     .show(ui, |ui| {
                         for y in 0..INVENTORY_NB_LINE {
                             for x in 0..INVENTORY_LINE_SIZE {
-                                let (rect, _) = ui.allocate_at_least(
+                                let (rect, response) = ui.allocate_at_least(
                                     egui::Vec2::new(CASE_SIZE + 2., CASE_SIZE + 2.),
-                                    egui::Sense::hover(),
-                                );
-                                let res = ui.interact(
-                                    rect,
-                                    *ids.next().unwrap(),
                                     egui::Sense::click_and_drag(),
                                 );
-                                let stroke_color = if res.hovered() {
+                                let stroke_color = if response.hovered() {
                                     egui::Color32::LIGHT_RED
                                 } else {
                                     egui::Color32::WHITE
