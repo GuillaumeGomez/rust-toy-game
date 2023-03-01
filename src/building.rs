@@ -468,7 +468,7 @@ fn insert_shop(
             RigidBody::Fixed,
         ))
         .with_children(|children| {
-            children.spawn((SpriteSheetBundle {
+            children.spawn(SpriteSheetBundle {
                 texture_atlas: texture,
                 sprite: TextureAtlasSprite {
                     index: start_index,
@@ -480,12 +480,12 @@ fn insert_shop(
                 },
                 transform: Transform::from_xyz(0., 0., crate::TOP_PART_Z_INDEX),
                 ..default()
-            },));
+            });
             // The roof.
             children.spawn((
-                Collider::cuboid(50., 38.),
+                Collider::cuboid(48., 28.),
                 CollisionGroups::new(crate::OUTSIDE_WORLD, crate::OUTSIDE_WORLD),
-                TransformBundle::from(Transform::from_xyz(0.0, 8.0, 0.0)),
+                TransformBundle::from(Transform::from_xyz(0.0, -2.0, 0.0)),
             ));
             // The porch (left).
             children.spawn((
@@ -511,39 +511,64 @@ fn insert_shop(
 }
 
 fn insert_house(texture: Handle<TextureAtlas>, commands: &mut Commands, x: f32, y: f32) {
+    const TOP_SIZE: f32 = 60.;
+    const BOTTOM_SIZE: f32 = 88. - TOP_SIZE;
+    const WIDTH: f32 = 80.;
+
     commands
         .spawn((
             Building::House,
             crate::game::OutsideWorld,
             SpriteSheetBundle {
-                texture_atlas: texture,
+                texture_atlas: texture.clone(),
                 sprite: TextureAtlasSprite {
                     index: false as _, // door open is false so index is 0
-                    custom_size: Some(Vec2 { x: 80., y: 88. }),
+                    custom_size: Some(Vec2 {
+                        x: 80.,
+                        y: BOTTOM_SIZE,
+                    }),
                     ..default()
                 },
-                transform: Transform::from_xyz(x, y, 0.0),
+                transform: Transform::from_xyz(x, y - TOP_SIZE, 0.0),
                 ..default()
             },
             RigidBody::Fixed,
         ))
         .with_children(|children| {
+            const Y: f32 = TOP_SIZE / 2.;
+            children.spawn(SpriteSheetBundle {
+                texture_atlas: texture,
+                sprite: TextureAtlasSprite {
+                    index: 2,
+                    custom_size: Some(Vec2 {
+                        x: 80.,
+                        y: TOP_SIZE,
+                    }),
+                    ..default()
+                },
+                transform: Transform::from_xyz(
+                    0.,
+                    BOTTOM_SIZE / 2. + TOP_SIZE / 2.,
+                    crate::TOP_PART_Z_INDEX,
+                ),
+                ..default()
+            });
             children.spawn((
-                Collider::cuboid(40., 35.),
+                Collider::cuboid(39., 25.),
                 CollisionGroups::new(crate::OUTSIDE_WORLD, crate::OUTSIDE_WORLD),
-                TransformBundle::from(Transform::from_xyz(0.0, 7.0, 0.0)),
+                TransformBundle::from(Transform::from_xyz(0.0, Y, 0.0)),
             ));
             // The porch (left).
             children.spawn((
                 Collider::cuboid(2., 8.),
                 CollisionGroups::new(crate::OUTSIDE_WORLD, crate::OUTSIDE_WORLD),
-                TransformBundle::from(Transform::from_xyz(14.0, -30.0, 0.0)),
+                TransformBundle::from(Transform::from_xyz(14.0, Y - 30.0, 0.0)),
             ));
             // The porch (right).
             children.spawn((
                 Collider::cuboid(2., 8.),
                 CollisionGroups::new(crate::OUTSIDE_WORLD, crate::OUTSIDE_WORLD),
-                TransformBundle::from(Transform::from_xyz(-14.0, -30.0, 0.0)),
+                TransformBundle::from(Transform::from_xyz(-14.0, Y - 30.0, 0.0)),
             ));
             // The "enter area" sensor.
             children.spawn((
@@ -551,7 +576,7 @@ fn insert_house(texture: Handle<TextureAtlas>, commands: &mut Commands, x: f32, 
                 EnterArea,
                 CollisionGroups::new(crate::OUTSIDE_WORLD, crate::OUTSIDE_WORLD),
                 Sensor,
-                TransformBundle::from(Transform::from_xyz(0.0, -20.0, 0.0)),
+                TransformBundle::from(Transform::from_xyz(0.0, Y - 20.0, 0.0)),
             ));
             // The door sensor.
             children.spawn((
@@ -559,7 +584,7 @@ fn insert_house(texture: Handle<TextureAtlas>, commands: &mut Commands, x: f32, 
                 Door,
                 CollisionGroups::new(crate::OUTSIDE_WORLD, crate::OUTSIDE_WORLD),
                 Sensor,
-                TransformBundle::from(Transform::from_xyz(0.0, -36.0, 0.0)),
+                TransformBundle::from(Transform::from_xyz(0.0, Y - 36.0, 0.0)),
             ));
         });
 }
@@ -570,8 +595,14 @@ pub fn spawn_buildings(
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
     let house_texture = asset_server.load("textures/house.png");
-    let house_texture_atlas =
-        TextureAtlas::from_grid(house_texture, Vec2::new(80., 88.), 2, 1, None, None);
+    let mut house_texture_atlas = TextureAtlas::new_empty(house_texture, Vec2::new(160., 88.));
+    // We split the top from the bottom part.
+    // First we add both lower parts (open and closed door).
+    house_texture_atlas.add_texture(Rect::new(0., 61., 80., 88.));
+    house_texture_atlas.add_texture(Rect::new(80., 61., 160., 88.));
+    // Then we add the upper part.
+    house_texture_atlas.add_texture(Rect::new(0., 0., 80., 60.));
+
     let house_texture_atlas_handle = texture_atlases.add(house_texture_atlas);
 
     for nb in 0..2 {

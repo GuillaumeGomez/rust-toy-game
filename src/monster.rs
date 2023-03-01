@@ -61,7 +61,7 @@ pub fn spawn_monsters(
                     }),
                     ..default()
                 },
-                transform: Transform::from_xyz(200.0, 210.0, 0.0),
+                transform: Transform::from_xyz(200.0, 210.0, crate::CHARACTER_Z_INDEX),
                 ..default()
             },
             RigidBody::Dynamic,
