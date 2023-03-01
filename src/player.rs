@@ -5,6 +5,7 @@ use crate::character::{
     Character, CharacterAnimationInfo, CharacterAnimationType, CharacterKind, CharacterPoints,
     GrassEffectBundle,
 };
+use crate::inventory::Inventory;
 use crate::weapon::Weapon;
 use crate::RUN_STAMINA_CONSUMPTION_PER_SEC;
 
@@ -13,18 +14,6 @@ pub struct IsPlayer;
 
 const PLAYER_WIDTH: f32 = 22.;
 const PLAYER_HEIGHT: f32 = 24.;
-
-#[derive(Debug)]
-pub enum InventoryItem {
-    Weapon,
-    Collectible { quantity: u16 },
-}
-
-#[derive(Debug, Component)]
-pub struct Inventory {
-    pub items: Vec<InventoryItem>,
-    pub gold: u32,
-}
 
 #[derive(Debug, Component)]
 pub struct Player {

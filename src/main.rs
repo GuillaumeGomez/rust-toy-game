@@ -5,6 +5,7 @@ mod character;
 mod environment;
 mod game;
 mod hud;
+mod inventory;
 mod map;
 mod menu;
 mod monster;

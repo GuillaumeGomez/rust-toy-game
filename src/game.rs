@@ -257,7 +257,7 @@ fn show_inventory_window(
     egui_context: &mut ResMut<EguiContext>,
     app_state: &mut ResMut<GameInfo>,
     asset_server: Res<AssetServer>,
-    player_inventory: Query<&crate::player::Inventory, With<crate::player::Player>>,
+    player_inventory: Query<&crate::inventory::Inventory, With<crate::player::Player>>,
 ) {
     let inventory = match player_inventory.get_single() {
         Ok(i) => i,
@@ -349,7 +349,7 @@ fn handle_windows(
     mut app_state: ResMut<GameInfo>,
     mut player: Query<&mut character::Character, With<player::Player>>,
     asset_server: Res<AssetServer>,
-    player_inventory: Query<&crate::player::Inventory, With<crate::player::Player>>,
+    player_inventory: Query<&crate::inventory::Inventory, With<crate::player::Player>>,
 ) {
     if app_state.show_character_window {
         show_character_window(&mut egui_context, &mut app_state, &mut player);

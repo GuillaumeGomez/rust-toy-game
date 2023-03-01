@@ -38,6 +38,10 @@ pub fn spawn_monsters(
     commands
         .spawn((
             Skeleton,
+            crate::inventory::Inventory {
+                items: Vec::new(),
+                gold: 1, // To be computed based on the monster level, etc.
+            },
             Character::new(
                 level,
                 0,
