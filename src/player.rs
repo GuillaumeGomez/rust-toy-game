@@ -26,6 +26,9 @@ pub struct Player {
     pub old_y: f32,
 }
 
+#[derive(Component)]
+pub struct Interaction;
+
 pub fn spawn_player(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -118,6 +121,15 @@ pub fn spawn_player(
                 Sensor,
                 CollisionGroups::new(crate::HITBOX, crate::HITBOX),
             ));
+            // The "interaction" hitbox.
+            children.spawn((
+                Interaction,
+                RigidBody::Dynamic,
+                Collider::cuboid(1., 1.),
+                TransformBundle::from(Transform::from_xyz(0.0, PLAYER_HEIGHT / -2. - 7., 0.)),
+                ActiveEvents::COLLISION_EVENTS,
+                CollisionGroups::new(crate::INTERACTION, crate::INTERACTION),
+            ));
             // The weapon (invisible for the moment).
             children.spawn((
                 weapon,
@@ -179,98 +191,120 @@ pub fn player_movement_system(
         &mut Character,
         &mut CharacterAnimationInfo,
     )>,
+    mut player_interaction: Query<(&Interaction, &mut Transform)>,
 ) {
-    for (mut player, mut sprite, mut rb_vels, mut character, mut animation) in
-        player_info.iter_mut()
-    {
-        let was_running = player.is_running;
-        if keyboard_input.pressed(KeyCode::LShift) {
-            if !player.waiting_for_rerun {
-                let required_to_run = timer.delta().as_secs_f32() * RUN_STAMINA_CONSUMPTION_PER_SEC;
-                player.is_running = character.stats.stamina.value() >= required_to_run;
-                if was_running && !player.is_running {
-                    player.waiting_for_rerun = true;
-                }
-            } else if player.is_running {
-                player.is_running = false;
-            }
-        } else if player.waiting_for_rerun {
-            player.waiting_for_rerun = false;
-        }
-
-        let mut speed = character.stats.move_speed;
-        if player.is_running {
-            speed *= 2.;
-        }
-
-        let up = keyboard_input.pressed(KeyCode::W) || keyboard_input.pressed(KeyCode::Up);
-        let down = keyboard_input.pressed(KeyCode::S) || keyboard_input.pressed(KeyCode::Down);
-        let left = keyboard_input.pressed(KeyCode::A) || keyboard_input.pressed(KeyCode::Left);
-        let right = keyboard_input.pressed(KeyCode::D) || keyboard_input.pressed(KeyCode::Right);
-
-        // convert to axis multipliers
-        let x_axis = -(left as i8) + right as i8;
-        let y_axis = -(down as i8) + up as i8;
-
-        let mut skip_animation_update = false;
-        if x_axis == 0 && y_axis == 0 {
-            animation.animation_type.stop_movement();
-            rb_vels.linvel.x = 0.;
-            rb_vels.linvel.y = 0.;
-
-            // If we don't move, nothing to update.
-            player.is_running = false;
-            player.waiting_for_rerun = false;
-        } else {
-            let mut move_delta = Vec2::new(x_axis as f32, y_axis as f32);
-            move_delta /= move_delta.length();
-            rb_vels.linvel = move_delta * speed;
-
-            let is_equal = animation.animation_type.is_equal(x_axis, y_axis);
-            if animation.animation_type.is_idle() || !is_equal {
-                if !is_equal {
-                    // If the character changes direction, it stops the attack.
-                    character.is_attacking = false;
-                }
-                animation.animation_type.set_move(x_axis, y_axis);
-            } else if player.is_running == was_running {
-                // Nothing to be updated.
-                skip_animation_update = true;
-            }
-        }
-
-        if player.is_running {
-            // When runnning, 10 stamina a secs are computed.
-            let before = character.stats.stamina.value();
-            if !character
-                .stats
-                .stamina
-                .subtract(timer.delta().as_secs_f32() * RUN_STAMINA_CONSUMPTION_PER_SEC)
-            {
+    let (mut player, mut sprite, mut rb_vels, mut character, mut animation) =
+        match player_info.get_single_mut() {
+            Ok(x) => x,
+            _ => return,
+        };
+    let was_running = player.is_running;
+    if keyboard_input.pressed(KeyCode::LShift) {
+        if !player.waiting_for_rerun {
+            let required_to_run = timer.delta().as_secs_f32() * RUN_STAMINA_CONSUMPTION_PER_SEC;
+            player.is_running = character.stats.stamina.value() >= required_to_run;
+            if was_running && !player.is_running {
                 player.waiting_for_rerun = true;
             }
-        } else if !character.is_attacking && !character.stats.stamina.is_full() {
-            // If the character regained enough stamina to run again for at least 3 seconds, we
-            // switch it back automatically to running.
-            if player.waiting_for_rerun
-                && character.stats.stamina.value() > RUN_STAMINA_CONSUMPTION_PER_SEC * 3.
-            {
-                player.waiting_for_rerun = false;
+        } else if player.is_running {
+            player.is_running = false;
+        }
+    } else if player.waiting_for_rerun {
+        player.waiting_for_rerun = false;
+    }
+
+    let mut speed = character.stats.move_speed;
+    if player.is_running {
+        speed *= 2.;
+    }
+
+    let up = keyboard_input.pressed(KeyCode::W) || keyboard_input.pressed(KeyCode::Up);
+    let down = keyboard_input.pressed(KeyCode::S) || keyboard_input.pressed(KeyCode::Down);
+    let left = keyboard_input.pressed(KeyCode::A) || keyboard_input.pressed(KeyCode::Left);
+    let right = keyboard_input.pressed(KeyCode::D) || keyboard_input.pressed(KeyCode::Right);
+
+    // convert to axis multipliers
+    let x_axis = -(left as i8) + right as i8;
+    let y_axis = -(down as i8) + up as i8;
+
+    let mut skip_animation_update = false;
+    if x_axis == 0 && y_axis == 0 {
+        animation.animation_type.stop_movement();
+        rb_vels.linvel.x = 0.;
+        rb_vels.linvel.y = 0.;
+
+        // If we don't move, nothing to update.
+        player.is_running = false;
+        player.waiting_for_rerun = false;
+    } else {
+        let mut move_delta = Vec2::new(x_axis as f32, y_axis as f32);
+        move_delta /= move_delta.length();
+        rb_vels.linvel = move_delta * speed;
+
+        let is_equal = animation.animation_type.is_equal(x_axis, y_axis);
+        if animation.animation_type.is_idle() || !is_equal {
+            if !is_equal {
+                // If the character changes direction, it stops the attack.
+                character.is_attacking = false;
+            }
+            animation.animation_type.set_move(x_axis, y_axis);
+        } else if player.is_running == was_running {
+            // Nothing to be updated.
+            skip_animation_update = true;
+        }
+        if !is_equal {
+            if let Ok((_, mut transform)) = player_interaction.get_single_mut() {
+                match animation.animation_type {
+                    CharacterAnimationType::ForwardMove | CharacterAnimationType::ForwardIdle => {
+                        transform.translation.x = 0.;
+                        transform.translation.y = PLAYER_HEIGHT / -2. - 7.;
+                    }
+                    CharacterAnimationType::BackwardMove | CharacterAnimationType::BackwardIdle => {
+                        transform.translation.x = 0.;
+                        transform.translation.y = PLAYER_HEIGHT / 2. + 7.;
+                    }
+                    CharacterAnimationType::LeftMove | CharacterAnimationType::LeftIdle => {
+                        transform.translation.x = PLAYER_WIDTH / -2. - 4.;
+                        transform.translation.y = 0.;
+                    }
+                    CharacterAnimationType::RightMove | CharacterAnimationType::RightIdle => {
+                        transform.translation.x = PLAYER_WIDTH / 2. + 4.;
+                        transform.translation.y = 0.;
+                    }
+                }
             }
         }
+    }
 
-        if skip_animation_update {
-            break;
+    if player.is_running {
+        // When runnning, 10 stamina a secs are computed.
+        let before = character.stats.stamina.value();
+        if !character
+            .stats
+            .stamina
+            .subtract(timer.delta().as_secs_f32() * RUN_STAMINA_CONSUMPTION_PER_SEC)
+        {
+            player.waiting_for_rerun = true;
         }
+    } else if !character.is_attacking && !character.stats.stamina.is_full() {
+        // If the character regained enough stamina to run again for at least 3 seconds, we
+        // switch it back automatically to running.
+        if player.waiting_for_rerun
+            && character.stats.stamina.value() > RUN_STAMINA_CONSUMPTION_PER_SEC * 3.
+        {
+            player.waiting_for_rerun = false;
+        }
+    }
 
-        sprite.index = animation.animation_type.get_index(animation.nb_animations);
-        if player.is_running {
-            animation.timer =
-                Timer::from_seconds(animation.animation_time / 2., TimerMode::Repeating);
-        } else {
-            animation.timer = Timer::from_seconds(animation.animation_time, TimerMode::Repeating);
-        }
-        break;
+    if skip_animation_update {
+        return;
+    }
+
+    sprite.index = animation.animation_type.get_index(animation.nb_animations);
+    if player.is_running {
+        animation.timer = Timer::from_seconds(animation.animation_time / 2., TimerMode::Repeating);
+    } else {
+        animation.timer = Timer::from_seconds(animation.animation_time, TimerMode::Repeating);
     }
 }
 

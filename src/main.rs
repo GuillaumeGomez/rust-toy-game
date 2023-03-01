@@ -31,6 +31,7 @@ pub const STAT_POINTS_PER_LEVEL: u32 = 3;
 pub const OUTSIDE_WORLD: Group = Group::GROUP_1;
 pub const HITBOX: Group = Group::GROUP_3;
 pub const NOTHING: Group = Group::GROUP_4;
+pub const INTERACTION: Group = Group::GROUP_5;
 pub const RUN_STAMINA_CONSUMPTION_PER_SEC: f32 = 10.;
 pub const MAP_SIZE: f32 = 10_000.;
 
