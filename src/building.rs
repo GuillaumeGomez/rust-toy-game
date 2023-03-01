@@ -417,12 +417,11 @@ fn insert_vendor<C: Component>(
                 transform: Transform::from_xyz(x, y + 4., crate::TOP_PART_Z_INDEX + 0.2),
                 ..default()
             },
-            CharacterAnimationInfo {
-                animation_time: ANIMATION_TIME,
-                nb_animations: NB_ANIMATIONS,
-                timer: Timer::from_seconds(ANIMATION_TIME, TimerMode::Repeating),
-                animation_type: CharacterAnimationType::ForwardMove,
-            },
+            CharacterAnimationInfo::new_once(
+                ANIMATION_TIME,
+                NB_ANIMATIONS,
+                CharacterAnimationType::ForwardMove,
+            ),
             RigidBody::Fixed,
         ))
         .with_children(|children| {

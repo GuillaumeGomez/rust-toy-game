@@ -47,12 +47,11 @@ pub fn spawn_monsters(
                 HEIGHT,
                 CharacterKind::Monster,
             ),
-            CharacterAnimationInfo {
-                animation_time: ANIMATION_TIME,
-                nb_animations: NB_ANIMATIONS,
-                timer: Timer::from_seconds(ANIMATION_TIME, TimerMode::Repeating),
-                animation_type: CharacterAnimationType::ForwardIdle,
-            },
+            CharacterAnimationInfo::new(
+                ANIMATION_TIME,
+                NB_ANIMATIONS,
+                CharacterAnimationType::ForwardIdle,
+            ),
             SpriteSheetBundle {
                 texture_atlas: texture_atlas_handle,
                 sprite: TextureAtlasSprite {

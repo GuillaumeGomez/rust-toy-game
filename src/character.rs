@@ -247,6 +247,37 @@ pub struct CharacterAnimationInfo {
     pub nb_animations: usize,
     pub timer: Timer,
     pub animation_type: CharacterAnimationType,
+    pub play_once: bool,
+}
+
+impl CharacterAnimationInfo {
+    pub fn new(
+        animation_time: f32,
+        nb_animations: usize,
+        animation_type: CharacterAnimationType,
+    ) -> Self {
+        Self {
+            animation_time,
+            nb_animations,
+            timer: Timer::from_seconds(animation_time, TimerMode::Repeating),
+            animation_type,
+            play_once: false,
+        }
+    }
+
+    pub fn new_once(
+        animation_time: f32,
+        nb_animations: usize,
+        animation_type: CharacterAnimationType,
+    ) -> Self {
+        Self {
+            animation_time,
+            nb_animations,
+            timer: Timer::from_seconds(animation_time, TimerMode::Repeating),
+            animation_type,
+            play_once: true,
+        }
+    }
 }
 
 pub fn animate_character_system(
@@ -258,6 +289,10 @@ pub fn animate_character_system(
             character.timer.tick(time.delta());
 
             if character.timer.finished() {
+                if character.play_once && sprite.index + 1 >= character.nb_animations {
+                    character.timer.pause();
+                }
+
                 sprite.index = (sprite.index + 1) % character.nb_animations
                     + character.animation_type.get_index(character.nb_animations);
             }
