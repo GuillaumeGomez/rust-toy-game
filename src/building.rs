@@ -390,7 +390,7 @@ fn insert_vendor<C: Component>(
     state: C,
 ) {
     const NB_ANIMATIONS: usize = 8;
-    const ANIMATION_TIME: f32 = 0.15;
+    const ANIMATION_TIME: f32 = 0.12;
 
     let vendor_texture = asset_server.load("textures/vendor.png");
     let vendor_texture_atlas = TextureAtlas::from_grid(
