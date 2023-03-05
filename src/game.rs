@@ -43,6 +43,7 @@ impl Plugin for GamePlugin {
                 .with_system(character::refresh_characters_stats.after("player_movement_system"))
                 .with_system(hud::update_hud.after("player_movement_system"))
                 .with_system(update_camera.after("player_movement_system"))
+                .with_system(character::interaction_events)
                 .with_system(weapon::update_notifications)
                 .with_system(monster::update_character_info)
                 .with_system(environment::grass_events)

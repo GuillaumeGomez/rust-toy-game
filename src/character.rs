@@ -4,6 +4,8 @@ use crate::STAT_POINTS_PER_LEVEL;
 
 use bevy::ecs::component::Component;
 use bevy::prelude::*;
+use bevy_rapier2d::prelude::CollisionEvent;
+use bevy_rapier2d::rapier::geometry::CollisionEventFlags;
 
 #[derive(Component)]
 pub struct GrassEffect {
@@ -377,5 +379,95 @@ pub fn refresh_characters_stats(timer: Res<Time>, mut characters: Query<&mut Cha
         }
         character.stats.health.refresh(delta);
         character.stats.mana.refresh(delta);
+    }
+}
+
+#[derive(Component)]
+pub struct Interaction;
+#[derive(Component)]
+pub struct InteractionText;
+
+pub fn interaction_events(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut collision_events: EventReader<CollisionEvent>,
+    characters: Query<(Entity, &Character, &Children), Without<crate::player::Player>>,
+    player: Query<&Children, With<crate::player::Player>>,
+    interactions: Query<Entity, With<Interaction>>,
+    mut interaction_texts: Query<Entity, With<InteractionText>>,
+) {
+    for collision_event in collision_events.iter() {
+        match collision_event {
+            CollisionEvent::Started(x, y, CollisionEventFlags::SENSOR) => {
+                if !interactions.contains(*x) {
+                    // No need to check anything if it's not an `Interaction` event!
+                    continue;
+                }
+                let player_children = match player.get_single() {
+                    Ok(x) => x,
+                    _ => return,
+                };
+                let character_entity = if player_children.contains(x) {
+                    y
+                } else if player_children.contains(y) {
+                    x
+                } else {
+                    continue;
+                };
+                for (entity, character, children) in characters.iter() {
+                    if children.contains(character_entity) {
+                        let child = commands
+                            .spawn((
+                                InteractionText,
+                                Text2dBundle {
+                                    text: Text::from_section(
+                                        "Press ENTER to talk",
+                                        TextStyle {
+                                            font: asset_server.load(crate::FONT),
+                                            font_size: 9.0,
+                                            color: Color::WHITE,
+                                        },
+                                    )
+                                    .with_alignment(TextAlignment::CENTER),
+                                    transform: Transform::from_xyz(0., character.height / 2., 1.),
+                                    ..default()
+                                },
+                            ))
+                            .id();
+                        commands.entity(entity).add_child(child);
+                        break;
+                    }
+                }
+            }
+            CollisionEvent::Stopped(x, y, CollisionEventFlags::SENSOR) => {
+                if !interactions.contains(*x) {
+                    // No need to check anything if it's not an `Interaction` event!
+                    continue;
+                }
+                let player_children = match player.get_single() {
+                    Ok(x) => x,
+                    _ => return,
+                };
+                let character_entity = if player_children.contains(x) {
+                    y
+                } else if player_children.contains(y) {
+                    x
+                } else {
+                    continue;
+                };
+                for (entity, character, children) in characters.iter() {
+                    if children.contains(character_entity) {
+                        for child in children.iter() {
+                            if let Ok(interaction) = interaction_texts.get(*child) {
+                                commands.entity(interaction).despawn_recursive();
+                                break;
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+            _ => {}
+        }
     }
 }

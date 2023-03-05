@@ -29,9 +29,9 @@ pub const ONE_SECOND: u32 = 1_000_000;
 pub const STAT_POINTS_PER_LEVEL: u32 = 3;
 
 pub const OUTSIDE_WORLD: Group = Group::GROUP_1;
+pub const INTERACTION: Group = Group::GROUP_2;
 pub const HITBOX: Group = Group::GROUP_3;
 pub const NOTHING: Group = Group::GROUP_4;
-pub const INTERACTION: Group = Group::GROUP_5;
 pub const RUN_STAMINA_CONSUMPTION_PER_SEC: f32 = 10.;
 pub const MAP_SIZE: f32 = 10_000.;
 
@@ -49,9 +49,10 @@ pub const BACKGROUND_Z_INDEX: f32 = 0.;
 pub const CARPET_Z_INDEX: f32 = 0.1;
 pub const CARPET_SYMBOL_Z_INDEX: f32 = 0.15;
 pub const FURNITURE_Z_INDEX: f32 = 0.2;
-pub const WEAPON_Z_INDEX: f32 = 0.9;
+// pub const WEAPON_Z_INDEX: f32 = 0.9;
 pub const CHARACTER_Z_INDEX: f32 = 1.;
-pub const TOP_PART_Z_INDEX: f32 = 1.8;
+pub const FURNITURE_TOP_PART_Z_INDEX: f32 = 1.2;
+pub const BUILDING_TOP_PART_Z_INDEX: f32 = 1.8;
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 pub enum AppState {

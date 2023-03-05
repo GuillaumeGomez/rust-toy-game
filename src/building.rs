@@ -1,7 +1,9 @@
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
-use crate::character::{CharacterAnimationInfo, CharacterAnimationType};
+use crate::character::{
+    Character, CharacterAnimationInfo, CharacterAnimationType, CharacterKind, CharacterPoints,
+};
 
 #[derive(Debug, Component, Clone, Copy, PartialEq, Eq)]
 pub enum Building {
@@ -348,7 +350,11 @@ fn insert_furniture<C: Component>(
                             flip_y: flip,
                             ..default()
                         },
-                        transform: Transform::from_xyz(0., height, crate::TOP_PART_Z_INDEX),
+                        transform: Transform::from_xyz(
+                            0.,
+                            height,
+                            crate::FURNITURE_TOP_PART_Z_INDEX,
+                        ),
                         ..default()
                     }),
                 );
@@ -391,11 +397,13 @@ fn insert_vendor<C: Component>(
 ) {
     const NB_ANIMATIONS: usize = 8;
     const ANIMATION_TIME: f32 = 0.12;
+    const HEIGHT: f32 = 29.;
+    const WIDTH: f32 = 31.;
 
     let vendor_texture = asset_server.load("textures/vendor.png");
     let vendor_texture_atlas = TextureAtlas::from_grid(
         vendor_texture,
-        Vec2::new(31., 29.),
+        Vec2::new(WIDTH, HEIGHT),
         NB_ANIMATIONS,
         1,
         None,
@@ -414,9 +422,17 @@ fn insert_vendor<C: Component>(
                     custom_size: Some(Vec2 { x: 31., y: 29. }),
                     ..default()
                 },
-                transform: Transform::from_xyz(x, y + 4., crate::TOP_PART_Z_INDEX + 0.2),
+                transform: Transform::from_xyz(x, y + 4., crate::FURNITURE_TOP_PART_Z_INDEX + 0.1),
                 ..default()
             },
+            Character::new(
+                1,
+                0,
+                CharacterPoints::level_1(),
+                WIDTH,
+                HEIGHT,
+                CharacterKind::Monster,
+            ),
             CharacterAnimationInfo::new_once(
                 ANIMATION_TIME,
                 NB_ANIMATIONS,
@@ -430,6 +446,14 @@ fn insert_vendor<C: Component>(
                 Collider::cuboid(8.0, 7.0),
                 TransformBundle::from(Transform::from_xyz(0.0, -5.0, 0.0)),
                 CollisionGroups::new(crate::OUTSIDE_WORLD, crate::OUTSIDE_WORLD),
+            ));
+            // The "interaction" hitbox.
+            children.spawn((
+                crate::character::Interaction,
+                Collider::cuboid(WIDTH / 2., HEIGHT / 2. + 2.),
+                TransformBundle::from(Transform::from_xyz(0., -4., 0.)),
+                Sensor,
+                CollisionGroups::new(crate::INTERACTION, crate::INTERACTION),
             ));
         });
 }
@@ -478,7 +502,7 @@ fn insert_shop(
                     }),
                     ..default()
                 },
-                transform: Transform::from_xyz(0., 0., crate::TOP_PART_Z_INDEX),
+                transform: Transform::from_xyz(0., 0., crate::BUILDING_TOP_PART_Z_INDEX),
                 ..default()
             });
             // The roof.
@@ -549,7 +573,7 @@ fn insert_house(texture: Handle<TextureAtlas>, commands: &mut Commands, x: f32, 
                 transform: Transform::from_xyz(
                     0.,
                     BOTTOM_SIZE / 2. + TOP_SIZE / 2.,
-                    crate::TOP_PART_Z_INDEX,
+                    crate::BUILDING_TOP_PART_Z_INDEX,
                 ),
                 ..default()
             });
@@ -817,7 +841,7 @@ impl Statue {
                         custom_size: Some(Vec2 { x: width, y: 59. }),
                         ..default()
                     },
-                    transform: Transform::from_xyz(x, y, crate::TOP_PART_Z_INDEX),
+                    transform: Transform::from_xyz(x, y, crate::BUILDING_TOP_PART_Z_INDEX),
                     ..default()
                 },
                 RigidBody::Fixed,
@@ -836,7 +860,7 @@ impl Statue {
                     transform: Transform::from_xyz(
                         0.,
                         -47.,
-                        crate::FURNITURE_Z_INDEX - crate::TOP_PART_Z_INDEX,
+                        crate::FURNITURE_Z_INDEX - crate::BUILDING_TOP_PART_Z_INDEX,
                     ),
                     ..default()
                 });

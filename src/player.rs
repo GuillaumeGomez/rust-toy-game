@@ -26,9 +26,6 @@ pub struct Player {
     pub old_y: f32,
 }
 
-#[derive(Component)]
-pub struct Interaction;
-
 pub fn spawn_player(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -123,7 +120,7 @@ pub fn spawn_player(
             ));
             // The "interaction" hitbox.
             children.spawn((
-                Interaction,
+                crate::character::Interaction,
                 RigidBody::Dynamic,
                 Collider::cuboid(1., 1.),
                 TransformBundle::from(Transform::from_xyz(0.0, PLAYER_HEIGHT / -2. - 7., 0.)),
@@ -146,7 +143,11 @@ pub fn spawn_player(
                     },
                     // We put the collision handler "outside" of the player to avoid triggering
                     // unwanted collision events.
-                    transform: Transform::from_xyz(PLAYER_WIDTH, 0.0, 0.0),
+                    transform: Transform::from_xyz(
+                        PLAYER_WIDTH,
+                        0.0,
+                        crate::FURNITURE_TOP_PART_Z_INDEX - crate::CHARACTER_Z_INDEX + 0.2,
+                    ),
                     visibility: Visibility { is_visible: false },
                     ..default()
                 },
@@ -185,15 +186,16 @@ pub fn player_movement_system(
     timer: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
     mut player_info: Query<(
+        Entity,
         &mut Player,
         &mut TextureAtlasSprite,
         &mut Velocity,
         &mut Character,
         &mut CharacterAnimationInfo,
     )>,
-    mut player_interaction: Query<(&Interaction, &mut Transform)>,
+    mut player_interaction: Query<(&Parent, &mut Transform), With<crate::character::Interaction>>,
 ) {
-    let (mut player, mut sprite, mut rb_vels, mut character, mut animation) =
+    let (entity, mut player, mut sprite, mut rb_vels, mut character, mut animation) =
         match player_info.get_single_mut() {
             Ok(x) => x,
             _ => return,
@@ -209,8 +211,9 @@ pub fn player_movement_system(
         } else if player.is_running {
             player.is_running = false;
         }
-    } else if player.waiting_for_rerun {
+    } else if player.waiting_for_rerun || player.is_running {
         player.waiting_for_rerun = false;
+        player.is_running = false;
     }
 
     let mut speed = character.stats.move_speed;
@@ -253,7 +256,10 @@ pub fn player_movement_system(
             skip_animation_update = true;
         }
         if !is_equal {
-            if let Ok((_, mut transform)) = player_interaction.get_single_mut() {
+            for (parent, mut transform) in player_interaction.iter_mut() {
+                if parent.get() != entity {
+                    continue;
+                }
                 match animation.animation_type {
                     CharacterAnimationType::ForwardMove | CharacterAnimationType::ForwardIdle => {
                         transform.translation.x = 0.;
@@ -272,6 +278,7 @@ pub fn player_movement_system(
                         transform.translation.y = 0.;
                     }
                 }
+                break;
             }
         }
     }
@@ -348,8 +355,6 @@ pub fn player_attack_system(
             visibility.is_visible = true;
             collision_groups.memberships = crate::HITBOX;
             collision_groups.filters = crate::HITBOX;
-            // We set its z-index to 1 so it also appears in buildings.
-            transform.translation.z = crate::WEAPON_Z_INDEX;
         }
     }
     if !character.is_attacking {
