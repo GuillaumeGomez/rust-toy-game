@@ -19,6 +19,7 @@ pub fn spawn_vendor<C: Component>(
     x: f32,
     y: f32,
     state: C,
+    is_weapon_vendor: bool,
 ) {
     const NB_ANIMATIONS: usize = 8;
     const ANIMATION_TIME: f32 = 0.12;
@@ -30,11 +31,12 @@ pub fn spawn_vendor<C: Component>(
         vendor_texture,
         Vec2::new(WIDTH, HEIGHT),
         NB_ANIMATIONS,
-        1,
+        2,
         None,
         None,
     );
     let vendor_texture_atlas_handle = texture_atlases.add(vendor_texture_atlas);
+    let start_index = if is_weapon_vendor { 0 } else { NB_ANIMATIONS };
 
     commands
         .spawn((
@@ -47,17 +49,18 @@ pub fn spawn_vendor<C: Component>(
                     CharacterPoints::level_1(),
                     WIDTH,
                     HEIGHT,
-                    CharacterKind::Monster,
+                    CharacterKind::Human,
                 ),
-                CharacterAnimationInfo::new_once(
+                CharacterAnimationInfo::new_once_with_start_index(
                     ANIMATION_TIME,
                     NB_ANIMATIONS,
                     CharacterAnimationType::ForwardMove,
+                    start_index,
                 ),
                 SpriteSheetBundle {
                     texture_atlas: vendor_texture_atlas_handle.clone(),
                     sprite: TextureAtlasSprite {
-                        index: 0,
+                        index: start_index,
                         custom_size: Some(Vec2 {
                             x: WIDTH,
                             y: HEIGHT,

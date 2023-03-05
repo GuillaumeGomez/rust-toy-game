@@ -687,7 +687,8 @@ pub fn spawn_inside_building(
             crate::game::InsideHouse,
             false,
         );
-        if building == Building::WeaponShop {
+        let is_weapon_shop = building == Building::WeaponShop;
+        if is_weapon_shop {
             let dim = Furniture::MuralSwords.pos_in_image();
             insert_furniture(
                 &mut commands,
@@ -716,6 +717,7 @@ pub fn spawn_inside_building(
             x,
             desk_y + pos_in_image.height(),
             crate::game::InsideHouse,
+            is_weapon_shop,
         );
     } else {
         insert_furniture(

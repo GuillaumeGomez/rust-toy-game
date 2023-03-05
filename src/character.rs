@@ -274,6 +274,7 @@ pub struct CharacterAnimationInfo {
     pub nb_animations: usize,
     pub timer: Timer,
     pub animation_type: CharacterAnimationType,
+    pub start_index: usize,
     pub play_once: bool,
 }
 
@@ -283,11 +284,21 @@ impl CharacterAnimationInfo {
         nb_animations: usize,
         animation_type: CharacterAnimationType,
     ) -> Self {
+        Self::new_with_start_index(animation_time, nb_animations, animation_type, 0)
+    }
+
+    pub fn new_with_start_index(
+        animation_time: f32,
+        nb_animations: usize,
+        animation_type: CharacterAnimationType,
+        start_index: usize,
+    ) -> Self {
         Self {
             animation_time,
             nb_animations,
             timer: Timer::from_seconds(animation_time, TimerMode::Repeating),
             animation_type,
+            start_index,
             play_once: false,
         }
     }
@@ -297,11 +308,21 @@ impl CharacterAnimationInfo {
         nb_animations: usize,
         animation_type: CharacterAnimationType,
     ) -> Self {
+        Self::new_once_with_start_index(animation_time, nb_animations, animation_type, 0)
+    }
+
+    pub fn new_once_with_start_index(
+        animation_time: f32,
+        nb_animations: usize,
+        animation_type: CharacterAnimationType,
+        start_index: usize,
+    ) -> Self {
         Self {
             animation_time,
             nb_animations,
             timer: Timer::from_seconds(animation_time, TimerMode::Repeating),
             animation_type,
+            start_index,
             play_once: true,
         }
     }
@@ -311,17 +332,20 @@ pub fn animate_character_system(
     time: Res<Time>,
     mut animation_query: Query<(&mut CharacterAnimationInfo, &mut TextureAtlasSprite)>,
 ) {
-    for (mut character, mut sprite) in animation_query.iter_mut() {
-        if !character.animation_type.is_idle() {
-            character.timer.tick(time.delta());
+    for (mut animation, mut sprite) in animation_query.iter_mut() {
+        if !animation.animation_type.is_idle() {
+            animation.timer.tick(time.delta());
 
-            if character.timer.finished() {
-                if character.play_once && sprite.index + 1 >= character.nb_animations {
-                    character.timer.pause();
+            if animation.timer.finished() {
+                if animation.play_once
+                    && sprite.index + 1 - animation.start_index >= animation.nb_animations
+                {
+                    animation.timer.pause();
                 }
 
-                sprite.index = (sprite.index + 1) % character.nb_animations
-                    + character.animation_type.get_index(character.nb_animations);
+                sprite.index = (sprite.index + 1 - animation.start_index) % animation.nb_animations
+                    + animation.animation_type.get_index(animation.nb_animations)
+                    + animation.start_index;
             }
         }
     }
