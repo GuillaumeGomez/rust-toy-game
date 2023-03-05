@@ -1,3 +1,4 @@
+use crate::inventory::Inventory;
 use crate::stat::Stat;
 use crate::weapon::Weapon;
 use crate::STAT_POINTS_PER_LEVEL;
@@ -30,6 +31,30 @@ impl GrassEffectBundle {
                 ..default()
             },
         )
+    }
+}
+
+#[derive(Bundle)]
+pub struct CharacterBundle {
+    character: Character,
+    animation_info: CharacterAnimationInfo,
+    sprite_info: SpriteSheetBundle,
+    inventory: Inventory,
+}
+
+impl CharacterBundle {
+    pub fn new(
+        character: Character,
+        animation_info: CharacterAnimationInfo,
+        sprite_info: SpriteSheetBundle,
+        inventory: Inventory,
+    ) -> Self {
+        Self {
+            character,
+            animation_info,
+            sprite_info,
+            inventory,
+        }
     }
 }
 

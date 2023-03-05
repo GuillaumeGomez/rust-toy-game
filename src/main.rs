@@ -11,6 +11,7 @@ mod menu;
 mod monster;
 mod player;
 mod stat;
+mod vendor;
 mod weapon;
 
 use bevy::core::CorePlugin;

@@ -69,28 +69,30 @@ pub fn spawn_player(
                 old_x: 0.,
                 old_y: 0.,
             },
-            Inventory {
-                items: Vec::new(),
-                gold: 13,
-            },
-            character,
-            CharacterAnimationInfo::new(
-                ANIMATION_TIME,
-                NB_ANIMATIONS,
-                CharacterAnimationType::ForwardIdle,
-            ),
-            SpriteSheetBundle {
-                texture_atlas: texture_atlas_handle,
-                sprite: TextureAtlasSprite {
-                    custom_size: Some(Vec2 {
-                        x: PLAYER_WIDTH,
-                        y: PLAYER_HEIGHT,
-                    }),
+            crate::character::CharacterBundle::new(
+                character,
+                CharacterAnimationInfo::new(
+                    ANIMATION_TIME,
+                    NB_ANIMATIONS,
+                    CharacterAnimationType::ForwardIdle,
+                ),
+                SpriteSheetBundle {
+                    texture_atlas: texture_atlas_handle,
+                    sprite: TextureAtlasSprite {
+                        custom_size: Some(Vec2 {
+                            x: PLAYER_WIDTH,
+                            y: PLAYER_HEIGHT,
+                        }),
+                        ..default()
+                    },
+                    transform: Transform::from_xyz(0.0, 210.0, crate::CHARACTER_Z_INDEX),
                     ..default()
                 },
-                transform: Transform::from_xyz(0.0, 210.0, crate::CHARACTER_Z_INDEX),
-                ..default()
-            },
+                Inventory {
+                    items: Vec::new(),
+                    gold: 13,
+                },
+            ),
             RigidBody::Dynamic,
             Velocity::zero(),
             LockedAxes::ROTATION_LOCKED,
