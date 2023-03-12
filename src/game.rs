@@ -1,12 +1,11 @@
-use bevy::core::CorePlugin;
-use bevy::ecs::schedule::ShouldRun;
 use bevy::input::InputPlugin;
 use bevy::prelude::*;
 use bevy::window::{PresentMode, WindowPlugin};
-use bevy_egui::{egui, EguiContext, EguiPlugin};
+use bevy_egui::{egui, EguiContexts, EguiPlugin};
 use bevy_rapier2d::prelude::*;
 use once_cell::sync::Lazy;
 
+use crate::menu::MenuState;
 use crate::{
     building, character, environment, hud, map, monster, player, weapon, AppState, GameInfo,
     OUTSIDE_WORLD,
@@ -22,8 +21,9 @@ pub struct InsideHouse;
 #[derive(Component)]
 pub struct OutsideWorld;
 
-#[derive(Clone, Eq, PartialEq, Debug, Hash)]
+#[derive(Clone, Eq, PartialEq, Debug, Hash, Default, States)]
 pub enum GameState {
+    #[default]
     Outside,
     /// Contains the hash to be used to generate the inside.
     InsideHouse,
@@ -33,82 +33,83 @@ pub enum GameState {
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
-        app.add_system_set(
-            SystemSet::new()
-                .with_run_criteria(run_if_game)
-                .with_system(player::player_attack_system.before("player_movement_system"))
-                .with_system(player::player_movement_system.label("player_movement_system"))
-                .with_system(weapon::handle_attacks.after("player_movement_system"))
-                .with_system(character::animate_character_system.after("player_movement_system"))
-                .with_system(character::refresh_characters_stats.after("player_movement_system"))
-                .with_system(hud::update_hud.after("player_movement_system"))
-                .with_system(update_camera.after("player_movement_system"))
-                .with_system(character::interaction_events)
-                .with_system(weapon::update_notifications)
-                .with_system(monster::update_character_info)
-                .with_system(environment::grass_events)
-                .with_system(weapon::update_entity_destroyer)
-                .with_system(handle_input)
-                .with_system(handle_windows),
-        )
-        .add_system_set(
-            SystemSet::new()
-                .with_run_criteria(hud::run_if_debug)
-                .with_system(hud::update_text.after("player_movement_system")),
-        )
-        .add_system_set(
-            SystemSet::on_enter(crate::DebugState::Disabled).with_system(crate::debug_disabled),
-        )
-        .add_system_set(
-            SystemSet::on_exit(crate::DebugState::Disabled).with_system(crate::debug_enabled),
-        )
-        .add_system_set_to_stage(
-            CoreStage::PostUpdate,
-            SystemSet::on_update(GameState::InsideHouse)
-                .with_run_criteria(run_if_game)
-                .with_system(handle_door_events::<InsideHouse>)
-                .with_system(handle_enter_area_events::<InsideHouse>),
-        )
-        .add_system_set_to_stage(
-            CoreStage::PostUpdate,
-            SystemSet::on_update(GameState::Outside)
-                .with_run_criteria(run_if_game)
-                .with_system(handle_door_events::<OutsideWorld>)
-                .with_system(handle_enter_area_events::<OutsideWorld>),
-        )
-        .add_system_set(
-            SystemSet::on_enter(AppState::Game)
-                .with_system(map::spawn_map.label("spawn_map"))
-                .with_system(player::spawn_player.after("spawn_map"))
-                .with_system(monster::spawn_monsters.after("spawn_map"))
+        app.add_state::<GameState>()
+            .add_state::<crate::DebugState>()
+            .add_systems((
+                player::player_attack_system
+                    .before(player::player_movement_system)
+                    .in_set(OnUpdate(MenuState::Disabled)),
+                player::player_movement_system.in_set(OnUpdate(MenuState::Disabled)),
+                weapon::handle_attacks
+                    .after(player::player_movement_system)
+                    .in_set(OnUpdate(MenuState::Disabled)),
+                character::animate_character_system
+                    .after(player::player_movement_system)
+                    .in_set(OnUpdate(MenuState::Disabled)),
+                character::refresh_characters_stats
+                    .after(player::player_movement_system)
+                    .in_set(OnUpdate(MenuState::Disabled)),
+                hud::update_hud
+                    .after(player::player_movement_system)
+                    .in_set(OnUpdate(MenuState::Disabled)),
+                update_camera
+                    .after(player::player_movement_system)
+                    .in_set(OnUpdate(MenuState::Disabled)),
+                character::interaction_events.in_set(OnUpdate(MenuState::Disabled)),
+                weapon::update_notifications.in_set(OnUpdate(MenuState::Disabled)),
+                monster::update_character_info.in_set(OnUpdate(MenuState::Disabled)),
+                environment::grass_events.in_set(OnUpdate(MenuState::Disabled)),
+                weapon::update_entity_destroyer.in_set(OnUpdate(MenuState::Disabled)),
+                handle_input.in_set(OnUpdate(MenuState::Disabled)),
+                handle_windows.in_set(OnUpdate(MenuState::Disabled)),
+            ))
+            .add_system(
+                hud::update_text
+                    .run_if(hud::run_if_debug)
+                    .after(player::player_movement_system),
+            )
+            .add_system(crate::debug_disabled.in_schedule(OnEnter(crate::DebugState::Disabled)))
+            .add_system(crate::debug_enabled.in_schedule(OnExit(crate::DebugState::Disabled)))
+            .add_systems((
+                handle_door_events::<InsideHouse>
+                    .in_set(OnUpdate(MenuState::Disabled))
+                    .in_set(OnUpdate(GameState::InsideHouse)),
+                handle_enter_area_events::<InsideHouse>
+                    .in_set(OnUpdate(MenuState::Disabled))
+                    .in_set(OnUpdate(GameState::InsideHouse)),
+            ))
+            .add_systems((
+                handle_door_events::<OutsideWorld>
+                    .in_set(OnUpdate(MenuState::Disabled))
+                    .in_set(OnUpdate(GameState::Outside)),
+                handle_enter_area_events::<OutsideWorld>
+                    .in_set(OnUpdate(MenuState::Disabled))
+                    .in_set(OnUpdate(GameState::Outside)),
+            ))
+            .add_systems((
+                map::spawn_map.in_schedule(OnEnter(AppState::Game)),
+                player::spawn_player
+                    .after(map::spawn_map)
+                    .in_schedule(OnEnter(AppState::Game)),
+                monster::spawn_monsters
+                    .after(map::spawn_map)
+                    .in_schedule(OnEnter(AppState::Game)),
                 // TODO: move this into `spawn_map`
-                .with_system(building::spawn_buildings)
+                building::spawn_buildings.in_schedule(OnEnter(AppState::Game)),
                 // TODO: move this into `spawn_map`
-                .with_system(building::spawn_statues)
+                building::spawn_statues.in_schedule(OnEnter(AppState::Game)),
                 // TODO: move this into `spawn_map`
-                .with_system(environment::spawn_nature)
-                .with_system(hud::build_hud),
-        )
-        .add_system_set(
-            SystemSet::on_enter(GameState::InsideHouse)
-                .with_system(building::spawn_inside_building)
-                .with_system(hide_outside),
-        )
-        .add_system_set(
-            SystemSet::on_exit(GameState::InsideHouse)
-                .with_system(crate::despawn_kind::<InsideHouse>)
-                .with_system(show_outside),
-        )
-        .add_state(GameState::Outside)
-        .add_state(crate::DebugState::Disabled);
-    }
-}
-
-fn run_if_game(mode: Res<State<AppState>>) -> ShouldRun {
-    if *mode.current() == AppState::Game {
-        ShouldRun::Yes
-    } else {
-        ShouldRun::No
+                environment::spawn_nature.in_schedule(OnEnter(AppState::Game)),
+                hud::build_hud.in_schedule(OnEnter(AppState::Game)),
+            ))
+            .add_systems((
+                building::spawn_inside_building.in_schedule(OnEnter(GameState::InsideHouse)),
+                hide_outside.in_schedule(OnEnter(GameState::InsideHouse)),
+            ))
+            .add_systems((
+                crate::despawn_kind::<InsideHouse>.in_schedule(OnExit(GameState::InsideHouse)),
+                show_outside.in_schedule(OnExit(GameState::InsideHouse)),
+            ));
     }
 }
 
@@ -127,7 +128,7 @@ fn update_camera(
 }
 
 fn show_character_window(
-    egui_context: &mut ResMut<EguiContext>,
+    egui_context: &mut EguiContexts,
     app_state: &mut ResMut<GameInfo>,
     player: &mut Query<&mut character::Character, With<player::Player>>,
 ) {
@@ -255,7 +256,7 @@ const INVENTORY_LINE_SIZE: usize = 5;
 const INVENTORY_NB_LINE: usize = 7;
 
 fn show_inventory_window(
-    egui_context: &mut ResMut<EguiContext>,
+    egui_context: &mut EguiContexts,
     app_state: &mut ResMut<GameInfo>,
     asset_server: Res<AssetServer>,
     player_inventory: Query<&crate::inventory::Inventory, With<crate::player::Player>>,
@@ -346,7 +347,7 @@ fn show_inventory_window(
 }
 
 fn handle_windows(
-    mut egui_context: ResMut<EguiContext>,
+    mut egui_context: EguiContexts,
     mut app_state: ResMut<GameInfo>,
     mut player: Query<&mut character::Character, With<player::Player>>,
     asset_server: Res<AssetServer>,
@@ -366,11 +367,12 @@ fn handle_windows(
 }
 
 pub fn handle_input(
-    mut game_state: ResMut<State<AppState>>,
+    mut menu_state: ResMut<NextState<MenuState>>,
     keyboard_input: Res<Input<KeyCode>>,
     mut app_state: ResMut<GameInfo>,
     mut rapier_debug: ResMut<DebugRenderContext>,
     mut debug_state: ResMut<State<crate::DebugState>>,
+    mut next_debug_state: ResMut<NextState<crate::DebugState>>,
 ) {
     if keyboard_input.just_released(KeyCode::C) {
         app_state.show_character_window = !app_state.show_character_window;
@@ -384,14 +386,14 @@ pub fn handle_input(
         } else if app_state.show_inventory_window {
             app_state.show_inventory_window = false;
         } else {
-            game_state.push(AppState::Menu).unwrap();
+            menu_state.set(MenuState::Main);
         }
     }
     if keyboard_input.just_released(KeyCode::F5) {
-        if *debug_state.current() == crate::DebugState::Enabled {
-            debug_state.set(crate::DebugState::Disabled);
+        if debug_state.0 == crate::DebugState::Enabled {
+            next_debug_state.set(crate::DebugState::Disabled);
         } else {
-            debug_state.set(crate::DebugState::Enabled);
+            next_debug_state.set(crate::DebugState::Enabled);
         }
     }
 }
@@ -484,7 +486,8 @@ fn handle_enter_area_events<T: Component>(
     enter_area_captors: Query<&building::EnterArea>,
     player: Query<&Transform, With<player::Player>>,
     mut app_state: ResMut<GameInfo>,
-    mut game_state: ResMut<State<GameState>>,
+    game_state: ResMut<State<GameState>>,
+    mut next_game_state: ResMut<NextState<GameState>>,
 ) {
     use bevy_rapier2d::rapier::geometry::CollisionEventFlags;
 
@@ -509,17 +512,17 @@ fn handle_enter_area_events<T: Component>(
                 if children.contains(building_id) {
                     // FIXME: compute real hash
                     app_state.building_hash = 0;
-                    if *game_state.current() == GameState::Outside {
+                    if game_state.0 == GameState::Outside {
                         let player_pos = player.single();
                         app_state.pos = Vec2 {
                             x: player_pos.translation.x + crate::MAP_SIZE * 3.,
                             y: player_pos.translation.y + crate::MAP_SIZE * 3.,
                         };
                         app_state.building = Some(*building);
-                        game_state.set(GameState::InsideHouse);
+                        next_game_state.set(GameState::InsideHouse);
                     } else {
                         app_state.building = None;
-                        game_state.set(GameState::Outside);
+                        next_game_state.set(GameState::Outside);
                     }
                     return;
                 }

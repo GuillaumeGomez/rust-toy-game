@@ -150,7 +150,7 @@ pub fn spawn_player(
                         0.0,
                         crate::FURNITURE_TOP_PART_Z_INDEX - crate::CHARACTER_Z_INDEX + 0.2,
                     ),
-                    visibility: Visibility { is_visible: false },
+                    visibility: Visibility::Hidden,
                     ..default()
                 },
                 Collider::polyline(
@@ -354,13 +354,13 @@ pub fn player_attack_system(
             > weapon.weight * 10. * weapon.timer.duration().as_secs_f32();
         if character.is_attacking {
             weapon.timer.reset();
-            visibility.is_visible = true;
+            *visibility = Visibility::Inherited;
             collision_groups.memberships = crate::HITBOX;
             collision_groups.filters = crate::HITBOX;
         }
     }
     if !character.is_attacking {
-        visibility.is_visible = false;
+        *visibility = Visibility::Hidden;
         collision_groups.memberships = crate::NOTHING;
         collision_groups.filters = crate::NOTHING;
         return;

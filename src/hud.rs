@@ -1,4 +1,3 @@
-use bevy::ecs::schedule::ShouldRun;
 use bevy::prelude::*;
 
 use crate::{character, player};
@@ -74,7 +73,7 @@ pub fn build_hud(
             color: Color::WHITE,
         },
     )
-    .with_text_alignment(TextAlignment::TOP_RIGHT)
+    .with_text_alignment(TextAlignment::Right)
     .with_style(Style {
         position_type: PositionType::Absolute,
         position: UiRect {
@@ -84,7 +83,7 @@ pub fn build_hud(
         },
         ..default()
     });
-    text_bundle.visibility.is_visible = false;
+    text_bundle.visibility = Visibility::Hidden;
     commands.spawn((text_bundle, DebugText));
 }
 
@@ -117,10 +116,6 @@ pub fn update_text(
     text.single_mut().sections[0].value = format!("({:.2}, {:.2})", camera.x, camera.y);
 }
 
-pub fn run_if_debug(mode: Res<State<crate::DebugState>>) -> ShouldRun {
-    if *mode.current() == crate::DebugState::Enabled {
-        ShouldRun::Yes
-    } else {
-        ShouldRun::No
-    }
+pub fn run_if_debug(mode: Res<State<crate::DebugState>>) -> bool {
+    mode.0 == crate::DebugState::Enabled
 }

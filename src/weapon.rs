@@ -95,7 +95,7 @@ pub fn check_receivers(
                                 color: Color::RED,
                             },
                         )
-                        .with_alignment(TextAlignment::CENTER),
+                        .with_alignment(TextAlignment::Center),
                         transform: Transform::from_xyz(0., receiver.height / 2. + 8., 1.),
                         ..default()
                     },

@@ -27,7 +27,7 @@ impl GrassEffectBundle {
                     ..default()
                 },
                 transform: Transform::from_xyz(0., parent_height / -2. + 3., 1.0),
-                visibility: Visibility { is_visible: false },
+                visibility: Visibility::Hidden,
                 ..default()
             },
         )
@@ -60,6 +60,10 @@ impl CharacterBundle {
 
 #[derive(Component)]
 pub struct CharacterInfo;
+#[derive(Component)]
+pub struct CharacterHealthBar;
+#[derive(Component)]
+pub struct CharacterHealthBarInner;
 
 #[derive(Debug)]
 pub struct CharacterStats {
@@ -477,7 +481,7 @@ pub fn interaction_events(
                                             color: Color::WHITE,
                                         },
                                     )
-                                    .with_alignment(TextAlignment::CENTER),
+                                    .with_alignment(TextAlignment::Center),
                                     transform: Transform::from_xyz(0., character.height / 2., 1.),
                                     ..default()
                                 },

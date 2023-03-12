@@ -14,15 +14,15 @@ mod stat;
 mod vendor;
 mod weapon;
 
-use bevy::core::CorePlugin;
 use bevy::input::InputPlugin;
 use bevy::prelude::*;
 use bevy::render::texture::ImagePlugin;
 use bevy::window::{PresentMode, WindowPlugin};
-use bevy_egui::{egui, EguiContext, EguiPlugin};
+use bevy::window::{PrimaryWindow, WindowResolution};
+use bevy_egui::{egui, EguiContexts, EguiPlugin};
 use bevy_rapier2d::prelude::*;
 // FIXME: to be removed once https://github.com/bevyengine/bevy/issues/1856 is fixed.
-use bevy_pixel_camera::*;
+// use bevy_pixel_camera::*;
 use bevy_prototype_lyon::prelude::*;
 use rand_pcg::Pcg64Mcg;
 
@@ -55,14 +55,16 @@ pub const CHARACTER_Z_INDEX: f32 = 1.;
 pub const FURNITURE_TOP_PART_Z_INDEX: f32 = 1.2;
 pub const BUILDING_TOP_PART_Z_INDEX: f32 = 1.8;
 
-#[derive(Clone, Eq, PartialEq, Debug, Hash)]
+#[derive(Clone, Eq, PartialEq, Debug, Hash, Default, States)]
 pub enum AppState {
     Menu,
+    #[default]
     Game,
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Hash)]
+#[derive(Clone, Eq, PartialEq, Debug, Hash, Default, States)]
 pub enum DebugState {
+    #[default]
     Disabled,
     Enabled,
 }
@@ -88,8 +90,8 @@ pub fn debug_disabled(
     mut text: Query<&mut Visibility, With<hud::DebugText>>,
 ) {
     rapier_debug.enabled = false;
-    if let Ok(mut text) = text.get_single_mut() {
-        text.is_visible = false;
+    if let Ok(mut text_visibility) = text.get_single_mut() {
+        *text_visibility = Visibility::Hidden;
     }
 }
 
@@ -98,36 +100,36 @@ pub fn debug_enabled(
     mut text: Query<&mut Visibility, With<hud::DebugText>>,
 ) {
     rapier_debug.enabled = true;
-    if let Ok(mut text) = text.get_single_mut() {
-        text.is_visible = true;
+    if let Ok(mut text_visibility) = text.get_single_mut() {
+        *text_visibility = Visibility::Inherited;
     }
 }
 
 pub fn setup_components(
     mut commands: Commands,
-    mut windows: ResMut<Windows>,
     mut rapier_config: ResMut<RapierConfiguration>,
-    mut egui_context: ResMut<EguiContext>,
+    mut egui_context: EguiContexts,
     mut egui_settings: ResMut<bevy_egui::EguiSettings>,
     mut rapier_debug: ResMut<DebugRenderContext>,
+    mut window: Query<&Window, With<PrimaryWindow>>,
 ) {
     // Disable gravity.
     rapier_config.gravity = Vec2::ZERO;
 
     // Add the 2D camera.
-    // commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle::default());
     let resolution = (WIDTH, HEIGHT);
-    commands.spawn(PixelCameraBundle::from_resolution(
-        resolution.0 as _,
-        resolution.1 as _,
-    ));
+    // commands.spawn(PixelCameraBundle::from_resolution(
+    //     resolution.0 as _,
+    //     resolution.1 as _,
+    // ));
 
     // Set the window size and its resolution.
-    {
-        let window = windows.get_primary_mut().unwrap();
-        window.set_resolution(resolution.0, resolution.1);
-        window.update_scale_factor_from_backend(SCALE as _);
-    }
+    // {
+    //     let window = window.get_single_mut().unwrap();
+    //     window.set_resolution(resolution.0, resolution.1);
+    //     window.update_scale_factor_from_backend(SCALE as _);
+    // }
 
     let mut visuals = egui::Visuals::dark();
     visuals.window_shadow.extrusion = 0.;
@@ -144,48 +146,48 @@ pub fn setup_components(
 fn main() {
     let mut app = App::new();
 
-    let options = app
-        .world
-        .get_resource::<bevy::render::settings::WgpuSettings>()
-        .cloned()
-        .unwrap_or_default();
+    // let options = app
+    //     .world
+    //     .get_resource::<bevy::render::settings::WgpuSettings>()
+    //     .cloned()
+    //     .unwrap_or_default();
 
-    let instance = wgpu::Instance::new(bevy::render::settings::Backends::VULKAN);
-    let request_adapter_options = wgpu::RequestAdapterOptions {
-        power_preference: options.power_preference,
-        ..Default::default()
-    };
-    futures_lite::future::block_on(bevy::render::renderer::initialize_renderer(
-        &instance,
-        &options,
-        &request_adapter_options,
-    ));
+    // let instance = wgpu::Instance::new(bevy::render::settings::Backends::VULKAN);
+    // let request_adapter_options = wgpu::RequestAdapterOptions {
+    //     power_preference: options.power_preference,
+    //     ..Default::default()
+    // };
+    // futures_lite::future::block_on(bevy::render::renderer::initialize_renderer(
+    //     &instance,
+    //     &options,
+    //     &request_adapter_options,
+    // ));
 
     app.add_plugins(
         DefaultPlugins
             .set(WindowPlugin {
-                window: WindowDescriptor {
+                primary_window: Some(Window {
                     title: "Toy game".to_string(),
                     present_mode: PresentMode::AutoVsync,
                     resizable: false,
-                    width: WIDTH,
-                    height: HEIGHT,
+                    resolution: WindowResolution::new(WIDTH, HEIGHT)
+                        .with_scale_factor_override(SCALE as _),
                     ..default()
-                },
+                }),
                 ..default()
             })
             // prevents blurry sprites
             .set(ImagePlugin::default_nearest()),
     )
     .insert_resource(GameInfo::default())
-    .add_state(AppState::Game)
+    .add_state::<AppState>()
     .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0))
     .add_plugin(EguiPlugin)
     .add_plugin(RapierDebugRenderPlugin::default())
-    .add_plugin(PixelCameraPlugin)
-    .add_plugin(PixelBorderPlugin {
-        color: Color::rgb(0.1, 0.1, 0.1),
-    })
+    // .add_plugin(PixelCameraPlugin)
+    // .add_plugin(PixelBorderPlugin {
+    //     color: Color::rgb(0.1, 0.1, 0.1),
+    // })
     .add_plugin(ShapePlugin)
     .add_plugin(menu::MenuPlugin)
     .add_plugin(game::GamePlugin)

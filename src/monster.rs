@@ -4,8 +4,8 @@ use bevy_prototype_lyon::{draw, render};
 use bevy_rapier2d::prelude::*;
 
 use crate::character::{
-    Character, CharacterAnimationInfo, CharacterAnimationType, CharacterInfo, CharacterKind,
-    CharacterPoints, GrassEffectBundle,
+    Character, CharacterAnimationInfo, CharacterAnimationType, CharacterHealthBar,
+    CharacterHealthBarInner, CharacterInfo, CharacterKind, CharacterPoints, GrassEffectBundle,
 };
 use crate::game::OutsideWorld;
 
@@ -102,42 +102,55 @@ pub fn spawn_monsters(
                             color: Color::WHITE,
                         },
                     )
-                    .with_alignment(TextAlignment::CENTER),
-                    transform: Transform::from_xyz(0.0, HEIGHT / 2. + 7., 1.0),
+                    .with_alignment(TextAlignment::Center),
+                    transform: Transform::from_xyz(0.0, HEIGHT / 2. + 7., 1.),
                     ..default()
                 },
                 CharacterInfo,
             ));
 
-            let mut geometry = GeometryBuilder::new()
-                .add(&shapes::Rectangle {
-                    extents: Vec2::new(WIDTH, 2.),
+            // The health bar.
+            let shape = shapes::Rectangle {
+                extents: Vec2::new(WIDTH + 2., 5.),
+                ..default()
+            };
+            children.spawn((
+                ShapeBundle {
+                    path: GeometryBuilder::build_as(&shape),
+                    transform: Transform::from_xyz(0., HEIGHT / 2. + 1., 1.),
+                    visibility: Visibility::Hidden,
                     ..default()
-                })
-                .build(
-                    DrawMode::Outlined {
-                        fill_mode: draw::FillMode::color(Color::BLACK),
-                        outline_mode: draw::StrokeMode::new(Color::BLACK, 1.5),
-                    },
-                    Transform::from_xyz(0., HEIGHT / 2. + 1., 0.),
-                );
-            children.spawn((geometry, CharacterInfo));
+                },
+                draw::Fill::color(Color::BLACK),
+                CharacterHealthBar,
+            ));
 
-            let mut geometry = GeometryBuilder::new()
-                .add(&shapes::Rectangle {
-                    extents: Vec2::new(WIDTH, 2.),
+            children.spawn((
+                ShapeBundle {
+                    path: GeometryBuilder::build_as(&shape),
+                    transform: Transform::from_xyz(0., HEIGHT / 2. + 1., 1.1),
+                    visibility: Visibility::Hidden,
                     ..default()
-                })
-                .build(
-                    DrawMode::Fill(draw::FillMode::color(Color::RED)),
-                    Transform::from_xyz(0., HEIGHT / 2. + 1., 0.),
-                );
-            geometry.visibility = Visibility { is_visible: false };
-            children.spawn((geometry, CharacterInfo));
+                },
+                draw::Fill::color(Color::RED),
+                CharacterHealthBarInner,
+            ));
 
             // The "grass effect" (invisible for the moment).
             children.spawn(GrassEffectBundle::new(HEIGHT, asset_server));
         });
+}
+
+macro_rules! set_vis {
+    ($vis:ident, $character:ident, $visibility:ident) => {
+        if $vis.is_none() {
+            $vis = Some(if $character.stats.health.is_full() {
+                Visibility::Hidden
+            } else {
+                Visibility::Inherited
+            });
+        }
+    };
 }
 
 // TODO: move it into `character.rs`?
@@ -146,28 +159,30 @@ pub fn update_character_info(
         (&Character, &Children),
         (Changed<Character>, Without<crate::player::Player>),
     >,
-    mut info: Query<
-        (Entity, &mut Visibility, &DrawMode),
-        (With<render::Shape>, With<CharacterInfo>),
+    mut info: Query<(Entity, &mut Visibility), With<CharacterHealthBar>>,
+    mut paths: Query<
+        (&mut Path, &mut Transform, &mut Visibility),
+        (With<CharacterHealthBarInner>, Without<CharacterHealthBar>),
     >,
-    mut paths: Query<(&mut Path, &mut Transform)>,
 ) {
-    for (character, children) in characters.iter() {
+    'main: for (character, children) in characters.iter() {
+        let mut vis = None;
         for child in children.iter() {
-            if let Ok((entity, mut visibility, draw_mode)) = info.get_mut(*child) {
-                visibility.is_visible = !character.stats.health.is_full();
-                if !matches!(draw_mode, DrawMode::Fill(_)) {
-                    continue;
-                }
-                if let Ok((mut path, mut transform)) = paths.get_mut(entity) {
-                    let new_width =
-                        WIDTH * character.stats.health.value() / character.stats.health.max_value();
-                    transform.translation.x = -(WIDTH / 2. - new_width / 2.);
-                    *path = ShapePath::build_as(&shapes::Rectangle {
-                        extents: Vec2::new(new_width, 4.),
-                        ..default()
-                    });
-                }
+            if let Ok((entity, mut visibility)) = info.get_mut(*child) {
+                set_vis!(vis, character, visibility);
+                *visibility = vis.unwrap();
+            }
+            if let Ok((mut path, mut transform, mut visibility)) = paths.get_mut(*child) {
+                set_vis!(vis, character, visibility);
+                // We only update the size of the red bar.
+                let new_width =
+                    WIDTH * character.stats.health.value() / character.stats.health.max_value();
+                transform.translation.x = -(WIDTH / 2. - new_width / 2.);
+                *path = ShapePath::build_as(&shapes::Rectangle {
+                    extents: Vec2::new(new_width, 3.),
+                    ..default()
+                });
+                *visibility = vis.unwrap();
             }
         }
     }

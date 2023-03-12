@@ -278,7 +278,11 @@ fn check_if_grass(
             .find(|(e, _, _)| children.contains(e))
         {
             effect.count += count;
-            visibility.is_visible = effect.count > 0;
+            *visibility = if effect.count > 0 {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            };
         }
     }
     true
@@ -298,7 +302,7 @@ pub fn grass_events(
             _ => continue,
         };
         if !check_if_grass(&characters, &grass, &mut grass_effect, x, y, count) {
-            !check_if_grass(&characters, &grass, &mut grass_effect, y, x, count);
+            check_if_grass(&characters, &grass, &mut grass_effect, y, x, count);
         }
     }
 }

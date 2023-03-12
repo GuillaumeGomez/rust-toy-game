@@ -19,50 +19,36 @@ impl Plugin for MenuPlugin {
             // At start, the menu is not enabled. This will be changed in `menu_setup` when
             // entering the `AppState::Menu` state.
             // Current screen in the menu is handled by an independent state from `AppState`
-            .add_state(MenuState::Disabled)
+            .add_state::<MenuState>()
             .insert_resource(Volume(7))
-            .add_system_set(SystemSet::on_enter(AppState::Menu).with_system(menu_setup))
             // Systems to handle the main menu screen
-            .add_system_set(SystemSet::on_enter(MenuState::Main).with_system(main_menu_setup))
-            .add_system_set(
-                SystemSet::on_exit(MenuState::Main).with_system(despawn_kind::<OnMainMenuScreen>),
-            )
+            .add_system(main_menu_setup.in_schedule(OnEnter(MenuState::Main)))
+            .add_system(despawn_kind::<OnMainMenuScreen>.in_schedule(OnExit(MenuState::Main)))
             // Systems to handle the settings menu screen
-            .add_system_set(
-                SystemSet::on_enter(MenuState::Settings).with_system(settings_menu_setup),
-            )
-            .add_system_set(
-                SystemSet::on_exit(MenuState::Settings)
-                    .with_system(despawn_kind::<OnSettingsMenuScreen>),
+            .add_system(settings_menu_setup.in_schedule(OnEnter(MenuState::Settings)))
+            .add_system(
+                despawn_kind::<OnSettingsMenuScreen>.in_schedule(OnExit(MenuState::Settings)),
             )
             // Systems to handle the sound settings screen
-            .add_system_set(
-                SystemSet::on_enter(MenuState::SettingsSound)
-                    .with_system(sound_settings_menu_setup),
-            )
-            .add_system_set(
-                SystemSet::on_update(MenuState::SettingsSound)
-                    .with_system(setting_button::<Volume>),
-            )
-            .add_system_set(
-                SystemSet::on_exit(MenuState::SettingsSound)
-                    .with_system(despawn_kind::<OnSoundSettingsMenuScreen>),
+            .add_system(sound_settings_menu_setup.in_schedule(OnEnter(MenuState::SettingsSound)))
+            .add_system(setting_button::<Volume>.in_set(OnUpdate(MenuState::SettingsSound)))
+            .add_system(
+                despawn_kind::<OnSoundSettingsMenuScreen>
+                    .in_schedule(OnExit(MenuState::SettingsSound)),
             )
             // Common systems to all screens that handles buttons behaviour
-            .add_system_set(
-                SystemSet::on_update(AppState::Menu)
-                    .with_system(menu_action)
-                    .with_system(button_system),
-            );
+            .add_system(menu_action.run_if(run_if_menu))
+            .add_system(button_system.run_if(run_if_menu));
     }
 }
 
 // State used for the current menu screen
-#[derive(Clone, Eq, PartialEq, Debug, Hash)]
-enum MenuState {
+#[derive(Clone, Eq, PartialEq, Debug, Hash, Default, States)]
+pub enum MenuState {
     Main,
     Settings,
     SettingsSound,
+    #[default]
     Disabled,
 }
 
@@ -96,6 +82,10 @@ enum MenuButtonAction {
     BackToMainMenu,
     BackToSettings,
     Quit,
+}
+
+fn run_if_menu(menu: Res<State<MenuState>>) -> bool {
+    menu.0 != MenuState::Disabled
 }
 
 // This system handles changing all buttons color based on mouse interaction
@@ -132,10 +122,6 @@ fn setting_button<T: Component + Resource + PartialEq + Copy>(
             *setting = *button_setting;
         }
     }
-}
-
-fn menu_setup(mut menu_state: ResMut<State<MenuState>>) {
-    let _ = menu_state.set(MenuState::Main);
 }
 
 fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -398,14 +384,11 @@ fn menu_action(
         (Changed<Interaction>, With<Button>),
     >,
     mut app_exit_events: EventWriter<AppExit>,
-    mut menu_state: ResMut<State<MenuState>>,
-    mut app_state: ResMut<State<AppState>>,
+    mut menu_state: ResMut<NextState<MenuState>>,
     keyboard_input: Res<Input<KeyCode>>,
 ) {
-    if *menu_state.current() != MenuState::Disabled && keyboard_input.just_released(KeyCode::Escape)
-    {
-        app_state.pop().unwrap();
-        menu_state.set(MenuState::Disabled).unwrap();
+    if menu_state.0 != Some(MenuState::Disabled) && keyboard_input.just_released(KeyCode::Escape) {
+        menu_state.set(MenuState::Disabled);
         // No need to check anything beyond this point.
         return;
     }
@@ -415,16 +398,15 @@ fn menu_action(
             match menu_button_action {
                 MenuButtonAction::Quit => app_exit_events.send(AppExit),
                 MenuButtonAction::Play => {
-                    app_state.pop().unwrap();
-                    menu_state.set(MenuState::Disabled).unwrap();
+                    menu_state.set(MenuState::Disabled);
                 }
-                MenuButtonAction::Settings => menu_state.set(MenuState::Settings).unwrap(),
+                MenuButtonAction::Settings => menu_state.set(MenuState::Settings),
                 MenuButtonAction::SettingsSound => {
-                    menu_state.set(MenuState::SettingsSound).unwrap();
+                    menu_state.set(MenuState::SettingsSound);
                 }
-                MenuButtonAction::BackToMainMenu => menu_state.set(MenuState::Main).unwrap(),
+                MenuButtonAction::BackToMainMenu => menu_state.set(MenuState::Main),
                 MenuButtonAction::BackToSettings => {
-                    menu_state.set(MenuState::Settings).unwrap();
+                    menu_state.set(MenuState::Settings);
                 }
             }
         }
