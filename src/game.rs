@@ -283,25 +283,84 @@ fn show_inventory_window(
     let coin_image_id = egui_context.add_image(coin_handle);
 
     const CASE_SIZE: f32 = 40.;
+    const WIDTH: f32 = INVENTORY_LINE_SIZE as f32 * (CASE_SIZE + 2. + SPACING) - SPACING;
+    const SPACING: f32 = 4.;
 
-    let mut ids = IDS.iter();
+    static EQUIPMENT_SLOTS: Lazy<Vec<egui::Rect>> = Lazy::new(|| {
+        let size = egui::Vec2::new(CASE_SIZE + 2., CASE_SIZE + 2.);
+        let middle = WIDTH / 2. - CASE_SIZE / 2.;
+        vec![
+            // head
+            egui::Rect::from_min_size(egui::Pos2::new(middle, 4.), size),
+            // weapon
+            egui::Rect::from_min_size(egui::Pos2::new(4., CASE_SIZE + 14.), size),
+            // armor
+            egui::Rect::from_min_size(egui::Pos2::new(middle, CASE_SIZE + 14.), size),
+            // shoes
+            egui::Rect::from_min_size(egui::Pos2::new(middle, (CASE_SIZE + 10.) * 2. + 4.), size),
+        ]
+    });
+
+    const EQUIPMENT_HEIGHT: f32 = (CASE_SIZE + 10.) * 3. + 8.;
+    const INVENTORY_HEIGHT: f32 = INVENTORY_NB_LINE as f32 * (CASE_SIZE + 2. + SPACING) - SPACING;
+    const PIECE_SIZE: f32 = 15.;
+
     egui::Window::new("Inventory")
         .collapsible(false)
         .resizable(false)
-        .default_pos(egui::Pos2::new(crate::WIDTH - 10., crate::HEIGHT / 4.))
-        .default_width(INVENTORY_LINE_SIZE as f32 * (CASE_SIZE + 4.))
+        .default_pos(egui::Pos2::new(
+            crate::WIDTH - WIDTH - 30.,
+            crate::HEIGHT / 4.,
+        ))
+        .fixed_size(egui::Vec2::new(
+            WIDTH,
+            EQUIPMENT_HEIGHT + INVENTORY_HEIGHT + PIECE_SIZE + 10.,
+        ))
         .open(&mut app_state.show_inventory_window)
         .show(egui_context.ctx_mut(), |ui| {
+            // Equipment.
+            let (rect, _) = ui.allocate_exact_size(
+                egui::Vec2::new(WIDTH - 20., EQUIPMENT_HEIGHT),
+                egui::Sense::hover(),
+            );
+            for pos in EQUIPMENT_SLOTS.iter() {
+                ui.put(
+                    pos.translate(egui::Vec2::new(rect.min.x, rect.min.y)),
+                    |ui: &mut egui::Ui| {
+                        let (rect, response) = ui.allocate_exact_size(
+                            egui::Vec2::new(CASE_SIZE + 2., CASE_SIZE + 2.),
+                            egui::Sense::click_and_drag(),
+                        );
+                        let stroke_color = if response.hovered() {
+                            egui::Color32::LIGHT_RED
+                        } else {
+                            egui::Color32::WHITE
+                        };
+                        ui.painter().rect(
+                            rect,
+                            0.,
+                            egui::Color32::from_gray(52),
+                            egui::Stroke::new(1., stroke_color),
+                        );
+                        response
+                    },
+                );
+            }
+
+            // Separator
+            ui.separator();
+
+            // Inventory.
             egui::ScrollArea::vertical().show(ui, |ui| {
                 egui::Grid::new("inventory")
-                    .spacing(egui::Vec2::new(4., 4.))
+                    .spacing(egui::Vec2::new(SPACING, SPACING))
                     .show(ui, |ui| {
                         let image_vec = egui::Vec2::new(7., 20.);
                         let image = egui::Image::new(weapon_image_id, image_vec);
 
                         for y in 0..INVENTORY_NB_LINE {
                             for x in 0..INVENTORY_LINE_SIZE {
-                                let (rect, response) = ui.allocate_at_least(
+                                let (rect, response) = ui.allocate_exact_size(
                                     egui::Vec2::new(CASE_SIZE + 2., CASE_SIZE + 2.),
                                     egui::Sense::click_and_drag(),
                                 );
@@ -329,19 +388,20 @@ fn show_inventory_window(
                             ui.end_row();
                         }
                     });
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
-                    const PIECE_SIZE: f32 = 15.;
-                    let image_vec = egui::Vec2::new(PIECE_SIZE, PIECE_SIZE);
-                    let image = egui::Image::new(coin_image_id, image_vec);
+            });
 
-                    let (rect, _) = ui.allocate_at_least(
-                        egui::Vec2::new(PIECE_SIZE, PIECE_SIZE),
-                        egui::Sense::hover(),
-                    );
-                    image.paint_at(ui, rect);
+            // Money
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+                let image_vec = egui::Vec2::new(PIECE_SIZE, PIECE_SIZE);
+                let image = egui::Image::new(coin_image_id, image_vec);
 
-                    ui.label(&inventory.gold.to_string());
-                });
+                let (rect, _) = ui.allocate_at_least(
+                    egui::Vec2::new(PIECE_SIZE, PIECE_SIZE),
+                    egui::Sense::hover(),
+                );
+                image.paint_at(ui, rect);
+
+                ui.label(&inventory.gold.to_string());
             });
         });
 }
