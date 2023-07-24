@@ -35,81 +35,90 @@ impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.add_state::<GameState>()
             .add_state::<crate::DebugState>()
-            .add_systems((
-                player::player_attack_system
-                    .before(player::player_movement_system)
-                    .in_set(OnUpdate(MenuState::Disabled)),
-                player::player_movement_system.in_set(OnUpdate(MenuState::Disabled)),
-                weapon::handle_attacks
-                    .after(player::player_movement_system)
-                    .in_set(OnUpdate(MenuState::Disabled)),
-                character::animate_character_system
-                    .after(player::player_movement_system)
-                    .in_set(OnUpdate(MenuState::Disabled)),
-                character::refresh_characters_stats
-                    .after(player::player_movement_system)
-                    .in_set(OnUpdate(MenuState::Disabled)),
-                hud::update_hud
-                    .after(player::player_movement_system)
-                    .in_set(OnUpdate(MenuState::Disabled)),
-                update_camera
-                    .after(player::player_movement_system)
-                    .in_set(OnUpdate(MenuState::Disabled)),
-                character::interaction_events.in_set(OnUpdate(MenuState::Disabled)),
-                weapon::update_notifications.in_set(OnUpdate(MenuState::Disabled)),
-                monster::update_character_info.in_set(OnUpdate(MenuState::Disabled)),
-                environment::grass_events.in_set(OnUpdate(MenuState::Disabled)),
-                weapon::update_entity_destroyer.in_set(OnUpdate(MenuState::Disabled)),
-                handle_input.in_set(OnUpdate(MenuState::Disabled)),
-                handle_windows.in_set(OnUpdate(MenuState::Disabled)),
-            ))
-            .add_system(
-                hud::update_text
+            .add_systems(
+                Update,
+                (player::player_attack_system,)
+                    .run_if(in_state(MenuState::Disabled))
+                    .before(player::player_movement_system),
+            )
+            .add_systems(
+                Update,
+                (
+                    weapon::handle_attacks,
+                    character::animate_character_system,
+                    character::refresh_characters_stats,
+                    hud::update_hud,
+                    update_camera,
+                )
+                    .run_if(in_state(MenuState::Disabled))
+                    .after(player::player_movement_system),
+            )
+            .add_systems(
+                Update,
+                (
+                    player::player_movement_system,
+                    character::interaction_events,
+                    weapon::update_notifications,
+                    monster::update_character_info,
+                    environment::grass_events,
+                    weapon::update_entity_destroyer,
+                    handle_input,
+                    handle_windows,
+                )
+                    .run_if(in_state(MenuState::Disabled)),
+            )
+            .add_systems(
+                Update,
+                (hud::update_text)
                     .run_if(hud::run_if_debug)
                     .after(player::player_movement_system),
             )
-            .add_system(crate::debug_disabled.in_schedule(OnEnter(crate::DebugState::Disabled)))
-            .add_system(crate::debug_enabled.in_schedule(OnExit(crate::DebugState::Disabled)))
-            .add_systems((
-                handle_door_events::<InsideHouse>
-                    .in_set(OnUpdate(MenuState::Disabled))
-                    .in_set(OnUpdate(GameState::InsideHouse)),
-                handle_enter_area_events::<InsideHouse>
-                    .in_set(OnUpdate(MenuState::Disabled))
-                    .in_set(OnUpdate(GameState::InsideHouse)),
-            ))
-            .add_systems((
-                handle_door_events::<OutsideWorld>
-                    .in_set(OnUpdate(MenuState::Disabled))
-                    .in_set(OnUpdate(GameState::Outside)),
-                handle_enter_area_events::<OutsideWorld>
-                    .in_set(OnUpdate(MenuState::Disabled))
-                    .in_set(OnUpdate(GameState::Outside)),
-            ))
-            .add_systems((
-                map::spawn_map.in_schedule(OnEnter(AppState::Game)),
-                player::spawn_player
-                    .after(map::spawn_map)
-                    .in_schedule(OnEnter(AppState::Game)),
-                monster::spawn_monsters
-                    .after(map::spawn_map)
-                    .in_schedule(OnEnter(AppState::Game)),
-                // TODO: move this into `spawn_map`
-                building::spawn_buildings.in_schedule(OnEnter(AppState::Game)),
-                // TODO: move this into `spawn_map`
-                building::spawn_statues.in_schedule(OnEnter(AppState::Game)),
-                // TODO: move this into `spawn_map`
-                environment::spawn_nature.in_schedule(OnEnter(AppState::Game)),
-                hud::build_hud.in_schedule(OnEnter(AppState::Game)),
-            ))
-            .add_systems((
-                building::spawn_inside_building.in_schedule(OnEnter(GameState::InsideHouse)),
-                hide_outside.in_schedule(OnEnter(GameState::InsideHouse)),
-            ))
-            .add_systems((
-                crate::despawn_kind::<InsideHouse>.in_schedule(OnExit(GameState::InsideHouse)),
-                show_outside.in_schedule(OnExit(GameState::InsideHouse)),
-            ));
+            .add_systems(
+                OnEnter(crate::DebugState::Disabled),
+                (crate::debug_disabled),
+            )
+            .add_systems(OnExit(crate::DebugState::Disabled), (crate::debug_enabled))
+            .add_systems(
+                Update,
+                (
+                    handle_door_events::<InsideHouse>,
+                    handle_enter_area_events::<InsideHouse>,
+                )
+                    .run_if(in_state(MenuState::Disabled))
+                    .run_if(in_state(GameState::InsideHouse)),
+            )
+            .add_systems(
+                Update,
+                (
+                    handle_door_events::<OutsideWorld>,
+                    handle_enter_area_events::<OutsideWorld>,
+                )
+                    .run_if(in_state(MenuState::Disabled))
+                    .run_if(in_state(GameState::Outside)),
+            )
+            .add_systems(
+                OnEnter(AppState::Game),
+                (
+                    map::spawn_map,
+                    player::spawn_player.after(map::spawn_map),
+                    monster::spawn_monsters.after(map::spawn_map),
+                    // TODO: move this into `spawn_map`
+                    building::spawn_buildings,
+                    // TODO: move this into `spawn_map`
+                    building::spawn_statues,
+                    // TODO: move this into `spawn_map`
+                    environment::spawn_nature,
+                    hud::build_hud,
+                ),
+            )
+            .add_systems(
+                OnEnter(GameState::InsideHouse),
+                (building::spawn_inside_building, hide_outside),
+            )
+            .add_systems(
+                OnExit(GameState::InsideHouse),
+                (crate::despawn_kind::<InsideHouse>, show_outside),
+            );
     }
 }
 
@@ -450,7 +459,7 @@ pub fn handle_input(
         }
     }
     if keyboard_input.just_released(KeyCode::F5) {
-        if debug_state.0 == crate::DebugState::Enabled {
+        if *debug_state == crate::DebugState::Enabled {
             next_debug_state.set(crate::DebugState::Disabled);
         } else {
             next_debug_state.set(crate::DebugState::Enabled);
@@ -572,7 +581,7 @@ fn handle_enter_area_events<T: Component>(
                 if children.contains(building_id) {
                     // FIXME: compute real hash
                     app_state.building_hash = 0;
-                    if game_state.0 == GameState::Outside {
+                    if *game_state == GameState::Outside {
                         let player_pos = player.single();
                         app_state.pos = Vec2 {
                             x: player_pos.translation.x + crate::MAP_SIZE * 3.,

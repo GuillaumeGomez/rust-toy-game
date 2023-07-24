@@ -16,19 +16,14 @@ fn spawn_stat_bar(commands: &mut Commands, stat: StatKind, background_color: Bac
     commands
         .spawn(NodeBundle {
             style: Style {
-                size: Size {
-                    width: Val::Px(102.0),
-                    height: Val::Px(7.0),
-                },
+                width: Val::Px(102.0),
+                height: Val::Px(7.0),
                 border: UiRect::all(Val::Px(1.0)),
-                position: UiRect {
-                    left: Val::Px(4.0),
-                    top: match stat {
-                        StatKind::Health => Val::Px(4.0),
-                        StatKind::Mana => Val::Px(12.0),
-                        StatKind::Stamina => Val::Px(20.0),
-                    },
-                    ..default()
+                left: Val::Px(4.0),
+                top: match stat {
+                    StatKind::Health => Val::Px(4.0),
+                    StatKind::Mana => Val::Px(12.0),
+                    StatKind::Stamina => Val::Px(20.0),
                 },
                 position_type: PositionType::Absolute,
                 ..default()
@@ -40,10 +35,8 @@ fn spawn_stat_bar(commands: &mut Commands, stat: StatKind, background_color: Bac
             parent.spawn((
                 NodeBundle {
                     style: Style {
-                        size: Size {
-                            width: Val::Percent(100.0),
-                            height: Val::Percent(100.0),
-                        },
+                        width: Val::Percent(100.0),
+                        height: Val::Percent(100.0),
                         ..default()
                     },
                     background_color,
@@ -76,11 +69,8 @@ pub fn build_hud(
     .with_text_alignment(TextAlignment::Right)
     .with_style(Style {
         position_type: PositionType::Absolute,
-        position: UiRect {
-            top: Val::Px(2.0),
-            right: Val::Px(2.0),
-            ..default()
-        },
+        top: Val::Px(2.0),
+        right: Val::Px(2.0),
         ..default()
     });
     text_bundle.visibility = Visibility::Hidden;
@@ -96,7 +86,7 @@ pub fn update_hud(
 ) {
     for character in character_info_updates.iter() {
         for (mut style, stat) in huds.iter_mut() {
-            style.size.width = Val::Px(match stat {
+            style.width = Val::Px(match stat {
                 StatKind::Health => character.stats.health.pourcent(),
                 StatKind::Mana => character.stats.mana.pourcent(),
                 StatKind::Stamina => character.stats.stamina.pourcent(),
@@ -117,5 +107,5 @@ pub fn update_text(
 }
 
 pub fn run_if_debug(mode: Res<State<crate::DebugState>>) -> bool {
-    mode.0 == crate::DebugState::Enabled
+    *mode == crate::DebugState::Enabled
 }

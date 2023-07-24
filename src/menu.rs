@@ -22,23 +22,29 @@ impl Plugin for MenuPlugin {
             .add_state::<MenuState>()
             .insert_resource(Volume(7))
             // Systems to handle the main menu screen
-            .add_system(main_menu_setup.in_schedule(OnEnter(MenuState::Main)))
-            .add_system(despawn_kind::<OnMainMenuScreen>.in_schedule(OnExit(MenuState::Main)))
+            .add_systems(OnEnter(MenuState::Main), (main_menu_setup))
+            .add_systems(OnExit(MenuState::Main), (despawn_kind::<OnMainMenuScreen>))
             // Systems to handle the settings menu screen
-            .add_system(settings_menu_setup.in_schedule(OnEnter(MenuState::Settings)))
-            .add_system(
-                despawn_kind::<OnSettingsMenuScreen>.in_schedule(OnExit(MenuState::Settings)),
+            .add_systems(OnEnter(MenuState::Settings), (settings_menu_setup))
+            .add_systems(
+                OnExit(MenuState::Settings),
+                (despawn_kind::<OnSettingsMenuScreen>,),
             )
             // Systems to handle the sound settings screen
-            .add_system(sound_settings_menu_setup.in_schedule(OnEnter(MenuState::SettingsSound)))
-            .add_system(setting_button::<Volume>.in_set(OnUpdate(MenuState::SettingsSound)))
-            .add_system(
-                despawn_kind::<OnSoundSettingsMenuScreen>
-                    .in_schedule(OnExit(MenuState::SettingsSound)),
+            .add_systems(
+                OnEnter(MenuState::SettingsSound),
+                (sound_settings_menu_setup),
+            )
+            .add_systems(
+                Update,
+                (setting_button::<Volume>).run_if(in_state(MenuState::SettingsSound)),
+            )
+            .add_systems(
+                OnExit(MenuState::SettingsSound),
+                (despawn_kind::<OnSoundSettingsMenuScreen>),
             )
             // Common systems to all screens that handles buttons behaviour
-            .add_system(menu_action.run_if(run_if_menu))
-            .add_system(button_system.run_if(run_if_menu));
+            .add_systems(Update, (menu_action, button_system).run_if(run_if_menu));
     }
 }
 
@@ -85,7 +91,7 @@ enum MenuButtonAction {
 }
 
 fn run_if_menu(menu: Res<State<MenuState>>) -> bool {
-    menu.0 != MenuState::Disabled
+    *menu != MenuState::Disabled
 }
 
 // This system handles changing all buttons color based on mouse interaction
@@ -97,7 +103,7 @@ fn button_system(
 ) {
     for (interaction, mut color, selected) in &mut interaction_query {
         *color = match (*interaction, selected) {
-            (Interaction::Clicked, _) | (Interaction::None, Some(_)) => PRESSED_BUTTON.into(),
+            (Interaction::Pressed, _) | (Interaction::None, Some(_)) => PRESSED_BUTTON.into(),
             (Interaction::Hovered, Some(_)) => HOVERED_PRESSED_BUTTON.into(),
             (Interaction::Hovered, None) => HOVERED_BUTTON.into(),
             (Interaction::None, None) => NORMAL_BUTTON.into(),
@@ -114,7 +120,7 @@ fn setting_button<T: Component + Resource + PartialEq + Copy>(
     mut setting: ResMut<T>,
 ) {
     for (interaction, button_setting, entity) in &interaction_query {
-        if *interaction == Interaction::Clicked && *setting != *button_setting {
+        if *interaction == Interaction::Pressed && *setting != *button_setting {
             let (previous_button, mut previous_color) = selected_query.single_mut();
             *previous_color = NORMAL_BUTTON.into();
             commands.entity(previous_button).remove::<SelectedOption>();
@@ -128,23 +134,23 @@ fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load(crate::FONT);
     // Common style for all buttons on the screen
     let button_style = Style {
-        size: Size::new(Val::Px(250.0 / SCALE), Val::Px(65.0 / SCALE)),
+        width: Val::Px(250.0 / SCALE),
+        height: Val::Px(65.0 / SCALE),
         margin: UiRect::all(Val::Px(20.0 / SCALE)),
         justify_content: JustifyContent::Center,
         align_items: AlignItems::Center,
         ..default()
     };
     let button_icon_style = Style {
-        size: Size::new(Val::Px(30.0 / SCALE), Val::Auto),
+        width: Val::Px(30.0 / SCALE),
+        height: Val::Auto,
         // This takes the icons out of the flexbox flow, to be positioned exactly
         position_type: PositionType::Absolute,
         // The icon will be close to the left border of the button
-        position: UiRect {
-            left: Val::Px(10.0 / SCALE),
-            right: Val::Auto,
-            top: Val::Auto,
-            bottom: Val::Auto,
-        },
+        left: Val::Px(10.0 / SCALE),
+        right: Val::Auto,
+        top: Val::Auto,
+        bottom: Val::Auto,
         ..default()
     };
     let button_text_style = TextStyle {
@@ -253,7 +259,8 @@ fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn settings_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let button_style = Style {
-        size: Size::new(Val::Px(200.0 / SCALE), Val::Px(65.0 / SCALE)),
+        width: Val::Px(200.0 / SCALE),
+        height: Val::Px(65.0 / SCALE),
         margin: UiRect::all(Val::Px(20.0 / SCALE)),
         justify_content: JustifyContent::Center,
         align_items: AlignItems::Center,
@@ -307,7 +314,8 @@ fn sound_settings_menu_setup(
     volume: Res<Volume>,
 ) {
     let button_style = Style {
-        size: Size::new(Val::Px(200.0 / SCALE), Val::Px(65.0 / SCALE)),
+        width: Val::Px(200.0 / SCALE),
+        height: Val::Px(65.0 / SCALE),
         margin: UiRect::all(Val::Px(20.0 / SCALE)),
         justify_content: JustifyContent::Center,
         align_items: AlignItems::Center,
@@ -351,7 +359,8 @@ fn sound_settings_menu_setup(
                     for volume_setting in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] {
                         let mut entity = parent.spawn(ButtonBundle {
                             style: Style {
-                                size: Size::new(Val::Px(30.0 / SCALE), Val::Px(65.0 / SCALE)),
+                                width: Val::Px(30.0 / SCALE),
+                                height: Val::Px(65.0 / SCALE),
                                 ..button_style.clone()
                             },
                             background_color: NORMAL_BUTTON.into(),
@@ -394,7 +403,7 @@ fn menu_action(
     }
 
     for (interaction, menu_button_action) in &interaction_query {
-        if *interaction == Interaction::Clicked {
+        if *interaction == Interaction::Pressed {
             match menu_button_action {
                 MenuButtonAction::Quit => app_exit_events.send(AppExit),
                 MenuButtonAction::Play => {

@@ -203,7 +203,7 @@ pub fn player_movement_system(
             _ => return,
         };
     let was_running = player.is_running;
-    if keyboard_input.pressed(KeyCode::LShift) {
+    if keyboard_input.pressed(KeyCode::ShiftLeft) {
         if !player.waiting_for_rerun {
             let required_to_run = timer.delta().as_secs_f32() * RUN_STAMINA_CONSUMPTION_PER_SEC;
             player.is_running = character.stats.stamina.value() >= required_to_run;

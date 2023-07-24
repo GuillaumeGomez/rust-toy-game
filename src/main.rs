@@ -181,16 +181,18 @@ fn main() {
     )
     .insert_resource(GameInfo::default())
     .add_state::<AppState>()
-    .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0))
-    .add_plugin(EguiPlugin)
-    .add_plugin(RapierDebugRenderPlugin::default())
-    // .add_plugin(PixelCameraPlugin)
-    // .add_plugin(PixelBorderPlugin {
-    //     color: Color::rgb(0.1, 0.1, 0.1),
-    // })
-    .add_plugin(ShapePlugin)
-    .add_plugin(menu::MenuPlugin)
-    .add_plugin(game::GamePlugin)
-    .add_startup_system(setup_components)
+    .add_plugins((
+        RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0),
+        EguiPlugin,
+        RapierDebugRenderPlugin::default(),
+        // PixelCameraPlugin,
+        // .PixelBorderPlugin {
+        //     color: Color::rgb(0.1, 0.1, 0.1),
+        // },
+        ShapePlugin,
+        menu::MenuPlugin,
+        game::GamePlugin,
+    ))
+    .add_systems(Startup, (setup_components))
     .run();
 }
