@@ -313,6 +313,7 @@ fn show_inventory_window(
     const EQUIPMENT_HEIGHT: f32 = (CASE_SIZE + 10.) * 3. + 8.;
     const INVENTORY_HEIGHT: f32 = INVENTORY_NB_LINE as f32 * (CASE_SIZE + 2. + SPACING) - SPACING;
     const PIECE_SIZE: f32 = 15.;
+    const NO_POINTER: egui::Pos2 = egui::Pos2::new(-1., -1.);
 
     egui::Window::new("Inventory")
         .collapsible(false)
@@ -327,6 +328,11 @@ fn show_inventory_window(
         ))
         .open(&mut app_state.show_inventory_window)
         .show(egui_context.ctx_mut(), |ui| {
+            let drag_in_progress = ui.memory(|mem| mem.is_anything_being_dragged());
+            if drag_in_progress {
+                ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
+            }
+
             // Equipment.
             let (rect, _) = ui.allocate_exact_size(
                 egui::Vec2::new(WIDTH - 20., EQUIPMENT_HEIGHT),
@@ -359,6 +365,8 @@ fn show_inventory_window(
             // Separator
             ui.separator();
 
+            let pointer_pos = ui.ctx().pointer_latest_pos().unwrap_or(NO_POINTER);
+
             // Inventory.
             egui::ScrollArea::vertical().show(ui, |ui| {
                 egui::Grid::new("inventory")
@@ -373,7 +381,10 @@ fn show_inventory_window(
                                     egui::Vec2::new(CASE_SIZE + 2., CASE_SIZE + 2.),
                                     egui::Sense::click_and_drag(),
                                 );
-                                let stroke_color = if response.hovered() {
+                                let stroke_color = if rect.contains(pointer_pos) {
+                                    if !drag_in_progress {
+                                        ui.ctx().set_cursor_icon(egui::CursorIcon::Grab);
+                                    }
                                     egui::Color32::LIGHT_RED
                                 } else {
                                     egui::Color32::WHITE
@@ -391,7 +402,19 @@ fn show_inventory_window(
                                     draw.min.y = center.y - image_vec.y / 2.;
                                     draw.max.x = center.x + image_vec.x / 2.;
                                     draw.max.y = center.y + image_vec.y / 2.;
-                                    image.paint_at(ui, draw);
+                                    let item_id = egui::Id::new("inventory").with(x).with(y);
+                                    if response.dragged() {
+                                        if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
+                                            let area = egui::Area::new(item_id)
+                                                .order(egui::Order::Tooltip)
+                                                .current_pos(pointer_pos)
+                                                .show(ui.ctx(), |ui| {
+                                                    ui.add(image);
+                                                });
+                                        }
+                                    } else {
+                                        image.paint_at(ui, draw);
+                                    }
                                 }
                             }
                             ui.end_row();
