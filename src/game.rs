@@ -333,6 +333,8 @@ fn show_inventory_window(
                 ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
             }
 
+            let pointer_pos = ui.ctx().pointer_interact_pos().unwrap_or(NO_POINTER);
+
             // Equipment.
             let (rect, _) = ui.allocate_exact_size(
                 egui::Vec2::new(WIDTH - 20., EQUIPMENT_HEIGHT),
@@ -346,7 +348,7 @@ fn show_inventory_window(
                             egui::Vec2::new(CASE_SIZE + 2., CASE_SIZE + 2.),
                             egui::Sense::click_and_drag(),
                         );
-                        let stroke_color = if response.hovered() {
+                        let stroke_color = if rect.contains(pointer_pos) {
                             egui::Color32::LIGHT_RED
                         } else {
                             egui::Color32::WHITE
@@ -364,8 +366,6 @@ fn show_inventory_window(
 
             // Separator
             ui.separator();
-
-            let pointer_pos = ui.ctx().pointer_latest_pos().unwrap_or(NO_POINTER);
 
             // Inventory.
             egui::ScrollArea::vertical().show(ui, |ui| {
@@ -396,23 +396,21 @@ fn show_inventory_window(
                                     egui::Stroke::new(1., stroke_color),
                                 );
                                 if y == 0 && x == 0 {
-                                    let mut draw = rect;
-                                    let center = rect.center();
-                                    draw.min.x = center.x - image_vec.x / 2.;
-                                    draw.min.y = center.y - image_vec.y / 2.;
-                                    draw.max.x = center.x + image_vec.x / 2.;
-                                    draw.max.y = center.y + image_vec.y / 2.;
                                     let item_id = egui::Id::new("inventory").with(x).with(y);
                                     if response.dragged() {
-                                        if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
-                                            let area = egui::Area::new(item_id)
-                                                .order(egui::Order::Tooltip)
-                                                .current_pos(pointer_pos)
-                                                .show(ui.ctx(), |ui| {
-                                                    ui.add(image);
-                                                });
-                                        }
+                                        egui::Area::new(item_id)
+                                            .order(egui::Order::Tooltip)
+                                            .current_pos(pointer_pos)
+                                            .show(ui.ctx(), |ui| {
+                                                ui.add(image);
+                                            });
                                     } else {
+                                        let mut draw = rect;
+                                        let center = rect.center();
+                                        draw.min.x = center.x - image_vec.x / 2.;
+                                        draw.min.y = center.y - image_vec.y / 2.;
+                                        draw.max.x = center.x + image_vec.x / 2.;
+                                        draw.max.y = center.y + image_vec.y / 2.;
                                         image.paint_at(ui, draw);
                                     }
                                 }
