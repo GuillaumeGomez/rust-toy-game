@@ -30,15 +30,14 @@ pub fn spawn_player(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut app_state: ResMut<crate::GameInfo>,
-    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
 ) {
     const NB_ANIMATIONS: usize = 10;
     const ANIMATION_TIME: f32 = 0.08;
 
     // spawn player
     let texture_handle = asset_server.load("textures/player.png");
-    let texture_atlas = TextureAtlas::from_grid(
-        texture_handle,
+    let texture_atlas = TextureAtlasLayout::from_grid(
         Vec2::new(PLAYER_WIDTH, PLAYER_HEIGHT),
         NB_ANIMATIONS,
         5,
@@ -77,14 +76,19 @@ pub fn spawn_player(
                     CharacterAnimationType::ForwardIdle,
                 ),
                 SpriteSheetBundle {
-                    texture_atlas: texture_atlas_handle,
-                    sprite: TextureAtlasSprite {
+                    atlas: TextureAtlas {
+                        index: 0,
+                        layout: texture_atlas_handle,
+                        ..default()
+                    },
+                    sprite: Sprite {
                         custom_size: Some(Vec2 {
                             x: PLAYER_WIDTH,
                             y: PLAYER_HEIGHT,
                         }),
                         ..default()
                     },
+                    texture: texture_handle,
                     transform: Transform::from_xyz(0.0, 210.0, crate::CHARACTER_Z_INDEX),
                     ..default()
                 },
@@ -186,11 +190,11 @@ pub fn spawn_player(
 
 pub fn player_movement_system(
     timer: Res<Time>,
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     mut player_info: Query<(
         Entity,
         &mut Player,
-        &mut TextureAtlasSprite,
+        &mut TextureAtlas,
         &mut Velocity,
         &mut Character,
         &mut CharacterAnimationInfo,
@@ -223,10 +227,11 @@ pub fn player_movement_system(
         speed *= 2.;
     }
 
-    let up = keyboard_input.pressed(KeyCode::W) || keyboard_input.pressed(KeyCode::Up);
-    let down = keyboard_input.pressed(KeyCode::S) || keyboard_input.pressed(KeyCode::Down);
-    let left = keyboard_input.pressed(KeyCode::A) || keyboard_input.pressed(KeyCode::Left);
-    let right = keyboard_input.pressed(KeyCode::D) || keyboard_input.pressed(KeyCode::Right);
+    let up = keyboard_input.pressed(KeyCode::KeyW) || keyboard_input.pressed(KeyCode::ArrowUp);
+    let down = keyboard_input.pressed(KeyCode::KeyS) || keyboard_input.pressed(KeyCode::ArrowDown);
+    let left = keyboard_input.pressed(KeyCode::KeyA) || keyboard_input.pressed(KeyCode::ArrowLeft);
+    let right =
+        keyboard_input.pressed(KeyCode::KeyD) || keyboard_input.pressed(KeyCode::ArrowRight);
 
     // convert to axis multipliers
     let x_axis = -(left as i8) + right as i8;
@@ -319,7 +324,7 @@ pub fn player_movement_system(
 
 pub fn player_attack_system(
     timer: Res<Time>,
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     mut player: Query<(&mut Character, &CharacterAnimationInfo), With<Player>>,
     mut weapon_info: Query<
         (

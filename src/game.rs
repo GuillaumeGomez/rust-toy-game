@@ -33,8 +33,8 @@ pub enum GameState {
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
-        app.add_state::<GameState>()
-            .add_state::<crate::DebugState>()
+        app.init_state::<GameState>()
+            .init_state::<crate::DebugState>()
             .add_systems(
                 Update,
                 (player::player_attack_system,)
@@ -328,7 +328,7 @@ fn show_inventory_window(
         ))
         .open(&mut app_state.show_inventory_window)
         .show(egui_context.ctx_mut(), |ui| {
-            let drag_in_progress = ui.memory(|mem| mem.is_anything_being_dragged());
+            let drag_in_progress = ui.ctx().dragged_id().is_some();
             if drag_in_progress {
                 ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
             }
@@ -460,16 +460,16 @@ fn handle_windows(
 
 pub fn handle_input(
     mut menu_state: ResMut<NextState<MenuState>>,
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     mut app_state: ResMut<GameInfo>,
     mut rapier_debug: ResMut<DebugRenderContext>,
     mut debug_state: ResMut<State<crate::DebugState>>,
     mut next_debug_state: ResMut<NextState<crate::DebugState>>,
 ) {
-    if keyboard_input.just_released(KeyCode::C) {
+    if keyboard_input.just_released(KeyCode::KeyC) {
         app_state.show_character_window = !app_state.show_character_window;
     }
-    if keyboard_input.just_released(KeyCode::I) {
+    if keyboard_input.just_released(KeyCode::KeyI) {
         app_state.show_inventory_window = !app_state.show_inventory_window;
     }
     if keyboard_input.just_released(KeyCode::Escape) {
@@ -548,7 +548,7 @@ macro_rules! get_building_and_player {
 
 fn handle_door_events<T: Component>(
     mut collision_events: EventReader<CollisionEvent>,
-    mut buildings: Query<(&mut TextureAtlasSprite, &Children, &building::Building, &T)>,
+    mut buildings: Query<(&mut TextureAtlas, &Children, &building::Building, &T)>,
     door_captors: Query<&building::Door>,
     app_state: ResMut<GameInfo>,
 ) {

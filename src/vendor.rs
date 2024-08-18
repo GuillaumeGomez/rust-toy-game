@@ -1,6 +1,6 @@
 use bevy::prelude::*;
-use bevy_prototype_lyon::prelude::*;
 use bevy_prototype_lyon::draw;
+use bevy_prototype_lyon::prelude::*;
 use bevy_rapier2d::prelude::*;
 
 use crate::character::{
@@ -15,7 +15,7 @@ struct Vendor;
 pub fn spawn_vendor<C: Component>(
     commands: &mut Commands,
     asset_server: Res<AssetServer>,
-    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     x: f32,
     y: f32,
     state: C,
@@ -27,14 +27,8 @@ pub fn spawn_vendor<C: Component>(
     const WIDTH: f32 = 31.;
 
     let vendor_texture = asset_server.load("textures/vendor.png");
-    let vendor_texture_atlas = TextureAtlas::from_grid(
-        vendor_texture,
-        Vec2::new(WIDTH, HEIGHT),
-        NB_ANIMATIONS,
-        2,
-        None,
-        None,
-    );
+    let vendor_texture_atlas =
+        TextureAtlasLayout::from_grid(Vec2::new(WIDTH, HEIGHT), NB_ANIMATIONS, 2, None, None);
     let vendor_texture_atlas_handle = texture_atlases.add(vendor_texture_atlas);
     let start_index = if is_weapon_vendor { 0 } else { NB_ANIMATIONS };
 
@@ -58,15 +52,18 @@ pub fn spawn_vendor<C: Component>(
                     start_index,
                 ),
                 SpriteSheetBundle {
-                    texture_atlas: vendor_texture_atlas_handle.clone(),
-                    sprite: TextureAtlasSprite {
+                    atlas: TextureAtlas {
                         index: start_index,
+                        layout: vendor_texture_atlas_handle,
+                    },
+                    sprite: Sprite {
                         custom_size: Some(Vec2 {
                             x: WIDTH,
                             y: HEIGHT,
                         }),
                         ..default()
                     },
+                    texture: vendor_texture,
                     transform: Transform::from_xyz(
                         x,
                         y + 4.,

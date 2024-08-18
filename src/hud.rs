@@ -66,7 +66,7 @@ pub fn build_hud(
             color: Color::WHITE,
         },
     )
-    .with_text_alignment(TextAlignment::Right)
+    .with_text_justify(JustifyText::Right)
     .with_style(Style {
         position_type: PositionType::Absolute,
         top: Val::Px(2.0),

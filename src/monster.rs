@@ -1,6 +1,6 @@
 use bevy::prelude::*;
-use bevy_prototype_lyon::prelude::*;
 use bevy_prototype_lyon::draw;
+use bevy_prototype_lyon::prelude::*;
 use bevy_rapier2d::prelude::*;
 
 use crate::character::{
@@ -18,20 +18,14 @@ const HEIGHT: f32 = 26.;
 pub fn spawn_monsters(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
 ) {
     const NB_ANIMATIONS: usize = 3;
     const ANIMATION_TIME: f32 = 0.15;
 
     let skeleton_texture = asset_server.load("textures/skeleton.png");
-    let texture_atlas = TextureAtlas::from_grid(
-        skeleton_texture,
-        Vec2::new(48., 48.),
-        NB_ANIMATIONS,
-        4,
-        None,
-        None,
-    );
+    let texture_atlas =
+        TextureAtlasLayout::from_grid(Vec2::new(48., 48.), NB_ANIMATIONS, 4, None, None);
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
     let level = 2;
 
@@ -57,14 +51,18 @@ pub fn spawn_monsters(
                 CharacterAnimationType::ForwardIdle,
             ),
             SpriteSheetBundle {
-                texture_atlas: texture_atlas_handle,
-                sprite: TextureAtlasSprite {
+                atlas: TextureAtlas {
+                    layout: texture_atlas_handle,
+                    ..default()
+                },
+                sprite: Sprite {
                     custom_size: Some(Vec2 {
                         x: WIDTH,
                         y: HEIGHT,
                     }),
                     ..default()
                 },
+                texture: skeleton_texture,
                 transform: Transform::from_xyz(200.0, 210.0, crate::CHARACTER_Z_INDEX),
                 ..default()
             },
@@ -102,7 +100,7 @@ pub fn spawn_monsters(
                             color: Color::WHITE,
                         },
                     )
-                    .with_alignment(TextAlignment::Center),
+                    .with_justify(JustifyText::Center),
                     transform: Transform::from_xyz(0.0, HEIGHT / 2. + 7., 1.),
                     ..default()
                 },

@@ -111,7 +111,7 @@ pub fn setup_components(
     mut egui_context: EguiContexts,
     mut egui_settings: ResMut<bevy_egui::EguiSettings>,
     mut rapier_debug: ResMut<DebugRenderContext>,
-    mut window: Query<&Window, With<PrimaryWindow>>,
+    mut window: Query<&mut Window, With<PrimaryWindow>>,
 ) {
     // Disable gravity.
     rapier_config.gravity = Vec2::ZERO;
@@ -125,17 +125,17 @@ pub fn setup_components(
     // ));
 
     // Set the window size and its resolution.
-    // {
-    //     let window = window.get_single_mut().unwrap();
-    //     window.set_resolution(resolution.0, resolution.1);
-    //     window.update_scale_factor_from_backend(SCALE as _);
-    // }
+    {
+        let mut window = window.single_mut();
+        // window.set_resolution(resolution.0, resolution.1);
+        // window.resolution.set_scale_factor_override(Some(SCALE));
+    }
 
     let mut visuals = egui::Visuals::dark();
-    visuals.window_shadow.extrusion = 0.;
-    visuals.popup_shadow.extrusion = 0.;
+    visuals.window_shadow.spread = 0.;
+    visuals.popup_shadow.spread = 0.;
     egui_context.ctx_mut().set_visuals(visuals);
-    egui_settings.scale_factor = 1. / SCALE as f64;
+    egui_settings.scale_factor = 1. / SCALE;
 
     // Setting up the debug display of the physics engine.
     // rapier_debug.enabled = false;
@@ -171,7 +171,8 @@ fn main() {
                     present_mode: PresentMode::AutoVsync,
                     resizable: false,
                     resolution: WindowResolution::new(WIDTH, HEIGHT)
-                        .with_scale_factor_override(SCALE as _),
+                        // .with_scale_factor_override(SCALE),
+                        .with_scale_factor_override(1.0),
                     ..default()
                 }),
                 ..default()
@@ -180,7 +181,7 @@ fn main() {
             .set(ImagePlugin::default_nearest()),
     )
     .insert_resource(GameInfo::default())
-    .add_state::<AppState>()
+    .init_state::<AppState>()
     .add_plugins((
         RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0),
         EguiPlugin,

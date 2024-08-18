@@ -390,7 +390,8 @@ const WEAPON_SHOP_HEIGHT: f32 = 106.;
 const WEAPON_SHOP_WIDTH: f32 = 110.;
 
 fn insert_shop(
-    texture: Handle<TextureAtlas>,
+    layout: Handle<TextureAtlasLayout>,
+    texture: Handle<Image>,
     commands: &mut Commands,
     building: Building,
     x: f32,
@@ -403,9 +404,12 @@ fn insert_shop(
             building,
             crate::game::OutsideWorld,
             SpriteSheetBundle {
-                texture_atlas: texture.clone(),
-                sprite: TextureAtlasSprite {
+                atlas: TextureAtlas {
+                    layout: layout.clone(),
                     index: start_index + 1,
+                },
+                texture: texture.clone(),
+                sprite: Sprite {
                     custom_size: Some(Vec2 {
                         x: GENERAL_SHOP_WIDTH,
                         y: GENERAL_SHOP_HEIGHT,
@@ -419,15 +423,18 @@ fn insert_shop(
         ))
         .with_children(|children| {
             children.spawn(SpriteSheetBundle {
-                texture_atlas: texture,
-                sprite: TextureAtlasSprite {
+                atlas: TextureAtlas {
+                    layout,
                     index: start_index,
+                },
+                sprite: Sprite {
                     custom_size: Some(Vec2 {
                         x: GENERAL_SHOP_WIDTH,
                         y: GENERAL_SHOP_HEIGHT,
                     }),
                     ..default()
                 },
+                texture,
                 transform: Transform::from_xyz(0., 0., crate::BUILDING_TOP_PART_Z_INDEX),
                 ..default()
             });
@@ -460,7 +467,13 @@ fn insert_shop(
         });
 }
 
-fn insert_house(texture: Handle<TextureAtlas>, commands: &mut Commands, x: f32, y: f32) {
+fn insert_house(
+    layout: Handle<TextureAtlasLayout>,
+    texture: Handle<Image>,
+    commands: &mut Commands,
+    x: f32,
+    y: f32,
+) {
     const TOP_SIZE: f32 = 60.;
     const BOTTOM_SIZE: f32 = 88. - TOP_SIZE;
     const WIDTH: f32 = 80.;
@@ -470,15 +483,18 @@ fn insert_house(texture: Handle<TextureAtlas>, commands: &mut Commands, x: f32, 
             Building::House,
             crate::game::OutsideWorld,
             SpriteSheetBundle {
-                texture_atlas: texture.clone(),
-                sprite: TextureAtlasSprite {
+                atlas: TextureAtlas {
                     index: false as _, // door open is false so index is 0
+                    layout: layout.clone(),
+                },
+                sprite: Sprite {
                     custom_size: Some(Vec2 {
                         x: 80.,
                         y: BOTTOM_SIZE,
                     }),
                     ..default()
                 },
+                texture: texture.clone(),
                 transform: Transform::from_xyz(x, y - TOP_SIZE, 0.0),
                 ..default()
             },
@@ -487,15 +503,15 @@ fn insert_house(texture: Handle<TextureAtlas>, commands: &mut Commands, x: f32, 
         .with_children(|children| {
             const Y: f32 = TOP_SIZE / 2.;
             children.spawn(SpriteSheetBundle {
-                texture_atlas: texture,
-                sprite: TextureAtlasSprite {
-                    index: 2,
+                atlas: TextureAtlas { index: 2, layout },
+                sprite: Sprite {
                     custom_size: Some(Vec2 {
                         x: 80.,
                         y: TOP_SIZE,
                     }),
                     ..default()
                 },
+                texture,
                 transform: Transform::from_xyz(
                     0.,
                     BOTTOM_SIZE / 2. + TOP_SIZE / 2.,
@@ -542,10 +558,10 @@ fn insert_house(texture: Handle<TextureAtlas>, commands: &mut Commands, x: f32, 
 pub fn spawn_buildings(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
 ) {
     let house_texture = asset_server.load("textures/house.png");
-    let mut house_texture_atlas = TextureAtlas::new_empty(house_texture, Vec2::new(160., 88.));
+    let mut house_texture_atlas = TextureAtlasLayout::new_empty(Vec2::new(160., 88.));
     // We split the top from the bottom part.
     // First we add both lower parts (open and closed door).
     house_texture_atlas.add_texture(Rect::new(0., 61., 80., 88.));
@@ -558,12 +574,14 @@ pub fn spawn_buildings(
     for nb in 0..2 {
         insert_house(
             house_texture_atlas_handle.clone(),
+            house_texture.clone(),
             &mut commands,
             -100.,
             (nb as f32) * 150.,
         );
         insert_house(
             house_texture_atlas_handle.clone(),
+            house_texture.clone(),
             &mut commands,
             -400.,
             (nb as f32) * 150.,
@@ -571,8 +589,7 @@ pub fn spawn_buildings(
     }
 
     let shops_texture = asset_server.load("textures/shops.png");
-    let shops_texture_atlas = TextureAtlas::from_grid(
-        shops_texture,
+    let shops_texture_atlas = TextureAtlasLayout::from_grid(
         Vec2::new(GENERAL_SHOP_WIDTH, GENERAL_SHOP_HEIGHT),
         2,
         2,
@@ -582,6 +599,7 @@ pub fn spawn_buildings(
     let shops_texture_atlas_handle = texture_atlases.add(shops_texture_atlas);
     insert_shop(
         shops_texture_atlas_handle.clone(),
+        shops_texture.clone(),
         &mut commands,
         Building::GeneralShop,
         -220.,
@@ -589,6 +607,7 @@ pub fn spawn_buildings(
     );
     insert_shop(
         shops_texture_atlas_handle,
+        shops_texture,
         &mut commands,
         Building::WeaponShop,
         -100.,
@@ -600,7 +619,7 @@ pub fn spawn_inside_building(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     app_state: Res<crate::GameInfo>,
-    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
 ) {
     let building = app_state.building.unwrap();
     let house_texture = match building {
@@ -751,7 +770,14 @@ pub enum Statue {
 impl Statue {
     const HEIGHT: f32 = 96.;
 
-    fn create(&self, commands: &mut Commands, texture: Handle<TextureAtlas>, x: f32, y: f32) {
+    fn create(
+        &self,
+        commands: &mut Commands,
+        atlas: Handle<TextureAtlasLayout>,
+        texture: Handle<Image>,
+        x: f32,
+        y: f32,
+    ) {
         let index = *self as usize;
         let (width, offset_x) = if index == Statue::Magus as usize {
             (54., -2.)
@@ -763,12 +789,15 @@ impl Statue {
                 *self,
                 crate::game::OutsideWorld,
                 SpriteSheetBundle {
-                    texture_atlas: texture.clone(),
-                    sprite: TextureAtlasSprite {
+                    atlas: TextureAtlas {
+                        layout: atlas.clone(),
                         index: index * 2,
+                    },
+                    sprite: Sprite {
                         custom_size: Some(Vec2 { x: width, y: 59. }),
                         ..default()
                     },
+                    texture: texture.clone(),
                     transform: Transform::from_xyz(x, y, crate::BUILDING_TOP_PART_Z_INDEX),
                     ..default()
                 },
@@ -776,15 +805,18 @@ impl Statue {
             ))
             .with_children(|children| {
                 children.spawn(SpriteSheetBundle {
-                    texture_atlas: texture,
-                    sprite: TextureAtlasSprite {
+                    atlas: TextureAtlas {
+                        layout: atlas,
                         index: index * 2 + 1,
+                    },
+                    sprite: Sprite {
                         custom_size: Some(Vec2 {
                             x: width,
                             y: Self::HEIGHT - 60.,
                         }),
                         ..default()
                     },
+                    texture: texture.clone(),
                     transform: Transform::from_xyz(
                         0.,
                         -47.,
@@ -804,10 +836,10 @@ impl Statue {
 pub fn spawn_statues(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
 ) {
     let statues_texture = asset_server.load("textures/statues.png");
-    let mut statues_texture_atlas = TextureAtlas::new_empty(statues_texture, Vec2::new(153., 96.));
+    let mut statues_texture_atlas = TextureAtlasLayout::new_empty(Vec2::new(153., 96.));
     // We split the top from the bottom part.
     statues_texture_atlas.add_texture(Rect::new(0., 0., 54., 59.));
     statues_texture_atlas.add_texture(Rect::new(0., 60., 54., 96.));
@@ -817,11 +849,24 @@ pub fn spawn_statues(
     statues_texture_atlas.add_texture(Rect::new(107., 60., 153., 96.));
     let statues_texture_atlas_handle = texture_atlases.add(statues_texture_atlas);
 
-    Statue::Magus.create(&mut commands, statues_texture_atlas_handle.clone(), 0., 0.);
-    Statue::Knight.create(&mut commands, statues_texture_atlas_handle.clone(), 70., 0.);
+    Statue::Magus.create(
+        &mut commands,
+        statues_texture_atlas_handle.clone(),
+        statues_texture.clone(),
+        0.,
+        0.,
+    );
+    Statue::Knight.create(
+        &mut commands,
+        statues_texture_atlas_handle.clone(),
+        statues_texture.clone(),
+        70.,
+        0.,
+    );
     Statue::Archer.create(
         &mut commands,
         statues_texture_atlas_handle.clone(),
+        statues_texture.clone(),
         140.,
         0.,
     );

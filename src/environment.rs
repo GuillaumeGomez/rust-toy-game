@@ -91,7 +91,8 @@ impl From<usize> for Tree {
 
 fn insert_tree(
     trees: &[usize],
-    texture: Handle<TextureAtlas>,
+    layout: Handle<TextureAtlasLayout>,
+    texture: Handle<Image>,
     commands: &mut Commands,
     tree: Tree,
     x: f32,
@@ -102,11 +103,12 @@ fn insert_tree(
             tree,
             crate::game::OutsideWorld,
             SpriteSheetBundle {
-                texture_atlas: texture,
-                sprite: TextureAtlasSprite {
+                atlas: TextureAtlas {
                     index: tree as _,
+                    layout,
                     ..default()
                 },
+                texture,
                 transform: Transform::from_xyz(x, y, 0.0),
                 ..default()
             },
@@ -121,7 +123,8 @@ fn insert_tree(
 pub struct Grass;
 
 fn insert_grass(
-    texture: Handle<TextureAtlas>,
+    layout: Handle<TextureAtlasLayout>,
+    texture: Handle<Image>,
     commands: &mut Commands,
     x: f32,
     y: f32,
@@ -155,15 +158,18 @@ fn insert_grass(
                 Grass,
                 crate::game::OutsideWorld,
                 SpriteSheetBundle {
-                    texture_atlas: texture.clone(),
-                    sprite: TextureAtlasSprite {
+                    atlas: TextureAtlas {
                         index,
+                        layout: layout.clone(),
+                    },
+                    sprite: Sprite {
                         custom_size: Some(Vec2 {
                             x: crate::GRASS_SIZE,
                             y: crate::GRASS_SIZE,
                         }),
                         ..default()
                     },
+                    texture: texture.clone(),
                     transform: Transform::from_xyz(
                         x + pos as f32 * crate::GRASS_SIZE,
                         y - row as f32 * crate::GRASS_SIZE,
@@ -185,7 +191,7 @@ fn insert_grass(
 pub fn spawn_nature(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
 ) {
     let bush_texture = asset_server.load("textures/bush.png");
 
@@ -199,7 +205,7 @@ pub fn spawn_nature(
     }
 
     let trees_texture = asset_server.load("textures/trees.png");
-    let mut texture_atlas = TextureAtlas::new_empty(trees_texture, Vec2::new(234., 71.));
+    let mut texture_atlas = TextureAtlasLayout::new_empty(Vec2::new(234., 71.));
     let trees = vec![
         texture_atlas.add_texture(Rect {
             min: Vec2::new(0., 0.),
@@ -230,6 +236,7 @@ pub fn spawn_nature(
         insert_tree(
             &trees,
             texture_atlas_handle.clone(),
+            trees_texture.clone(),
             &mut commands,
             (nb % 4).into(),
             x,
@@ -239,12 +246,12 @@ pub fn spawn_nature(
     }
 
     let grass_texture = asset_server.load("textures/grass.png");
-    let mut texture_atlas =
-        TextureAtlas::from_grid(grass_texture, Vec2::new(16., 16.), 5, 2, None, None);
+    let mut texture_atlas = TextureAtlasLayout::from_grid(Vec2::new(16., 16.), 5, 2, None, None);
     let grass_texture_handle = texture_atlases.add(texture_atlas);
 
     insert_grass(
         grass_texture_handle.clone(),
+        grass_texture.clone(),
         &mut commands,
         -450.,
         250.,
@@ -253,6 +260,7 @@ pub fn spawn_nature(
     );
     insert_grass(
         grass_texture_handle.clone(),
+        grass_texture.clone(),
         &mut commands,
         -500.,
         400.,

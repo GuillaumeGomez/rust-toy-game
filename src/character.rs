@@ -334,7 +334,7 @@ impl CharacterAnimationInfo {
 
 pub fn animate_character_system(
     time: Res<Time>,
-    mut animation_query: Query<(&mut CharacterAnimationInfo, &mut TextureAtlasSprite)>,
+    mut animation_query: Query<(&mut CharacterAnimationInfo, &mut TextureAtlas)>,
 ) {
     for (mut animation, mut sprite) in animation_query.iter_mut() {
         if !animation.animation_type.is_idle() {
@@ -481,7 +481,7 @@ pub fn interaction_events(
                                             color: Color::WHITE,
                                         },
                                     )
-                                    .with_alignment(TextAlignment::Center),
+                                    .with_justify(JustifyText::Center),
                                     transform: Transform::from_xyz(0., character.height / 2., 1.),
                                     ..default()
                                 },

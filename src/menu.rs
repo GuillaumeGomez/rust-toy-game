@@ -19,7 +19,7 @@ impl Plugin for MenuPlugin {
             // At start, the menu is not enabled. This will be changed in `menu_setup` when
             // entering the `AppState::Menu` state.
             // Current screen in the menu is handled by an independent state from `AppState`
-            .add_state::<MenuState>()
+            .init_state::<MenuState>()
             .insert_resource(Volume(7))
             // Systems to handle the main menu screen
             .add_systems(OnEnter(MenuState::Main), (main_menu_setup))
@@ -394,7 +394,7 @@ fn menu_action(
     >,
     mut app_exit_events: EventWriter<AppExit>,
     mut menu_state: ResMut<NextState<MenuState>>,
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
     if menu_state.0 != Some(MenuState::Disabled) && keyboard_input.just_released(KeyCode::Escape) {
         menu_state.set(MenuState::Disabled);
@@ -405,7 +405,9 @@ fn menu_action(
     for (interaction, menu_button_action) in &interaction_query {
         if *interaction == Interaction::Pressed {
             match menu_button_action {
-                MenuButtonAction::Quit => app_exit_events.send(AppExit),
+                MenuButtonAction::Quit => {
+                    app_exit_events.send(AppExit);
+                }
                 MenuButtonAction::Play => {
                     menu_state.set(MenuState::Disabled);
                 }
