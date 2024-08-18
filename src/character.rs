@@ -449,7 +449,7 @@ pub fn interaction_events(
     interactions: Query<Entity, With<Interaction>>,
     mut interaction_texts: Query<Entity, With<InteractionText>>,
 ) {
-    for collision_event in collision_events.iter() {
+    for collision_event in collision_events.read() {
         match collision_event {
             CollisionEvent::Started(x, y, CollisionEventFlags::SENSOR) => {
                 if !interactions.contains(*x) {

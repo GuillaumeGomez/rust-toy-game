@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy_prototype_lyon::prelude::*;
-use bevy_prototype_lyon::{draw, render};
+use bevy_prototype_lyon::draw;
 use bevy_rapier2d::prelude::*;
 
 use crate::character::{

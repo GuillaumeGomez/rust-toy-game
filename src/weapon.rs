@@ -212,7 +212,7 @@ pub fn handle_attacks(
     mut grass: Query<(Entity, &Grass, &mut Transform)>,
     weapons: Query<(Entity, &Weapon)>,
 ) {
-    for collision_event in collision_events.iter() {
+    for collision_event in collision_events.read() {
         if let CollisionEvent::Started(x, y, CollisionEventFlags::SENSOR) = collision_event {
             let (attack, attacker_id, receiver, attacker_kind): (
                 u32,

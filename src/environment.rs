@@ -295,7 +295,7 @@ pub fn grass_events(
     mut grass_effect: Query<(Entity, &mut GrassEffect, &mut Visibility)>,
 ) {
     // First we go through all "stopped collisions".
-    for collision_event in collision_events.iter() {
+    for collision_event in collision_events.read() {
         let (count, x, y) = match collision_event {
             CollisionEvent::Started(x, y, CollisionEventFlags::SENSOR) => (1, x, y),
             CollisionEvent::Stopped(x, y, CollisionEventFlags::SENSOR) => (-1, x, y),

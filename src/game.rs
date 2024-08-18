@@ -373,7 +373,7 @@ fn show_inventory_window(
                     .spacing(egui::Vec2::new(SPACING, SPACING))
                     .show(ui, |ui| {
                         let image_vec = egui::Vec2::new(7., 20.);
-                        let image = egui::Image::new(weapon_image_id, image_vec);
+                        let texture = egui::load::SizedTexture::new(weapon_image_id, image_vec);
 
                         for y in 0..INVENTORY_NB_LINE {
                             for x in 0..INVENTORY_LINE_SIZE {
@@ -397,6 +397,7 @@ fn show_inventory_window(
                                 );
                                 if y == 0 && x == 0 {
                                     let item_id = egui::Id::new("inventory").with(x).with(y);
+                                    let image = egui::Image::from_texture(texture);
                                     if response.dragged() {
                                         egui::Area::new(item_id)
                                             .order(egui::Order::Tooltip)
@@ -423,7 +424,8 @@ fn show_inventory_window(
             // Money
             ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
                 let image_vec = egui::Vec2::new(PIECE_SIZE, PIECE_SIZE);
-                let image = egui::Image::new(coin_image_id, image_vec);
+                let texture = egui::load::SizedTexture::new(coin_image_id, image_vec);
+                let image = egui::Image::from_texture(texture);
 
                 let (rect, _) = ui.allocate_at_least(
                     egui::Vec2::new(PIECE_SIZE, PIECE_SIZE),
@@ -557,7 +559,7 @@ fn handle_door_events<T: Component>(
         _ => return,
     };
 
-    for collision_event in collision_events.iter() {
+    for collision_event in collision_events.read() {
         match collision_event {
             CollisionEvent::Started(x, y, CollisionEventFlags::SENSOR) => {
                 get_building_and_player!(x, y, player_id, buildings, door_captors, 1);
@@ -586,7 +588,7 @@ fn handle_enter_area_events<T: Component>(
         _ => return,
     };
 
-    for collision_event in collision_events.iter() {
+    for collision_event in collision_events.read() {
         if let CollisionEvent::Started(x, y, CollisionEventFlags::SENSOR) = collision_event {
             let building_id = if *x == player_id {
                 y

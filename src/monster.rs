@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy_prototype_lyon::prelude::*;
-use bevy_prototype_lyon::{draw, render};
+use bevy_prototype_lyon::draw;
 use bevy_rapier2d::prelude::*;
 
 use crate::character::{
@@ -117,8 +117,11 @@ pub fn spawn_monsters(
             children.spawn((
                 ShapeBundle {
                     path: GeometryBuilder::build_as(&shape),
-                    transform: Transform::from_xyz(0., HEIGHT / 2. + 1., 1.),
-                    visibility: Visibility::Hidden,
+                    spatial: SpatialBundle {
+                        transform: Transform::from_xyz(0., HEIGHT / 2. + 1., 1.),
+                        visibility: Visibility::Hidden,
+                        ..default()
+                    },
                     ..default()
                 },
                 draw::Fill::color(Color::BLACK),
@@ -128,8 +131,11 @@ pub fn spawn_monsters(
             children.spawn((
                 ShapeBundle {
                     path: GeometryBuilder::build_as(&shape),
-                    transform: Transform::from_xyz(0., HEIGHT / 2. + 1., 1.1),
-                    visibility: Visibility::Hidden,
+                    spatial: SpatialBundle {
+                        transform: Transform::from_xyz(0., HEIGHT / 2. + 1., 1.1),
+                        visibility: Visibility::Hidden,
+                        ..default()
+                    },
                     ..default()
                 },
                 draw::Fill::color(Color::RED),
