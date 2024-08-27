@@ -102,12 +102,12 @@ fn insert_tree(
         .spawn((
             tree,
             crate::game::OutsideWorld,
-            SpriteSheetBundle {
-                atlas: TextureAtlas {
-                    index: tree as _,
-                    layout,
-                    ..default()
-                },
+            TextureAtlas {
+                index: tree as _,
+                layout,
+                ..default()
+            },
+            SpriteBundle {
                 texture,
                 transform: Transform::from_xyz(x, y, 0.0),
                 ..default()
@@ -157,11 +157,11 @@ fn insert_grass(
             commands.spawn((
                 Grass,
                 crate::game::OutsideWorld,
-                SpriteSheetBundle {
-                    atlas: TextureAtlas {
-                        index,
-                        layout: layout.clone(),
-                    },
+                TextureAtlas {
+                    index,
+                    layout: layout.clone(),
+                },
+                SpriteBundle {
                     sprite: Sprite {
                         custom_size: Some(Vec2 {
                             x: crate::GRASS_SIZE,

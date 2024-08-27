@@ -77,12 +77,7 @@ pub fn spawn_player(
                     NB_ANIMATIONS,
                     CharacterAnimationType::ForwardIdle,
                 ),
-                SpriteSheetBundle {
-                    atlas: TextureAtlas {
-                        index: 0,
-                        layout: texture_atlas_handle,
-                        ..default()
-                    },
+                SpriteBundle {
                     sprite: Sprite {
                         custom_size: Some(Vec2 {
                             x: PLAYER_WIDTH_F,
@@ -92,6 +87,11 @@ pub fn spawn_player(
                     },
                     texture: texture_handle,
                     transform: Transform::from_xyz(0.0, 210.0, crate::CHARACTER_Z_INDEX),
+                    ..default()
+                },
+                TextureAtlas {
+                    index: 0,
+                    layout: texture_atlas_handle,
                     ..default()
                 },
                 Inventory {

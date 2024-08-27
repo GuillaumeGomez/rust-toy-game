@@ -53,11 +53,7 @@ pub fn spawn_vendor<C: Component>(
                     CharacterAnimationType::ForwardMove,
                     start_index,
                 ),
-                SpriteSheetBundle {
-                    atlas: TextureAtlas {
-                        index: start_index,
-                        layout: vendor_texture_atlas_handle,
-                    },
+                SpriteBundle {
                     sprite: Sprite {
                         custom_size: Some(Vec2 {
                             x: WIDTH_F,
@@ -72,6 +68,10 @@ pub fn spawn_vendor<C: Component>(
                         crate::FURNITURE_TOP_PART_Z_INDEX + 0.2,
                     ),
                     ..default()
+                },
+                TextureAtlas {
+                    index: start_index,
+                    layout: vendor_texture_atlas_handle,
                 },
                 Inventory {
                     // FIXME: Generate a list of items depending of the location of the vendor.

@@ -424,22 +424,24 @@ fn insert_shop(
             RigidBody::Fixed,
         ))
         .with_children(|children| {
-            children.spawn(SpriteSheetBundle {
-                atlas: TextureAtlas {
+            children.spawn((
+                TextureAtlas {
                     layout,
                     index: start_index,
                 },
-                sprite: Sprite {
-                    custom_size: Some(Vec2 {
-                        x: GENERAL_SHOP_WIDTH_F,
-                        y: GENERAL_SHOP_HEIGHT_F,
-                    }),
+                SpriteBundle {
+                    sprite: Sprite {
+                        custom_size: Some(Vec2 {
+                            x: GENERAL_SHOP_WIDTH_F,
+                            y: GENERAL_SHOP_HEIGHT_F,
+                        }),
+                        ..default()
+                    },
+                    texture,
+                    transform: Transform::from_xyz(0., 0., crate::BUILDING_TOP_PART_Z_INDEX),
                     ..default()
                 },
-                texture,
-                transform: Transform::from_xyz(0., 0., crate::BUILDING_TOP_PART_Z_INDEX),
-                ..default()
-            });
+            ));
             // The roof.
             children.spawn((
                 Collider::cuboid(48., 28.),
@@ -484,11 +486,11 @@ fn insert_house(
         .spawn((
             Building::House,
             crate::game::OutsideWorld,
-            SpriteSheetBundle {
-                atlas: TextureAtlas {
-                    index: false as _, // door open is false so index is 0
-                    layout: layout.clone(),
-                },
+            TextureAtlas {
+                index: false as _, // door open is false so index is 0
+                layout: layout.clone(),
+            },
+            SpriteBundle {
                 sprite: Sprite {
                     custom_size: Some(Vec2 {
                         x: 80.,
@@ -504,23 +506,25 @@ fn insert_house(
         ))
         .with_children(|children| {
             const Y: f32 = TOP_SIZE / 2.;
-            children.spawn(SpriteSheetBundle {
-                atlas: TextureAtlas { index: 2, layout },
-                sprite: Sprite {
-                    custom_size: Some(Vec2 {
-                        x: 80.,
-                        y: TOP_SIZE,
-                    }),
+            children.spawn((
+                TextureAtlas { index: 2, layout },
+                SpriteBundle {
+                    sprite: Sprite {
+                        custom_size: Some(Vec2 {
+                            x: 80.,
+                            y: TOP_SIZE,
+                        }),
+                        ..default()
+                    },
+                    texture,
+                    transform: Transform::from_xyz(
+                        0.,
+                        BOTTOM_SIZE / 2. + TOP_SIZE / 2.,
+                        crate::BUILDING_TOP_PART_Z_INDEX,
+                    ),
                     ..default()
                 },
-                texture,
-                transform: Transform::from_xyz(
-                    0.,
-                    BOTTOM_SIZE / 2. + TOP_SIZE / 2.,
-                    crate::BUILDING_TOP_PART_Z_INDEX,
-                ),
-                ..default()
-            });
+            ));
             children.spawn((
                 Collider::cuboid(39., 25.),
                 CollisionGroups::new(crate::OUTSIDE_WORLD, crate::OUTSIDE_WORLD),
@@ -790,11 +794,11 @@ impl Statue {
             .spawn((
                 *self,
                 crate::game::OutsideWorld,
-                SpriteSheetBundle {
-                    atlas: TextureAtlas {
-                        layout: atlas.clone(),
-                        index: index * 2,
-                    },
+                TextureAtlas {
+                    layout: atlas.clone(),
+                    index: index * 2,
+                },
+                SpriteBundle {
                     sprite: Sprite {
                         custom_size: Some(Vec2 { x: width, y: 59. }),
                         ..default()
@@ -806,26 +810,28 @@ impl Statue {
                 RigidBody::Fixed,
             ))
             .with_children(|children| {
-                children.spawn(SpriteSheetBundle {
-                    atlas: TextureAtlas {
+                children.spawn((
+                    TextureAtlas {
                         layout: atlas,
                         index: index * 2 + 1,
                     },
-                    sprite: Sprite {
-                        custom_size: Some(Vec2 {
-                            x: width,
-                            y: Self::HEIGHT - 60.,
-                        }),
+                    SpriteBundle {
+                        sprite: Sprite {
+                            custom_size: Some(Vec2 {
+                                x: width,
+                                y: Self::HEIGHT - 60.,
+                            }),
+                            ..default()
+                        },
+                        texture: texture.clone(),
+                        transform: Transform::from_xyz(
+                            0.,
+                            -47.,
+                            crate::FURNITURE_Z_INDEX - crate::BUILDING_TOP_PART_Z_INDEX,
+                        ),
                         ..default()
                     },
-                    texture: texture.clone(),
-                    transform: Transform::from_xyz(
-                        0.,
-                        -47.,
-                        crate::FURNITURE_Z_INDEX - crate::BUILDING_TOP_PART_Z_INDEX,
-                    ),
-                    ..default()
-                });
+                ));
                 children.spawn((
                     Collider::cuboid(46. / 2., 46. / 2.),
                     CollisionGroups::new(crate::OUTSIDE_WORLD, crate::OUTSIDE_WORLD),

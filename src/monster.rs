@@ -50,11 +50,11 @@ pub fn spawn_monsters(
                 NB_ANIMATIONS,
                 CharacterAnimationType::ForwardIdle,
             ),
-            SpriteSheetBundle {
-                atlas: TextureAtlas {
-                    layout: texture_atlas_handle,
-                    ..default()
-                },
+            TextureAtlas {
+                layout: texture_atlas_handle,
+                ..default()
+            },
+            SpriteBundle {
                 sprite: Sprite {
                     custom_size: Some(Vec2 {
                         x: WIDTH,

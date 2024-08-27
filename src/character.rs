@@ -38,7 +38,8 @@ impl GrassEffectBundle {
 pub struct CharacterBundle {
     character: Character,
     animation_info: CharacterAnimationInfo,
-    sprite_info: SpriteSheetBundle,
+    sprite_info: SpriteBundle,
+    atlas: TextureAtlas,
     inventory: Inventory,
 }
 
@@ -46,13 +47,15 @@ impl CharacterBundle {
     pub fn new(
         character: Character,
         animation_info: CharacterAnimationInfo,
-        sprite_info: SpriteSheetBundle,
+        sprite_info: SpriteBundle,
+        atlas: TextureAtlas,
         inventory: Inventory,
     ) -> Self {
         Self {
             character,
             animation_info,
             sprite_info,
+            atlas,
             inventory,
         }
     }
