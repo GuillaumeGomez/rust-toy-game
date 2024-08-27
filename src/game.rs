@@ -139,7 +139,10 @@ fn update_camera(
 fn show_character_window(
     egui_context: &mut EguiContexts,
     app_state: &mut ResMut<GameInfo>,
-    player: &mut Query<&mut character::Character, With<player::Player>>,
+    player: &mut Query<
+        (&mut crate::inventory::Inventory, &mut character::Character),
+        With<player::Player>,
+    >,
 ) {
     egui::Window::new("Character information")
         .collapsible(false)
@@ -153,7 +156,7 @@ fn show_character_window(
             ui.separator();
 
             egui::Grid::new("character_infos").show(ui, |ui| {
-                let character = player.single();
+                let (_, character) = player.single();
 
                 ui.label("Level");
                 ui.label(&character.level.to_string());
@@ -199,7 +202,7 @@ fn show_character_window(
             ui.separator();
 
             egui::Grid::new("character_points").show(ui, |ui| {
-                let character = player.single();
+                let (_, character) = player.single();
 
                 let entries = [
                     ("Strength", character.points.strength),
@@ -237,7 +240,7 @@ fn show_character_window(
                     }
                     if need_to_use_points {
                         // We do it in two steps to avoid triggering a `Changed` event to the HUD.
-                        let mut character = &mut *player.single_mut();
+                        let mut character = &mut *player.single_mut().1;
                         character.use_stat_point();
                         let parts = [
                             &mut character.points.strength,
@@ -262,28 +265,29 @@ fn show_character_window(
 }
 
 const INVENTORY_LINE_SIZE: usize = 5;
-const INVENTORY_NB_LINE: usize = 7;
+
+#[derive(Debug)]
+enum DragOrigin {
+    Equipped,
+    Inventory,
+}
 
 fn show_inventory_window(
     egui_context: &mut EguiContexts,
     app_state: &mut ResMut<GameInfo>,
     asset_server: Res<AssetServer>,
-    player_inventory: Query<&crate::inventory::Inventory, With<crate::player::Player>>,
+    player_info: &mut Query<
+        (
+            &mut crate::inventory::Inventory,
+            &mut crate::character::Character,
+        ),
+        With<crate::player::Player>,
+    >,
 ) {
-    let inventory = match player_inventory.get_single() {
+    let (mut inventory, mut character) = match player_info.get_single_mut() {
         Ok(i) => i,
         _ => return,
     };
-    static IDS: Lazy<Vec<egui::Id>> = Lazy::new(|| {
-        let mut v = Vec::with_capacity(INVENTORY_NB_LINE * INVENTORY_LINE_SIZE);
-
-        for y in 0..INVENTORY_NB_LINE {
-            for x in 0..INVENTORY_LINE_SIZE {
-                v.push(egui::Id::new(format!("inv {y}:{x}")));
-            }
-        }
-        v
-    });
 
     let weapon_handle = asset_server.load("textures/weapon.png");
     let weapon_image_id = egui_context.add_image(weapon_handle);
@@ -311,7 +315,7 @@ fn show_inventory_window(
     });
 
     const EQUIPMENT_HEIGHT: f32 = (CASE_SIZE + 10.) * 3. + 8.;
-    const INVENTORY_HEIGHT: f32 = INVENTORY_NB_LINE as f32 * (CASE_SIZE + 2. + SPACING) - SPACING;
+    let inventory_height = inventory.items.len() as f32 * (CASE_SIZE + 2. + SPACING) - SPACING;
     const PIECE_SIZE: f32 = 15.;
     const NO_POINTER: egui::Pos2 = egui::Pos2::new(-1., -1.);
 
@@ -324,10 +328,13 @@ fn show_inventory_window(
         ))
         .fixed_size(egui::Vec2::new(
             WIDTH,
-            EQUIPMENT_HEIGHT + INVENTORY_HEIGHT + PIECE_SIZE + 10.,
+            EQUIPMENT_HEIGHT + PIECE_SIZE + 10. + inventory_height,
         ))
         .open(&mut app_state.show_inventory_window)
         .show(egui_context.ctx_mut(), |ui| {
+            let image_vec = egui::Vec2::new(7., 20.);
+            let texture = egui::load::SizedTexture::new(weapon_image_id, image_vec);
+
             let drag_in_progress = ui.ctx().dragged_id().is_some();
             if drag_in_progress {
                 ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
@@ -340,7 +347,7 @@ fn show_inventory_window(
                 egui::Vec2::new(WIDTH - 20., EQUIPMENT_HEIGHT),
                 egui::Sense::hover(),
             );
-            for pos in EQUIPMENT_SLOTS.iter() {
+            for (index, pos) in EQUIPMENT_SLOTS.iter().enumerate() {
                 ui.put(
                     pos.translate(egui::Vec2::new(rect.min.x, rect.min.y)),
                     |ui: &mut egui::Ui| {
@@ -348,17 +355,72 @@ fn show_inventory_window(
                             egui::Vec2::new(CASE_SIZE + 2., CASE_SIZE + 2.),
                             egui::Sense::click_and_drag(),
                         );
-                        let stroke_color = if rect.contains(pointer_pos) {
-                            egui::Color32::LIGHT_RED
-                        } else {
-                            egui::Color32::WHITE
-                        };
+                        let mut draw_image = false;
+                        let mut stroke_color = egui::Color32::WHITE;
+
+                        let item_id = egui::Id::new("equipped").with(index);
+
+                        if rect.contains(pointer_pos) {
+                            if index == 1 {
+                                if let Some(dragged_id) = ui.ctx().drag_stopped_id() {
+                                    if let Some((DragOrigin::Inventory, inventory_pos)) = egui::DragAndDrop::take_payload::<(DragOrigin, usize)>(ui.ctx()).as_deref() {
+                                        // If the item is dropped on itself, no need to do anything.
+                                        if dragged_id != item_id {
+                                            if let Some(item) = inventory.items.get_mut(*inventory_pos) {
+                                                if matches!(item, Some(crate::inventory::InventoryItem::Weapon(_))) {
+                                                    // We checked above so all good.
+                                                    let crate::inventory::InventoryItem::Weapon(item) = item.take().unwrap() else { unreachable!() };
+                                                    character.set_weapon(&item);
+                                                    inventory.equipped_weapon = Some(item);
+                                                }
+                                            }
+                                        }
+                                    }
+                                } else if inventory.equipped_weapon.is_some() {
+                                    // No drag in progress so you can grab it!
+                                    ui.ctx().set_cursor_icon(egui::CursorIcon::Grab);
+                                    stroke_color = egui::Color32::LIGHT_RED;
+                                } else if drag_in_progress {
+                                    // We can drop on the equipped stuff only if there is
+                                    // nothing inside it.
+                                    stroke_color = egui::Color32::LIGHT_RED;
+                                }
+                            }
+                        }
+                        if index == 1 && inventory.equipped_weapon.is_some() {
+                            if response.drag_started() {
+                                egui::DragAndDrop::set_payload(ui.ctx(), (DragOrigin::Equipped, index));
+                            }
+                            if response.dragged() {
+                                let image = egui::Image::from_texture(texture);
+                                egui::Area::new(item_id)
+                                    .order(egui::Order::Tooltip)
+                                    .current_pos(pointer_pos)
+                                    .show(ui.ctx(), |ui| {
+                                        ui.add(image);
+                                    });
+                                stroke_color = egui::Color32::LIGHT_RED;
+                            } else {
+                                draw_image = true;
+                            }
+                        }
+
                         ui.painter().rect(
                             rect,
                             0.,
                             egui::Color32::from_gray(52),
                             egui::Stroke::new(1., stroke_color),
                         );
+                        if draw_image {
+                            let mut draw = rect;
+                            let center = rect.center();
+                            let image = egui::Image::from_texture(texture);
+                            draw.min.x = center.x - image_vec.x / 2.;
+                            draw.min.y = center.y - image_vec.y / 2.;
+                            draw.max.x = center.x + image_vec.x / 2.;
+                            draw.max.y = center.y + image_vec.y / 2.;
+                            image.paint_at(ui, draw);
+                        }
                         response
                     },
                 );
@@ -372,51 +434,91 @@ fn show_inventory_window(
                 egui::Grid::new("inventory")
                     .spacing(egui::Vec2::new(SPACING, SPACING))
                     .show(ui, |ui| {
-                        let image_vec = egui::Vec2::new(7., 20.);
-                        let texture = egui::load::SizedTexture::new(weapon_image_id, image_vec);
+                        for index in 0..inventory.items.len() {
+                            let mut draw_image = false;
 
-                        for y in 0..INVENTORY_NB_LINE {
-                            for x in 0..INVENTORY_LINE_SIZE {
-                                let (rect, response) = ui.allocate_exact_size(
-                                    egui::Vec2::new(CASE_SIZE + 2., CASE_SIZE + 2.),
-                                    egui::Sense::click_and_drag(),
-                                );
-                                let stroke_color = if rect.contains(pointer_pos) {
+                            let (rect, response) = ui.allocate_exact_size(
+                                egui::Vec2::new(CASE_SIZE + 2., CASE_SIZE + 2.),
+                                egui::Sense::click_and_drag(),
+                            );
+                            let item_id = egui::Id::new("inventory").with(index);
+                            let stroke_color = if rect.contains(pointer_pos) {
+                                if let Some(dragged_id) = ui.ctx().drag_stopped_id() {
+                                    // If the item is dropped on itself, no need to do anything.
+                                    if dragged_id != item_id {
+                                        if let Some((origin, dragged_pos)) = egui::DragAndDrop::take_payload::<(DragOrigin, usize)>(ui.ctx()).as_deref() {
+                                            match origin {
+                                                DragOrigin::Equipped => {
+                                                    // The slot needs to be empty.
+                                                    // FIXME: If the item kind is the same, invert them.
+                                                    if inventory.items[index].is_none() {
+                                                        // FIXME: Handle something else than weapons...
+                                                        if *dragged_pos == 1 {
+                                                            inventory.items[index] = inventory.equipped_weapon.take().map(|w| crate::inventory::InventoryItem::Weapon(w));
+                                                        }
+                                                    }
+                                                }
+                                                DragOrigin::Inventory => {
+                                                    inventory.items.swap(*dragged_pos, index);
+                                                }
+                                            }
+                                            if let Some(item) = inventory.items.get_mut(*dragged_pos) {
+                                                if index == 1 {
+                                                    if matches!(item, Some(crate::inventory::InventoryItem::Weapon(_))) {
+                                                        // We checked above so all good.
+                                                        let crate::inventory::InventoryItem::Weapon(item) = inventory.items[index].take().unwrap() else { unreachable!() };
+                                                        character.set_weapon(&item);
+                                                        inventory.equipped_weapon = Some(item);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                if inventory.items[index].is_some() {
                                     if !drag_in_progress {
                                         ui.ctx().set_cursor_icon(egui::CursorIcon::Grab);
                                     }
                                     egui::Color32::LIGHT_RED
+                                } else if drag_in_progress {
+                                    egui::Color32::LIGHT_RED
                                 } else {
                                     egui::Color32::WHITE
-                                };
-                                ui.painter().rect(
-                                    rect,
-                                    0.,
-                                    egui::Color32::from_gray(52),
-                                    egui::Stroke::new(1., stroke_color),
-                                );
-                                if y == 0 && x == 0 {
-                                    let item_id = egui::Id::new("inventory").with(x).with(y);
-                                    let image = egui::Image::from_texture(texture);
-                                    if response.dragged() {
-                                        egui::Area::new(item_id)
-                                            .order(egui::Order::Tooltip)
-                                            .current_pos(pointer_pos)
-                                            .show(ui.ctx(), |ui| {
-                                                ui.add(image);
-                                            });
-                                    } else {
-                                        let mut draw = rect;
-                                        let center = rect.center();
-                                        draw.min.x = center.x - image_vec.x / 2.;
-                                        draw.min.y = center.y - image_vec.y / 2.;
-                                        draw.max.x = center.x + image_vec.x / 2.;
-                                        draw.max.y = center.y + image_vec.y / 2.;
-                                        image.paint_at(ui, draw);
-                                    }
+                                }
+                            } else {
+                                egui::Color32::WHITE
+                            };
+                            ui.painter().rect(
+                                rect,
+                                0.,
+                                egui::Color32::from_gray(52),
+                                egui::Stroke::new(1., stroke_color),
+                            );
+                            if inventory.items[index].is_some() {
+                                let image = egui::Image::from_texture(texture);
+                                if response.drag_started() {
+                                    egui::DragAndDrop::set_payload(ui.ctx(), (DragOrigin::Inventory, index));
+                                }
+                                if response.dragged() {
+                                    egui::Area::new(item_id)
+                                        .order(egui::Order::Tooltip)
+                                        .current_pos(pointer_pos)
+                                        .show(ui.ctx(), |ui| {
+                                            ui.add(image);
+                                        });
+                                } else {
+                                    let mut draw = rect;
+                                    let center = rect.center();
+                                    draw.min.x = center.x - image_vec.x / 2.;
+                                    draw.min.y = center.y - image_vec.y / 2.;
+                                    draw.max.x = center.x + image_vec.x / 2.;
+                                    draw.max.y = center.y + image_vec.y / 2.;
+                                    image.paint_at(ui, draw);
                                 }
                             }
-                            ui.end_row();
+                            if (index + 1) % INVENTORY_LINE_SIZE == 0 {
+                                ui.end_row();
+                            }
                         }
                     });
             });
@@ -441,20 +543,17 @@ fn show_inventory_window(
 fn handle_windows(
     mut egui_context: EguiContexts,
     mut app_state: ResMut<GameInfo>,
-    mut player: Query<&mut character::Character, With<player::Player>>,
+    mut player: Query<
+        (&mut crate::inventory::Inventory, &mut character::Character),
+        With<player::Player>,
+    >,
     asset_server: Res<AssetServer>,
-    player_inventory: Query<&crate::inventory::Inventory, With<crate::player::Player>>,
 ) {
     if app_state.show_character_window {
         show_character_window(&mut egui_context, &mut app_state, &mut player);
     }
     if app_state.show_inventory_window {
-        show_inventory_window(
-            &mut egui_context,
-            &mut app_state,
-            asset_server,
-            player_inventory,
-        );
+        show_inventory_window(&mut egui_context, &mut app_state, asset_server, &mut player);
     }
 }
 

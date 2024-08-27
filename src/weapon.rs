@@ -14,24 +14,19 @@ pub struct Notification {
     pub timer: Timer,
 }
 
-#[derive(Debug, Component)]
+#[derive(Debug, Component, Clone)]
 pub struct Weapon {
     pub attack: u32,
     pub weight: f32,
-    pub timer: Timer,
     pub width: f32,
     pub height: f32,
 }
 
 impl Weapon {
-    pub fn new(attack: u32, weight: f32, width: f32, height: f32, duration_in_millis: f32) -> Self {
+    pub fn new(attack: u32, weight: f32, width: f32, height: f32) -> Self {
         Self {
             attack,
             weight,
-            timer: Timer::new(
-                Duration::from_secs_f32(duration_in_millis / 1_000.),
-                TimerMode::Once,
-            ),
             width,
             height,
         }

@@ -8,6 +8,8 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::CollisionEvent;
 use bevy_rapier2d::rapier::geometry::CollisionEventFlags;
 
+use std::time::Duration;
+
 #[derive(Component)]
 pub struct GrassEffect {
     // If the count is 0, then we don't display the grass effect.
@@ -185,6 +187,7 @@ pub struct Character {
     pub is_attacking: bool,
     pub width: f32,
     pub height: f32,
+    pub attack_timer: Timer,
 }
 
 fn compute_xp_to_next_level(level: u16) -> u64 {
@@ -225,6 +228,7 @@ impl Character {
             width,
             height,
             kind,
+            attack_timer: Timer::new(Duration::from_secs(0), TimerMode::Once),
         }
     }
 
@@ -255,23 +259,18 @@ impl Character {
     }
 
     pub fn set_weapon(
-        &self,
-        attack: u32,
-        weapon_weigth: f32,
-        weapon_width: f32,
-        weapon_height: f32,
-    ) -> Weapon {
-        let mut time_for_an_attack = 333. - self.stats.attack_speed / 10.;
-        if time_for_an_attack < 50. {
-            time_for_an_attack = 50.;
+        &mut self,
+        // For now, weapon is not used, but then, the weight will need to be taken into account.
+        weapon: &Weapon,
+    ) {
+        let mut time_for_an_attack_in_millis = 333. - self.stats.attack_speed / 10.;
+        if time_for_an_attack_in_millis < 50. {
+            time_for_an_attack_in_millis = 50.;
         }
-        Weapon::new(
-            attack,
-            weapon_weigth,
-            weapon_height,
-            weapon_width,
-            time_for_an_attack,
-        )
+        self.attack_timer = Timer::new(
+            Duration::from_secs_f32(time_for_an_attack_in_millis / 1_000.),
+            TimerMode::Once,
+        );
     }
 }
 

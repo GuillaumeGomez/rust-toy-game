@@ -35,6 +35,7 @@ pub fn spawn_monsters(
             crate::inventory::Inventory {
                 items: Vec::new(),
                 gold: 1, // To be computed based on the monster level, etc.
+                equipped_weapon: None,
             },
             Character::new(
                 level,

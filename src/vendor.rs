@@ -77,6 +77,7 @@ pub fn spawn_vendor<C: Component>(
                     // FIXME: Generate a list of items depending of the location of the vendor.
                     items: Vec::new(),
                     gold: 0,
+                    equipped_weapon: None,
                 },
             ),
             RigidBody::Fixed,

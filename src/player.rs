@@ -48,7 +48,7 @@ pub fn spawn_player(
     );
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
     let weapon_handle = asset_server.load("textures/weapon.png");
-    let character = Character::new(
+    let mut character = Character::new(
         1,
         0,
         CharacterPoints::level_1(),
@@ -60,7 +60,8 @@ pub fn spawn_player(
     const WEAPON_WIDTH: f32 = 7.;
     const WEAPON_HEIGHT: f32 = 20.;
 
-    let weapon = character.set_weapon(1, 1., WEAPON_WIDTH, WEAPON_HEIGHT);
+    let weapon = Weapon::new(1, 1., WEAPON_WIDTH, WEAPON_HEIGHT);
+    character.set_weapon(&weapon);
 
     commands
         .spawn((
@@ -94,10 +95,7 @@ pub fn spawn_player(
                     layout: texture_atlas_handle,
                     ..default()
                 },
-                Inventory {
-                    items: Vec::new(),
-                    gold: 13,
-                },
+                Inventory::new(40, 13, Some(weapon.clone())),
             ),
             RigidBody::Dynamic,
             Velocity::zero(),
@@ -327,7 +325,7 @@ pub fn player_movement_system(
 pub fn player_attack_system(
     timer: Res<Time>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut player: Query<(&mut Character, &CharacterAnimationInfo), With<Player>>,
+    mut player: Query<(&mut Character, &Inventory, &CharacterAnimationInfo), With<Player>>,
     mut weapon_info: Query<
         (
             &mut Weapon,
@@ -338,17 +336,20 @@ pub fn player_attack_system(
         With<IsPlayer>,
     >,
 ) {
+    let (ref mut character, inventory, animation_info) = player.single_mut();
+    if inventory.equipped_weapon.is_none() {
+        return;
+    }
     let (mut weapon, mut visibility, mut transform, mut collision_groups) =
         match weapon_info.get_single_mut() {
             Ok(p) => p,
             Err(_) => return,
         };
-    let (ref mut character, animation_info) = player.single_mut();
 
     if character.is_attacking {
         let delta = timer.delta().as_secs_f32();
-        weapon.timer.tick(timer.delta());
-        if weapon.timer.finished()
+        character.attack_timer.tick(timer.delta());
+        if character.attack_timer.finished()
             || !character
                 .stats
                 .stamina
@@ -358,9 +359,9 @@ pub fn player_attack_system(
         }
     } else if keyboard_input.pressed(KeyCode::Space) {
         character.is_attacking = character.stats.stamina.value()
-            > weapon.weight * 10. * weapon.timer.duration().as_secs_f32();
+            > weapon.weight * 10. * character.attack_timer.duration().as_secs_f32();
         if character.is_attacking {
-            weapon.timer.reset();
+            character.attack_timer.reset();
             *visibility = Visibility::Inherited;
             collision_groups.memberships = crate::HITBOX;
             collision_groups.filters = crate::HITBOX;
@@ -372,7 +373,8 @@ pub fn player_attack_system(
         collision_groups.filters = crate::NOTHING;
         return;
     }
-    let percent = weapon.timer.elapsed_secs() / weapon.timer.duration().as_secs_f32();
+    let percent =
+        character.attack_timer.elapsed_secs() / character.attack_timer.duration().as_secs_f32();
     let angle = std::f32::consts::PI / 2. * percent - std::f32::consts::PI / 4.;
     transform.rotation = match animation_info.animation_type {
         CharacterAnimationType::ForwardIdle | CharacterAnimationType::ForwardMove => {
