@@ -384,10 +384,12 @@ fn insert_furniture<C: Component>(
     }
 }
 
-const GENERAL_SHOP_HEIGHT: f32 = 106.;
-const GENERAL_SHOP_WIDTH: f32 = 110.;
-const WEAPON_SHOP_HEIGHT: f32 = 106.;
-const WEAPON_SHOP_WIDTH: f32 = 110.;
+const GENERAL_SHOP_HEIGHT: u32 = 106;
+const GENERAL_SHOP_WIDTH: u32 = 110;
+const GENERAL_SHOP_HEIGHT_F: f32 = GENERAL_SHOP_HEIGHT as f32;
+const GENERAL_SHOP_WIDTH_F: f32 = GENERAL_SHOP_WIDTH as f32;
+const WEAPON_SHOP_HEIGHT: u32 = 106;
+const WEAPON_SHOP_WIDTH: u32 = 110;
 
 fn insert_shop(
     layout: Handle<TextureAtlasLayout>,
@@ -403,21 +405,21 @@ fn insert_shop(
         .spawn((
             building,
             crate::game::OutsideWorld,
-            SpriteSheetBundle {
-                atlas: TextureAtlas {
-                    layout: layout.clone(),
-                    index: start_index + 1,
-                },
+            SpriteBundle {
                 texture: texture.clone(),
+                transform: Transform::from_xyz(x, y, 0.0),
                 sprite: Sprite {
                     custom_size: Some(Vec2 {
-                        x: GENERAL_SHOP_WIDTH,
-                        y: GENERAL_SHOP_HEIGHT,
+                        x: GENERAL_SHOP_WIDTH_F,
+                        y: GENERAL_SHOP_HEIGHT_F,
                     }),
                     ..default()
                 },
-                transform: Transform::from_xyz(x, y, 0.0),
                 ..default()
+            },
+            TextureAtlas {
+                layout: layout.clone(),
+                index: start_index + 1,
             },
             RigidBody::Fixed,
         ))
@@ -429,8 +431,8 @@ fn insert_shop(
                 },
                 sprite: Sprite {
                     custom_size: Some(Vec2 {
-                        x: GENERAL_SHOP_WIDTH,
-                        y: GENERAL_SHOP_HEIGHT,
+                        x: GENERAL_SHOP_WIDTH_F,
+                        y: GENERAL_SHOP_HEIGHT_F,
                     }),
                     ..default()
                 },
@@ -561,13 +563,13 @@ pub fn spawn_buildings(
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
 ) {
     let house_texture = asset_server.load("textures/house.png");
-    let mut house_texture_atlas = TextureAtlasLayout::new_empty(Vec2::new(160., 88.));
+    let mut house_texture_atlas = TextureAtlasLayout::new_empty(UVec2::new(160, 88));
     // We split the top from the bottom part.
     // First we add both lower parts (open and closed door).
-    house_texture_atlas.add_texture(Rect::new(0., 61., 80., 88.));
-    house_texture_atlas.add_texture(Rect::new(80., 61., 160., 88.));
+    house_texture_atlas.add_texture(URect::new(0, 61, 80, 88));
+    house_texture_atlas.add_texture(URect::new(80, 61, 160, 88));
     // Then we add the upper part.
-    house_texture_atlas.add_texture(Rect::new(0., 0., 80., 60.));
+    house_texture_atlas.add_texture(URect::new(0, 0, 80, 60));
 
     let house_texture_atlas_handle = texture_atlases.add(house_texture_atlas);
 
@@ -590,7 +592,7 @@ pub fn spawn_buildings(
 
     let shops_texture = asset_server.load("textures/shops.png");
     let shops_texture_atlas = TextureAtlasLayout::from_grid(
-        Vec2::new(GENERAL_SHOP_WIDTH, GENERAL_SHOP_HEIGHT),
+        UVec2::new(GENERAL_SHOP_WIDTH, GENERAL_SHOP_HEIGHT),
         2,
         2,
         None,
@@ -839,14 +841,14 @@ pub fn spawn_statues(
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
 ) {
     let statues_texture = asset_server.load("textures/statues.png");
-    let mut statues_texture_atlas = TextureAtlasLayout::new_empty(Vec2::new(153., 96.));
+    let mut statues_texture_atlas = TextureAtlasLayout::new_empty(UVec2::new(153, 96));
     // We split the top from the bottom part.
-    statues_texture_atlas.add_texture(Rect::new(0., 0., 54., 59.));
-    statues_texture_atlas.add_texture(Rect::new(0., 60., 54., 96.));
-    statues_texture_atlas.add_texture(Rect::new(57., 0., 103., 59.));
-    statues_texture_atlas.add_texture(Rect::new(57., 60., 103., 96.));
-    statues_texture_atlas.add_texture(Rect::new(107., 0., 153., 59.));
-    statues_texture_atlas.add_texture(Rect::new(107., 60., 153., 96.));
+    statues_texture_atlas.add_texture(URect::new(0, 0, 54, 59));
+    statues_texture_atlas.add_texture(URect::new(0, 60, 54, 96));
+    statues_texture_atlas.add_texture(URect::new(57, 0, 103, 59));
+    statues_texture_atlas.add_texture(URect::new(57, 60, 103, 96));
+    statues_texture_atlas.add_texture(URect::new(107, 0, 153, 59));
+    statues_texture_atlas.add_texture(URect::new(107, 60, 153, 96));
     let statues_texture_atlas_handle = texture_atlases.add(statues_texture_atlas);
 
     Statue::Magus.create(

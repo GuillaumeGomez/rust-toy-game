@@ -12,8 +12,10 @@ use crate::RUN_STAMINA_CONSUMPTION_PER_SEC;
 #[derive(Component)]
 pub struct IsPlayer;
 
-const PLAYER_WIDTH: f32 = 22.;
-const PLAYER_HEIGHT: f32 = 24.;
+const PLAYER_WIDTH: u32 = 22;
+const PLAYER_HEIGHT: u32 = 24;
+const PLAYER_WIDTH_F: f32 = PLAYER_WIDTH as f32;
+const PLAYER_HEIGHT_F: f32 = PLAYER_HEIGHT as f32;
 
 #[derive(Debug, Component)]
 pub struct Player {
@@ -38,8 +40,8 @@ pub fn spawn_player(
     // spawn player
     let texture_handle = asset_server.load("textures/player.png");
     let texture_atlas = TextureAtlasLayout::from_grid(
-        Vec2::new(PLAYER_WIDTH, PLAYER_HEIGHT),
-        NB_ANIMATIONS,
+        UVec2::new(PLAYER_WIDTH, PLAYER_HEIGHT),
+        NB_ANIMATIONS as _,
         5,
         None,
         None,
@@ -50,8 +52,8 @@ pub fn spawn_player(
         1,
         0,
         CharacterPoints::level_1(),
-        PLAYER_WIDTH,
-        PLAYER_HEIGHT,
+        PLAYER_WIDTH_F,
+        PLAYER_HEIGHT_F,
         CharacterKind::Player,
     );
 
@@ -83,8 +85,8 @@ pub fn spawn_player(
                     },
                     sprite: Sprite {
                         custom_size: Some(Vec2 {
-                            x: PLAYER_WIDTH,
-                            y: PLAYER_HEIGHT,
+                            x: PLAYER_WIDTH_F,
+                            y: PLAYER_HEIGHT_F,
                         }),
                         ..default()
                     },
@@ -119,7 +121,7 @@ pub fn spawn_player(
             );
             // The hitbox.
             children.spawn((
-                Collider::cuboid(PLAYER_WIDTH / 2. - 2., PLAYER_HEIGHT / 2. - 2.),
+                Collider::cuboid(PLAYER_WIDTH_F / 2. - 2., PLAYER_HEIGHT_F / 2. - 2.),
                 TransformBundle::from(Transform::from_xyz(0.0, 2.0, 0.0)),
                 Sensor,
                 CollisionGroups::new(crate::HITBOX, crate::HITBOX),
@@ -129,7 +131,7 @@ pub fn spawn_player(
                 crate::character::Interaction,
                 RigidBody::Dynamic,
                 Collider::cuboid(1., 1.),
-                TransformBundle::from(Transform::from_xyz(0.0, PLAYER_HEIGHT / -2. - 7., 0.)),
+                TransformBundle::from(Transform::from_xyz(0.0, PLAYER_HEIGHT_F / -2. - 7., 0.)),
                 ActiveEvents::COLLISION_EVENTS,
                 CollisionGroups::new(crate::INTERACTION, crate::INTERACTION),
             ));
@@ -150,7 +152,7 @@ pub fn spawn_player(
                     // We put the collision handler "outside" of the player to avoid triggering
                     // unwanted collision events.
                     transform: Transform::from_xyz(
-                        PLAYER_WIDTH,
+                        PLAYER_WIDTH_F,
                         0.0,
                         crate::FURNITURE_TOP_PART_Z_INDEX - crate::CHARACTER_Z_INDEX + 0.2,
                     ),
@@ -182,7 +184,7 @@ pub fn spawn_player(
                 CollisionGroups::new(crate::NOTHING, crate::NOTHING),
             ));
             // The "grass effect" (invisible for the moment).
-            children.spawn(GrassEffectBundle::new(PLAYER_HEIGHT, asset_server));
+            children.spawn(GrassEffectBundle::new(PLAYER_HEIGHT_F, asset_server));
         });
 
     println!("player id: {:?}", app_state.player_id);
@@ -270,18 +272,18 @@ pub fn player_movement_system(
                 match animation.animation_type {
                     CharacterAnimationType::ForwardMove | CharacterAnimationType::ForwardIdle => {
                         transform.translation.x = 0.;
-                        transform.translation.y = PLAYER_HEIGHT / -2. - 7.;
+                        transform.translation.y = PLAYER_HEIGHT_F / -2. - 7.;
                     }
                     CharacterAnimationType::BackwardMove | CharacterAnimationType::BackwardIdle => {
                         transform.translation.x = 0.;
-                        transform.translation.y = PLAYER_HEIGHT / 2. + 7.;
+                        transform.translation.y = PLAYER_HEIGHT_F / 2. + 7.;
                     }
                     CharacterAnimationType::LeftMove | CharacterAnimationType::LeftIdle => {
-                        transform.translation.x = PLAYER_WIDTH / -2. - 4.;
+                        transform.translation.x = PLAYER_WIDTH_F / -2. - 4.;
                         transform.translation.y = 0.;
                     }
                     CharacterAnimationType::RightMove | CharacterAnimationType::RightIdle => {
-                        transform.translation.x = PLAYER_WIDTH / 2. + 4.;
+                        transform.translation.x = PLAYER_WIDTH_F / 2. + 4.;
                         transform.translation.y = 0.;
                     }
                 }
@@ -374,23 +376,23 @@ pub fn player_attack_system(
     let angle = std::f32::consts::PI / 2. * percent - std::f32::consts::PI / 4.;
     transform.rotation = match animation_info.animation_type {
         CharacterAnimationType::ForwardIdle | CharacterAnimationType::ForwardMove => {
-            transform.translation.y = PLAYER_HEIGHT / -2. - 8.;
+            transform.translation.y = PLAYER_HEIGHT_F / -2. - 8.;
             transform.translation.x = 5. * percent - 2.;
             Quat::from_rotation_z(std::f32::consts::PI + angle)
         }
         CharacterAnimationType::BackwardIdle | CharacterAnimationType::BackwardMove => {
-            transform.translation.y = PLAYER_HEIGHT / 2. + 8.;
+            transform.translation.y = PLAYER_HEIGHT_F / 2. + 8.;
             transform.translation.x = -5. * percent + 3.;
             Quat::from_rotation_z(0. + angle)
         }
         CharacterAnimationType::LeftIdle | CharacterAnimationType::LeftMove => {
             transform.translation.y = -5. * percent + 1.;
-            transform.translation.x = PLAYER_WIDTH / -2. - 5.;
+            transform.translation.x = PLAYER_WIDTH_F / -2. - 5.;
             Quat::from_rotation_z(std::f32::consts::PI / 2. + angle)
         }
         CharacterAnimationType::RightIdle | CharacterAnimationType::RightMove => {
             transform.translation.y = 5. * percent;
-            transform.translation.x = PLAYER_WIDTH / 2. + 5.;
+            transform.translation.x = PLAYER_WIDTH_F / 2. + 5.;
             Quat::from_rotation_z(std::f32::consts::PI / -2. + angle)
         }
     };

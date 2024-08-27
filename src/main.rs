@@ -55,6 +55,10 @@ pub const CHARACTER_Z_INDEX: f32 = 1.;
 pub const FURNITURE_TOP_PART_Z_INDEX: f32 = 1.2;
 pub const BUILDING_TOP_PART_Z_INDEX: f32 = 1.8;
 
+pub const CYAN: Color = Color::LinearRgba(LinearRgba::rgb(0., 1., 1.));
+pub const YELLOW: Color = Color::LinearRgba(LinearRgba::rgb(1., 1., 0.));
+pub const CRIMSON: Color = Color::LinearRgba(LinearRgba::rgb(0.86, 0.08, 0.24));
+
 #[derive(Clone, Eq, PartialEq, Debug, Hash, Default, States)]
 pub enum AppState {
     Menu,
@@ -188,7 +192,7 @@ fn main() {
         RapierDebugRenderPlugin::default(),
         // PixelCameraPlugin,
         // .PixelBorderPlugin {
-        //     color: Color::rgb(0.1, 0.1, 0.1),
+        //     color: LinearRgba::rgb(0.1, 0.1, 0.1),
         // },
         ShapePlugin,
         menu::MenuPlugin,

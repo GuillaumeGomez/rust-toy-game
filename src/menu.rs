@@ -2,7 +2,7 @@ use bevy::{app::AppExit, prelude::*};
 
 use crate::{despawn_kind, AppState, SCALE};
 
-const TEXT_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
+const TEXT_COLOR: Color = Color::LinearRgba(LinearRgba::rgb(0.9, 0.9, 0.9));
 
 #[derive(Debug, Component, Resource, PartialEq, Eq, Clone, Copy)]
 struct Volume(u32);
@@ -70,10 +70,10 @@ struct OnSettingsMenuScreen;
 #[derive(Component)]
 struct OnSoundSettingsMenuScreen;
 
-const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
-const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
-const HOVERED_PRESSED_BUTTON: Color = Color::rgb(0.25, 0.65, 0.25);
-const PRESSED_BUTTON: Color = Color::rgb(0.35, 0.75, 0.35);
+const NORMAL_BUTTON: Color = Color::LinearRgba(LinearRgba::rgb(0.15, 0.15, 0.15));
+const HOVERED_BUTTON: Color = Color::LinearRgba(LinearRgba::rgb(0.25, 0.25, 0.25));
+const HOVERED_PRESSED_BUTTON: Color = Color::LinearRgba(LinearRgba::rgb(0.25, 0.65, 0.25));
+const PRESSED_BUTTON: Color = Color::LinearRgba(LinearRgba::rgb(0.35, 0.75, 0.35));
 
 // Tag component used to mark wich setting is currently selected
 #[derive(Component)]
@@ -168,7 +168,7 @@ fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     align_items: AlignItems::Center,
                     ..default()
                 },
-                background_color: Color::CRIMSON.into(),
+                background_color: crate::CRIMSON.into(),
                 ..default()
             },
             OnMainMenuScreen,
@@ -282,7 +282,7 @@ fn settings_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     align_items: AlignItems::Center,
                     ..default()
                 },
-                background_color: Color::CRIMSON.into(),
+                background_color: crate::CRIMSON.into(),
                 ..default()
             },
             OnSettingsMenuScreen,
@@ -336,7 +336,7 @@ fn sound_settings_menu_setup(
                     align_items: AlignItems::Center,
                     ..default()
                 },
-                background_color: Color::CRIMSON.into(),
+                background_color: crate::CRIMSON.into(),
                 ..default()
             },
             OnSoundSettingsMenuScreen,
@@ -348,7 +348,7 @@ fn sound_settings_menu_setup(
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    background_color: Color::CRIMSON.into(),
+                    background_color: crate::CRIMSON.into(),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -396,7 +396,9 @@ fn menu_action(
     mut menu_state: ResMut<NextState<MenuState>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
-    if menu_state.0 != Some(MenuState::Disabled) && keyboard_input.just_released(KeyCode::Escape) {
+    if matches!(*menu_state, NextState::Pending(MenuState::Disabled))
+        && keyboard_input.just_released(KeyCode::Escape)
+    {
         menu_state.set(MenuState::Disabled);
         // No need to check anything beyond this point.
         return;
@@ -406,7 +408,7 @@ fn menu_action(
         if *interaction == Interaction::Pressed {
             match menu_button_action {
                 MenuButtonAction::Quit => {
-                    app_exit_events.send(AppExit);
+                    app_exit_events.send(AppExit::Success);
                 }
                 MenuButtonAction::Play => {
                     menu_state.set(MenuState::Disabled);

@@ -478,7 +478,7 @@ pub fn interaction_events(
                                         TextStyle {
                                             font: asset_server.load(crate::FONT),
                                             font_size: 9.0,
-                                            color: Color::WHITE,
+                                            color: Color::LinearRgba(LinearRgba::WHITE),
                                         },
                                     )
                                     .with_justify(JustifyText::Center),

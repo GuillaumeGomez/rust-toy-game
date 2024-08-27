@@ -25,7 +25,7 @@ pub fn spawn_monsters(
 
     let skeleton_texture = asset_server.load("textures/skeleton.png");
     let texture_atlas =
-        TextureAtlasLayout::from_grid(Vec2::new(48., 48.), NB_ANIMATIONS, 4, None, None);
+        TextureAtlasLayout::from_grid(UVec2::new(48, 48), NB_ANIMATIONS as _, 4, None, None);
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
     let level = 2;
 
@@ -97,7 +97,7 @@ pub fn spawn_monsters(
                         TextStyle {
                             font: asset_server.load(crate::FONT),
                             font_size: 10.0,
-                            color: Color::WHITE,
+                            color: Color::LinearRgba(LinearRgba::WHITE),
                         },
                     )
                     .with_justify(JustifyText::Center),
@@ -122,7 +122,7 @@ pub fn spawn_monsters(
                     },
                     ..default()
                 },
-                draw::Fill::color(Color::BLACK),
+                draw::Fill::color(Color::LinearRgba(LinearRgba::BLACK)),
                 CharacterHealthBar,
             ));
 
@@ -136,7 +136,7 @@ pub fn spawn_monsters(
                     },
                     ..default()
                 },
-                draw::Fill::color(Color::RED),
+                draw::Fill::color(Color::LinearRgba(LinearRgba::RED)),
                 CharacterHealthBarInner,
             ));
 

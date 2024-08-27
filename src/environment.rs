@@ -205,23 +205,23 @@ pub fn spawn_nature(
     }
 
     let trees_texture = asset_server.load("textures/trees.png");
-    let mut texture_atlas = TextureAtlasLayout::new_empty(Vec2::new(234., 71.));
+    let mut texture_atlas = TextureAtlasLayout::new_empty(UVec2::new(234, 71));
     let trees = vec![
-        texture_atlas.add_texture(Rect {
-            min: Vec2::new(0., 0.),
-            max: Vec2::new(64., 64.),
+        texture_atlas.add_texture(URect {
+            min: UVec2::new(0, 0),
+            max: UVec2::new(64, 64),
         }),
-        texture_atlas.add_texture(Rect {
-            min: Vec2::new(64., 0.),
-            max: Vec2::new(128., 64.),
+        texture_atlas.add_texture(URect {
+            min: UVec2::new(64, 0),
+            max: UVec2::new(128, 64),
         }),
-        texture_atlas.add_texture(Rect {
-            min: Vec2::new(128., 0.),
-            max: Vec2::new(192., 71.),
+        texture_atlas.add_texture(URect {
+            min: UVec2::new(128, 0),
+            max: UVec2::new(192, 71),
         }),
-        texture_atlas.add_texture(Rect {
-            min: Vec2::new(193., 0.),
-            max: Vec2::new(234., 64.),
+        texture_atlas.add_texture(URect {
+            min: UVec2::new(193, 0),
+            max: UVec2::new(234, 64),
         }),
     ];
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
@@ -246,7 +246,7 @@ pub fn spawn_nature(
     }
 
     let grass_texture = asset_server.load("textures/grass.png");
-    let mut texture_atlas = TextureAtlasLayout::from_grid(Vec2::new(16., 16.), 5, 2, None, None);
+    let mut texture_atlas = TextureAtlasLayout::from_grid(UVec2::new(16, 16), 5, 2, None, None);
     let grass_texture_handle = texture_atlases.add(texture_atlas);
 
     insert_grass(

@@ -23,12 +23,14 @@ pub fn spawn_vendor<C: Component>(
 ) {
     const NB_ANIMATIONS: usize = 8;
     const ANIMATION_TIME: f32 = 0.12;
-    const HEIGHT: f32 = 29.;
-    const WIDTH: f32 = 31.;
+    const HEIGHT: u32 = 29;
+    const WIDTH: u32 = 31;
+    const HEIGHT_F: f32 = 29.;
+    const WIDTH_F: f32 = 31.;
 
     let vendor_texture = asset_server.load("textures/vendor.png");
     let vendor_texture_atlas =
-        TextureAtlasLayout::from_grid(Vec2::new(WIDTH, HEIGHT), NB_ANIMATIONS, 2, None, None);
+        TextureAtlasLayout::from_grid(UVec2::new(WIDTH, HEIGHT), NB_ANIMATIONS as _, 2, None, None);
     let vendor_texture_atlas_handle = texture_atlases.add(vendor_texture_atlas);
     let start_index = if is_weapon_vendor { 0 } else { NB_ANIMATIONS };
 
@@ -41,8 +43,8 @@ pub fn spawn_vendor<C: Component>(
                     1,
                     0,
                     CharacterPoints::level_1(),
-                    WIDTH,
-                    HEIGHT,
+                    WIDTH_F,
+                    HEIGHT_F,
                     CharacterKind::Human,
                 ),
                 CharacterAnimationInfo::new_once_with_start_index(
@@ -58,8 +60,8 @@ pub fn spawn_vendor<C: Component>(
                     },
                     sprite: Sprite {
                         custom_size: Some(Vec2 {
-                            x: WIDTH,
-                            y: HEIGHT,
+                            x: WIDTH_F,
+                            y: HEIGHT_F,
                         }),
                         ..default()
                     },
@@ -89,7 +91,7 @@ pub fn spawn_vendor<C: Component>(
             // The "interaction" hitbox.
             children.spawn((
                 crate::character::Interaction,
-                Collider::cuboid(WIDTH / 2., HEIGHT / 2. + 2.),
+                Collider::cuboid(WIDTH_F / 2., HEIGHT_F / 2. + 2.),
                 TransformBundle::from(Transform::from_xyz(0., -4., 0.)),
                 Sensor,
                 CollisionGroups::new(crate::INTERACTION, crate::INTERACTION),

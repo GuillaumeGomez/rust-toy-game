@@ -92,7 +92,7 @@ pub fn check_receivers(
                             TextStyle {
                                 font: asset_server.load(crate::FONT),
                                 font_size: 11.0,
-                                color: Color::RED,
+                                color: Color::LinearRgba(LinearRgba::RED),
                             },
                         )
                         .with_justify(JustifyText::Center),

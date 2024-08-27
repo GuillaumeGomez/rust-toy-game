@@ -12,7 +12,7 @@ pub enum StatKind {
     Stamina,
 }
 
-fn spawn_stat_bar(commands: &mut Commands, stat: StatKind, background_color: BackgroundColor) {
+fn spawn_stat_bar(commands: &mut Commands, stat: StatKind, background_color: Color) {
     commands
         .spawn(NodeBundle {
             style: Style {
@@ -28,7 +28,7 @@ fn spawn_stat_bar(commands: &mut Commands, stat: StatKind, background_color: Bac
                 position_type: PositionType::Absolute,
                 ..default()
             },
-            background_color: Color::rgb(0.1, 0.1, 0.1).into(),
+            background_color: LinearRgba::rgb(0.1, 0.1, 0.1).into(),
             ..default()
         })
         .with_children(|parent| {
@@ -39,7 +39,7 @@ fn spawn_stat_bar(commands: &mut Commands, stat: StatKind, background_color: Bac
                         height: Val::Percent(100.0),
                         ..default()
                     },
-                    background_color,
+                    background_color: background_color.into(),
                     ..default()
                 },
                 stat,
@@ -53,9 +53,13 @@ pub fn build_hud(
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    spawn_stat_bar(&mut commands, StatKind::Health, Color::RED.into());
-    spawn_stat_bar(&mut commands, StatKind::Mana, Color::CYAN.into());
-    spawn_stat_bar(&mut commands, StatKind::Stamina, Color::YELLOW.into());
+    spawn_stat_bar(
+        &mut commands,
+        StatKind::Health,
+        Color::LinearRgba(LinearRgba::RED),
+    );
+    spawn_stat_bar(&mut commands, StatKind::Mana, crate::CYAN);
+    spawn_stat_bar(&mut commands, StatKind::Stamina, crate::YELLOW);
 
     let font = asset_server.load(crate::FONT);
     let mut text_bundle = TextBundle::from_section(
@@ -63,7 +67,7 @@ pub fn build_hud(
         TextStyle {
             font,
             font_size: 40.0 / crate::SCALE,
-            color: Color::WHITE,
+            color: Color::LinearRgba(LinearRgba::WHITE),
         },
     )
     .with_text_justify(JustifyText::Right)
