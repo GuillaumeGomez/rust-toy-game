@@ -128,13 +128,6 @@ pub fn setup_components(
     //     resolution.1 as _,
     // ));
 
-    // Set the window size and its resolution.
-    {
-        let mut window = window.single_mut();
-        // window.set_resolution(resolution.0, resolution.1);
-        // window.resolution.set_scale_factor_override(Some(SCALE));
-    }
-
     let mut visuals = egui::Visuals::dark();
     visuals.window_shadow.spread = 0.;
     visuals.popup_shadow.spread = 0.;
@@ -175,8 +168,7 @@ fn main() {
                     present_mode: PresentMode::AutoVsync,
                     resizable: false,
                     resolution: WindowResolution::new(WIDTH, HEIGHT)
-                        // .with_scale_factor_override(SCALE),
-                        .with_scale_factor_override(1.0),
+                        .with_scale_factor_override(SCALE),
                     ..default()
                 }),
                 ..default()
